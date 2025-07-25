@@ -93,6 +93,35 @@ class AnagraficaForm(forms.ModelForm):
             return ''.join(filter(str.isdigit, data))
         return data
     
+    def clean(self):
+        """
+        Validazione personalizzata per controllare l'unicità di P.IVA e Codice Fiscale.
+        """
+        # Esegui la validazione di base della classe genitore
+        cleaned_data = super().clean()
+        p_iva = cleaned_data.get("p_iva")
+        codice_fiscale = cleaned_data.get("codice_fiscale")
+
+        # self.instance è l'oggetto anagrafica che stiamo modificando.
+        # In creazione, è un oggetto vuoto. In modifica, è l'oggetto esistente.
+        
+        # 1. Controlla la Partita IVA
+        if p_iva:
+            # Cerca anagrafiche con la stessa P.IVA, escludendo quella corrente.
+            queryset = Anagrafica.objects.filter(p_iva=p_iva).exclude(pk=self.instance.pk)
+            if queryset.exists():
+                # Se trovi un duplicato, solleva un errore di validazione
+                # che verrà mostrato all'utente vicino al campo 'p_iva'.
+                self.add_error('p_iva', "Esiste già un'anagrafica con questa Partita IVA.")
+
+        # 2. Controlla il Codice Fiscale
+        if codice_fiscale:
+            # Cerca anagrafiche con lo stesso C.F., escludendo quella corrente.
+            queryset = Anagrafica.objects.filter(codice_fiscale=codice_fiscale).exclude(pk=self.instance.pk)
+            if queryset.exists():
+                self.add_error('codice_fiscale', "Esiste già un'anagrafica con questo Codice Fiscale.")
+        
+        return cleaned_data
 
 class DipendenteDettaglioForm(forms.ModelForm):
     """

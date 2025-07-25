@@ -9,7 +9,7 @@ from django.shortcuts import get_object_or_404, render, redirect
 from django.urls import reverse, reverse_lazy
 from django.views import View
 from django.views.generic import ListView
-from django.views.generic.edit import CreateView
+from django.views.generic.edit import CreateView, UpdateView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpResponseRedirect
 
@@ -160,3 +160,39 @@ class DipendenteDettaglioCreateView(TenantRequiredMixin, CreateView):
         self.object = dettaglio
         
         return HttpResponseRedirect(self.get_success_url())
+
+class AnagraficaUpdateView(TenantRequiredMixin, UpdateView):
+    """
+    Gestisce la modifica di un'anagrafica esistente.
+    """
+    model = Anagrafica
+    form_class = AnagraficaForm
+    template_name = 'gestionale/anagrafica_form.html' # Riutilizziamo lo stesso template!
+    success_url = reverse_lazy('anagrafica_list')
+
+    def form_valid(self, form):
+        """
+        Imposta l'utente che ha effettuato l'ultima modifica.
+        """
+        # Non serve la logica di generazione codice qui, perché il codice
+        # non deve mai cambiare dopo la creazione.
+        form.instance.updated_by = self.request.user
+        return super().form_valid(form)
+    
+class AnagraficaToggleAttivoView(TenantRequiredMixin, View):
+    """
+    Gestisce la disattivazione e riattivazione di un'anagrafica (soft delete).
+    """
+    def post(self, request, *args, **kwargs):
+        # Usiamo POST per sicurezza, perché questa è un'azione che modifica i dati.
+        anagrafica_id = kwargs.get('pk')
+        anagrafica = get_object_or_404(Anagrafica, pk=anagrafica_id)
+        
+        # Invertiamo lo stato booleano 'attivo'.
+        anagrafica.attivo = not anagrafica.attivo
+        anagrafica.updated_by = request.user
+        anagrafica.save()
+        
+        # Reindirizziamo l'utente alla lista anagrafiche.
+        return redirect('anagrafica_list')
+    

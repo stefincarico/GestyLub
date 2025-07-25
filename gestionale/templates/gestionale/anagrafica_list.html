@@ -8,10 +8,12 @@
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1 class="h2">Elenco Anagrafiche</h1>
-    <!-- MODIFICA QUI -->
-    <a href="{% url 'anagrafica_create' %}" class="btn btn-primary">
-        + Nuova Anagrafica
-    </a>
+        <!-- CONTROLLO RUOLO: Mostra questo pulsante solo se l'utente non è un Visualizzatore -->
+        {% if request.session.user_company_role != 'visualizzatore' %}
+        <a href="{% url 'anagrafica_create' %}" class="btn btn-primary">
+            + Nuova Anagrafica
+        </a>
+        {% endif %}
 </div>
 
 <div class="card">
@@ -48,9 +50,40 @@
                             {% endif %}
                         </td>
                         <td>
-                            <!-- TODO: Link per modifica -->
-                            <a href="#" class="btn btn-sm btn-outline-primary">Modifica</a>
+                            <!-- 1. Pulsante "Modifica" -->
+                            <!-- Visibile a tutti tranne ai 'visualizzatore' -->
+                            {% if request.session.user_company_role != 'visualizzatore' %}
+                                <a href="{% url 'anagrafica_update' anagrafica.pk %}" class="btn btn-sm btn-outline-primary">Modifica</a>
+                            {% endif %}
+
+                            <!-- 2. Pulsante "Attiva/Disattiva" -->
+                            <!-- Visibile SOLO agli 'admin' -->
+                            {% if request.session.user_company_role == 'admin' %}
+                                
+                                <!-- Spiegazione del Form:
+                                    L'azione di attivare/disattivare modifica i dati. Per sicurezza, le azioni
+                                    che modificano dati dovrebbero sempre essere fatte con una richiesta POST, non GET.
+                                    Un link <a> fa una richiesta GET. Un <form> con un <button type="submit">
+                                    fa una richiesta POST.
+                                    Quindi, creiamo un piccolo form invisibile per ogni riga che contiene solo
+                                    un pulsante.
+                                -->
+                                <form action="{% url 'anagrafica_toggle_attivo' anagrafica.pk %}" method="post" class="d-inline">
+                                    
+                                    <!-- Token di sicurezza obbligatorio per i form POST in Django -->
+                                    {% csrf_token %}
+                                    
+                                    <!-- Mostriamo un pulsante diverso a seconda dello stato attuale -->
+                                    {% if anagrafica.attivo %}
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">Disattiva</button>
+                                    {% else %}
+                                        <button type="submit" class="btn btn-sm btn-outline-success">Riattiva</button>
+                                    {% endif %}
+                                </form>
+                            
+                            {% endif %}
                         </td>
+
                     </tr>
                     {% empty %}
                     <tr>
