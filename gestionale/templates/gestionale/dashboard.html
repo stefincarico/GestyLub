@@ -1,23 +1,20 @@
 <!-- gestionale/templates/gestionale/dashboard.html -->
 
+{% load static %} <!-- 1. ACCENDIAMO I FILE STATICI -->
+
 <!DOCTYPE html>
 <html lang="it">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - {{ active_tenant_name }}</title>
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #f4f7f6; margin: 0; }
-        .header { background-color: #343a40; color: white; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; }
-        .header .user-info { font-size: 14px; }
-        .header a { color: #f8f9fa; text-decoration: none; margin-left: 20px; }
-        .content { padding: 30px; }
-        .info-bar { background-color: #e2f3ff; color: #0c5460; border: 1px solid #bde5f8; padding: 15px; border-radius: 4px; margin-bottom: 20px; }
-        h1 { color: #333; }
-    </style>
+    
+    <!-- 2. RIMUOVIAMO IL VECCHIO TAG <style> E COLLEGIAMO IL NOSTRO FILE CSS -->
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
 </head>
 <body>
 
+    <!-- La classe 'header' ora prenderà lo stile dal nostro file CSS esterno -->
     <header class="header">
         <div class="user-info">
             Utente: <strong>{{ user.username }}</strong> | 
