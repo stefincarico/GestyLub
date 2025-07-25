@@ -79,8 +79,29 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        # 'ENGINE': Stiamo dicendo a Django di usare l'adattatore per PostgreSQL.
+        #           Questo è il motivo per cui abbiamo installato 'psycopg2'.
+        'ENGINE': 'django.db.backends.postgresql',
+        
+        # 'NAME': Il nome del database vuoto che abbiamo creato in pgAdmin.
+        'NAME': 'gestilub_db',
+        
+        # 'USER': L'utente che ha i permessi per accedere a quel database.
+        #         Di default, l'utente amministratore di Postgres si chiama 'postgres'.
+        'USER': 'postgres',
+        
+        # 'PASSWORD': La password che hai impostato per l'utente 'postgres'
+        #             durante l'installazione di PostgreSQL.
+        #             ATTENZIONE: Inserisci qui la tua vera password.
+        'PASSWORD': 'f36b2k',
+        
+        # 'HOST': L'indirizzo del server dove si trova il database.
+        #         'localhost' significa che è in esecuzione sulla stessa macchina del progetto.
+        'HOST': 'localhost',
+        
+        # 'PORT': La porta standard su cui PostgreSQL "ascolta" le connessioni.
+        #         Il valore di default è 5432. Lascialo vuoto per usare il default.
+        'PORT': '5432',
     }
 }
 
