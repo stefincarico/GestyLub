@@ -1,0 +1,51 @@
+<!-- gestionale/templates/gestionale/dashboard.html -->
+
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - {{ active_tenant_name }}</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #f4f7f6; margin: 0; }
+        .header { background-color: #343a40; color: white; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; }
+        .header .user-info { font-size: 14px; }
+        .header a { color: #f8f9fa; text-decoration: none; margin-left: 20px; }
+        .content { padding: 30px; }
+        .info-bar { background-color: #e2f3ff; color: #0c5460; border: 1px solid #bde5f8; padding: 15px; border-radius: 4px; margin-bottom: 20px; }
+        h1 { color: #333; }
+    </style>
+</head>
+<body>
+
+    <header class="header">
+        <div class="user-info">
+            Utente: <strong>{{ user.username }}</strong> | 
+            Azienda: <strong>{{ active_tenant_name }}</strong> 
+            (Ruolo: {{ user_company_role }})
+        </div>
+        <div>
+            <!-- TODO: Aggiungere il link per il logout -->
+            <a href="#">Logout</a>
+        </div>
+    </header>
+
+    <main class="content">
+        <div class="info-bar">
+            Stai operando per l'azienda <strong>{{ active_tenant_name }}</strong>.
+        </div>
+
+        <h1>Dashboard Riepilogativa</h1>
+        <p>
+            Benvenuto nel tuo gestionale!
+        </p>
+        <p>
+            Questa è la dashboard principale. Presto qui vedrai tutti i KPI e i widget come nei mockup.
+        </p>
+        <p>
+            <a href="{% url 'tenant_selection' %}">Clicca qui per cambiare azienda</a>
+        </p>
+    </main>
+
+</body>
+</html>
