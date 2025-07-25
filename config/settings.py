@@ -114,12 +114,19 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+# Imposta la lingua italiana come predefinita
+LANGUAGE_CODE = 'it-it'  # Cambiato da 'en-us' a 'it-it'
 
-TIME_ZONE = 'UTC'
+# Imposta il fuso orario italiano
+TIME_ZONE = 'Europe/Rome'  # Cambiato da 'UTC' a 'Europe/Rome'
 
+# Abilita l'internazionalizzazione (supporto per più lingue)
 USE_I18N = True
 
+# Abilita la localizzazione (formati locali per date, numeri, ecc.)
+USE_L10N = True  # Aggiungi questa riga se non c'è già
+
+# Abilita il supporto per i fusi orari
 USE_TZ = True
 
 
