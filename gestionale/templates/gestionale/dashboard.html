@@ -1,48 +1,23 @@
 <!-- gestionale/templates/gestionale/dashboard.html -->
 
-{% load static %} <!-- 1. ACCENDIAMO I FILE STATICI -->
+{% extends "gestionale/base.html" %} <!-- ORA EREDITIAMO DAL TEMPLATE BASE! -->
 
-<!DOCTYPE html>
-<html lang="it">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - {{ active_tenant_name }}</title>
-    
-    <!-- 2. RIMUOVIAMO IL VECCHIO TAG <style> E COLLEGIAMO IL NOSTRO FILE CSS -->
-    <link rel="stylesheet" href="{% static 'css/style.css' %}">
-</head>
-<body>
+{% block title %}Dashboard{% endblock %} <!-- Definiamo il titolo specifico per questa pagina -->
 
-    <!-- La classe 'header' ora prenderà lo stile dal nostro file CSS esterno -->
-    <header class="header">
-        <div class="user-info">
-            Utente: <strong>{{ user.username }}</strong> | 
-            Azienda: <strong>{{ active_tenant_name }}</strong> 
-            (Ruolo: {{ user_company_role }})
-        </div>
-        <div>
-            <!-- TODO: Aggiungere il link per il logout -->
-            <a href="#">Logout</a>
-        </div>
-    </header>
+{% block content %}
+    <!-- Inseriamo qui solo il contenuto che è UNICO della dashboard -->
+    <div class="info-bar">
+        Stai operando per l'azienda <strong>{{ request.session.active_tenant_name }}</strong>.
+    </div>
 
-    <main class="content">
-        <div class="info-bar">
-            Stai operando per l'azienda <strong>{{ active_tenant_name }}</strong>.
-        </div>
-
-        <h1>Dashboard Riepilogativa</h1>
-        <p>
-            Benvenuto nel tuo gestionale!
-        </p>
-        <p>
-            Questa è la dashboard principale. Presto qui vedrai tutti i KPI e i widget come nei mockup.
-        </p>
-        <p>
-            <a href="{% url 'tenant_selection' %}">Clicca qui per cambiare azienda</a>
-        </p>
-    </main>
-
-</body>
-</html>
+    <h1 class="h2">Dashboard Riepilogativa</h1>
+    <p>
+        Benvenuto nel tuo gestionale!
+    </p>
+    <p>
+        Questa è la dashboard principale. Presto qui vedrai tutti i KPI e i widget come nei mockup.
+    </p>
+    <p>
+        <a href="{% url 'tenant_selection' %}">Clicca qui per cambiare azienda</a>
+    </p>
+{% endblock %}
