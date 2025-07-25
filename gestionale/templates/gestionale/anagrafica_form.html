@@ -1,0 +1,46 @@
+<!-- gestionale/templates/gestionale/anagrafica_form.html -->
+
+{% extends "gestionale/base.html" %}
+
+{% block title %}
+    <!-- Il titolo cambia dinamicamente se stiamo creando o modificando -->
+    {% if object %}
+        Modifica Anagrafica
+    {% else %}
+        Nuova Anagrafica
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+<h1 class="h2 mb-4">
+    {% if object %}
+        Modifica Anagrafica: {{ object.nome_cognome_ragione_sociale }}
+    {% else %}
+        Crea Nuova Anagrafica
+    {% endif %}
+</h1>
+
+<div class="card">
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+
+            <!-- Questo è il modo più semplice per renderizzare un form.
+                 Django ciclerà su tutti i campi del nostro AnagraficaForm
+                 e li mostrerà uno dopo l'altro. 'as_p' li racchiude in tag <p>. -->
+            {{ form.as_p }}
+
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary">
+                    {% if object %}
+                        Salva Modifiche
+                    {% else %}
+                        Crea Anagrafica
+                    {% endif %}
+                </button>
+                <a href="{% url 'anagrafica_list' %}" class="btn btn-secondary">Annulla</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

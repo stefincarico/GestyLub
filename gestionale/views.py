@@ -6,6 +6,9 @@ from django.views import View
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import ListView
 from .models import Anagrafica
+from django.views.generic.edit import CreateView
+from django.urls import reverse_lazy
+from .forms import AnagraficaForm 
 
         
 # NOTA: Questa è una classe di supporto che useremo in TUTTE le viste del gestionale.
@@ -61,3 +64,34 @@ class AnagraficaListView(TenantRequiredMixin, ListView):
     # NOTA: ListView fa tutto il lavoro di recuperare gli oggetti dal DB per noi!
     # Non dobbiamo scrivere Anagrafica.objects.all(), lo fa lei in background.
 
+# === NUOVA VISTA PER LA CREAZIONE DI ANAGRAFICHE ===
+class AnagraficaCreateView(TenantRequiredMixin, CreateView):
+    # 1. Quale modello stiamo creando?
+    model = Anagrafica
+    
+    # 2. Quale form deve usare? Quello che abbiamo appena creato.
+    form_class = AnagraficaForm
+    
+    # 3. Quale template deve renderizzare?
+    #    CreateView e UpdateView possono usare lo stesso template,
+    #    spesso chiamato _form.html per convenzione.
+    template_name = 'gestionale/anagrafica_form.html'
+    
+    # 4. Dove reindirizzare l'utente dopo una creazione avvenuta con successo?
+    #    Lo mandiamo indietro alla lista delle anagrafiche.
+    success_url = reverse_lazy('anagrafica_list')
+
+    def form_valid(self, form):
+        """
+        Questo metodo viene chiamato quando i dati del form sono validi.
+        È il posto perfetto per aggiungere logica extra prima di salvare.
+        """
+        # Prima che il form venga salvato, impostiamo il campo 'created_by'
+        # con l'utente attualmente loggato.
+        form.instance.created_by = self.request.user
+        form.instance.updated_by = self.request.user
+        
+        # Ora chiamiamo il metodo 'form_valid' della classe genitore (CreateView),
+        # che si occuperà di salvare l'oggetto nel database.
+        return super().form_valid(form)
+    
