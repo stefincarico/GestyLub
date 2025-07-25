@@ -312,6 +312,14 @@ class DipendenteDettaglio(models.Model):
     mansione = models.CharField(max_length=100)
     data_assunzione = models.DateField()
     data_fine_rapporto = models.DateField(null=True, blank=True)
+    ore_settimanali_contratto = models.DecimalField(
+    max_digits=4, decimal_places=2, default=40.00, 
+    verbose_name="Ore Settimanali da Contratto"
+    )
+    giorni_lavorativi_settimana = models.IntegerField(
+        default=5, 
+        verbose_name="Giorni Lavorativi a Settimana"
+    )
     costo_orario = models.DecimalField(max_digits=6, decimal_places=2, default=0.00)
     note_generali = models.TextField(blank=True, null=True)
 

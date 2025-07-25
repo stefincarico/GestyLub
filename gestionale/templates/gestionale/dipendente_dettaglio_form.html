@@ -1,0 +1,28 @@
+<!-- gestionale/templates/gestionale/dipendente_dettaglio_form.html -->
+
+{% extends "gestionale/base.html" %}
+
+{% block title %}Dettagli Dipendente{% endblock %}
+
+{% block content %}
+<h1 class="h2 mb-4">
+    Step 2: Dettagli per {{ anagrafica.nome_cognome_ragione_sociale }}
+</h1>
+
+<div class="card">
+    <div class="card-body">
+        <p>Completa le informazioni contrattuali per il nuovo dipendente.</p>
+        <form method="post">
+            {% csrf_token %}
+            
+            {{ form.as_p }}
+
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary">Salva Dettagli Dipendente</button>
+                <!-- TODO: Gestire l'annullamento di questo step -->
+                <a href="{% url 'anagrafica_list' %}" class="btn btn-secondary">Annulla</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,18 +1,21 @@
 # gestionale/views.py
 
+# ==============================================================================
+# === IMPORTAZIONI                                                          ===
+# ==============================================================================
 # Importazioni di Django
-from django.shortcuts import render, redirect
+from django.db import transaction
+from django.shortcuts import get_object_or_404, render, redirect
 from django.urls import reverse, reverse_lazy
 from django.views import View
 from django.views.generic import ListView
 from django.views.generic.edit import CreateView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpResponseRedirect
-from django.db import transaction
 
 # Importazioni delle app locali
-from .models import Anagrafica
-from .forms import AnagraficaForm 
+from .models import Anagrafica, DipendenteDettaglio
+from .forms import AnagraficaForm, DipendenteDettaglioForm
 
 
 # ==============================================================================
@@ -22,7 +25,7 @@ from .forms import AnagraficaForm
 class TenantRequiredMixin(LoginRequiredMixin, View):
     """
     Un Mixin che verifica che l'utente sia loggato e che un tenant
-    sia attivo nella sessione.
+    sia attivo nella sessione. Viene ereditato da tutte le viste del gestionale.
     """
     def dispatch(self, request, *args, **kwargs):
         if not request.session.get('active_tenant_id'):
@@ -31,11 +34,14 @@ class TenantRequiredMixin(LoginRequiredMixin, View):
 
 
 # ==============================================================================
-# === VISTE PRINCIPALI                                                      ===
+# === VISTE PRINCIPALI E ANAGRAFICHE                                        ===
 # ==============================================================================
 
 class DashboardView(TenantRequiredMixin, View):
-     def get(self, request, *args, **kwargs):
+    """
+    Mostra la dashboard principale dell'applicazione.
+    """
+    def get(self, request, *args, **kwargs):
         active_tenant_name = request.session.get('active_tenant_name')
         user_company_role = request.session.get('user_company_role')
         
@@ -48,6 +54,9 @@ class DashboardView(TenantRequiredMixin, View):
 
 
 class AnagraficaListView(TenantRequiredMixin, ListView):
+    """
+    Mostra l'elenco paginato di tutte le anagrafiche.
+    """
     model = Anagrafica
     template_name = 'gestionale/anagrafica_list.html'
     context_object_name = 'anagrafiche'
@@ -55,29 +64,36 @@ class AnagraficaListView(TenantRequiredMixin, ListView):
 
 
 class AnagraficaCreateView(TenantRequiredMixin, CreateView):
+    """
+    Gestisce la creazione di una nuova anagrafica (Step 1).
+    Contiene la logica per la generazione automatica del codice
+    e per il reindirizzamento condizionale.
+    """
     model = Anagrafica
     form_class = AnagraficaForm
     template_name = 'gestionale/anagrafica_form.html'
-    success_url = reverse_lazy('anagrafica_list')
 
-    # QUESTO METODO APPARTIENE ALLA CLASSE AnagraficaCreateView
-    # NOTA L'INDENTAZIONE
+    def get_success_url(self):
+        """
+        Decide dove reindirizzare l'utente dopo il salvataggio.
+        """
+        if self.object.tipo == Anagrafica.Tipo.DIPENDENTE:
+            # Se è un dipendente, vai allo Step 2
+            return reverse('dipendente_dettaglio_create', kwargs={'anagrafica_id': self.object.pk})
+        else:
+            # Altrimenti, vai alla lista
+            return reverse('anagrafica_list')
+
     def form_valid(self, form):
         """
-        Questo metodo viene chiamato quando i dati del form sono validi.
-        Sovrascriviamo il comportamento di default per aggiungere la nostra logica.
+        Esegue la logica di salvataggio personalizzata.
         """
-        # transaction.atomic assicura che tutte le query seguenti
-        # vengano eseguite come un'unica operazione.
         with transaction.atomic():
-            # 1. Otteniamo l'oggetto dal form senza salvarlo ancora nel DB.
             anagrafica = form.save(commit=False)
             
-            # 2. Impostiamo i campi gestiti dal sistema.
             anagrafica.created_by = self.request.user
             anagrafica.updated_by = self.request.user
 
-            # --- Inizio Logica di Generazione Codice ---
             tipo = anagrafica.tipo
             prefisso = {
                 Anagrafica.Tipo.CLIENTE: 'CL',
@@ -94,13 +110,53 @@ class AnagraficaCreateView(TenantRequiredMixin, CreateView):
                 new_number = 1
                 
             anagrafica.codice = f"{prefisso}{new_number:06d}"
-            # --- Fine Logica di Generazione Codice ---
             
-            # 3. Ora che l'oggetto è completo, lo salviamo.
             anagrafica.save()
 
-        # 4. Assegniamo l'oggetto finale alla vista.
         self.object = anagrafica
+        return HttpResponseRedirect(self.get_success_url())
+
+
+class DipendenteDettaglioCreateView(TenantRequiredMixin, CreateView):
+    """
+    Gestisce la creazione dei dettagli di un dipendente (Step 2).
+    """
+    model = DipendenteDettaglio
+    form_class = DipendenteDettaglioForm
+    template_name = 'gestionale/dipendente_dettaglio_form.html'
+    success_url = reverse_lazy('anagrafica_list')
+
+    def dispatch(self, request, *args, **kwargs):
+        """
+        Recupera l'anagrafica genitore prima di ogni altra cosa.
+        """
+        self.anagrafica = get_object_or_404(
+            Anagrafica, 
+            pk=self.kwargs['anagrafica_id'], 
+            tipo=Anagrafica.Tipo.DIPENDENTE
+        )
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        """
+        Passa l'anagrafica genitore al template per visualizzarne il nome.
+        """
+        context = super().get_context_data(**kwargs)
+        context['anagrafica'] = self.anagrafica
+        return context
+
+    def form_valid(self, form):
+        """
+        Associa il dettaglio all'anagrafica genitore prima di salvare.
+        """
+        dettaglio = form.save(commit=False)
+        dettaglio.anagrafica = self.anagrafica
+        dettaglio.save()
         
-        # 5. Eseguiamo il reindirizzamento.
+        # === LA RIGA CHIAVE DA REINSERIRE ===
+        # Dobbiamo impostare l'attributo 'object' della vista con l'oggetto
+        # appena creato. Questo è necessario affinché il resto del
+        # ciclo di vita della CreateView funzioni correttamente, incluso get_success_url().
+        self.object = dettaglio
+        
         return HttpResponseRedirect(self.get_success_url())
