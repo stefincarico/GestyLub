@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+from decouple import config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,10 +21,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-4%p08cl5*z0#_6!*w5th7!t-2cjp7ulk)%$6c2nlylk$brb*i5'
+SECRET_KEY = config('SECRET_KEY', default='django-insecure-default-key-for-development')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# La mettiamo come booleano, default a True per lo sviluppo
+DEBUG = config('DEBUG', default=True, cast=bool)
 
 ALLOWED_HOSTS = []
 
@@ -79,29 +81,13 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 DATABASES = {
     'default': {
-        # 'ENGINE': Stiamo dicendo a Django di usare l'adattatore per PostgreSQL.
-        #           Questo è il motivo per cui abbiamo installato 'psycopg2'.
         'ENGINE': 'django.db.backends.postgresql',
-        
-        # 'NAME': Il nome del database vuoto che abbiamo creato in pgAdmin.
-        'NAME': 'gestilub_db',
-        
-        # 'USER': L'utente che ha i permessi per accedere a quel database.
-        #         Di default, l'utente amministratore di Postgres si chiama 'postgres'.
-        'USER': 'postgres',
-        
-        # 'PASSWORD': La password che hai impostato per l'utente 'postgres'
-        #             durante l'installazione di PostgreSQL.
-        #             ATTENZIONE: Inserisci qui la tua vera password.
-        'PASSWORD': 'f36b2k',
-        
-        # 'HOST': L'indirizzo del server dove si trova il database.
-        #         'localhost' significa che è in esecuzione sulla stessa macchina del progetto.
-        'HOST': 'localhost',
-        
-        # 'PORT': La porta standard su cui PostgreSQL "ascolta" le connessioni.
-        #         Il valore di default è 5432. Lascialo vuoto per usare il default.
-        'PORT': '5432',
+        # Ora leggiamo tutti i valori dal nostro file .env usando la funzione config()
+        'NAME': config('DB_NAME'),
+        'USER': config('DB_USER'),
+        'PASSWORD': config('DB_PASSWORD'),
+        'HOST': config('DB_HOST'),
+        'PORT': config('DB_PORT', cast=int), # cast=int per convertirlo in numero
     }
 }
 
