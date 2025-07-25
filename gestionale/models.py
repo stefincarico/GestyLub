@@ -35,7 +35,67 @@ class ModalitaPagamento(models.Model):
         verbose_name_plural = "Modalità di Pagamento"
         ordering = ['descrizione']
 
-# ... (Aggiungeremo gli altri modelli di configurazione qui man mano) ...
+class Causale(models.Model):
+    descrizione = models.CharField(max_length=255, unique=True)
+    # Potremmo usare delle choices anche qui, ma per ora un testo libero è sufficiente.
+    tipo_movimento = models.CharField(max_length=50, blank=True, null=True, help_text="Es: Pagamento Fattura, Incasso, Costo")
+    attivo = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.descrizione
+    class Meta:
+        verbose_name = "Causale"
+        verbose_name_plural = "Causali"
+
+class ContoFinanziario(models.Model):
+    nome_conto = models.CharField(max_length=100, unique=True, verbose_name="Nome Conto")
+    attivo = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.nome_conto
+    class Meta:
+        verbose_name = "Conto Finanziario"
+        verbose_name_plural = "Conti Finanziari"
+
+class ContoOperativo(models.Model):
+    class Tipo(models.TextChoices):
+        COSTO = 'Costo', 'Costo'
+        RICAVO = 'Ricavo', 'Ricavo'
+
+    nome_conto = models.CharField(max_length=100, unique=True, verbose_name="Nome Conto")
+    tipo = models.CharField(max_length=10, choices=Tipo.choices, verbose_name="Tipo")
+    attivo = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"{self.nome_conto} ({self.tipo})"
+    class Meta:
+        verbose_name = "Conto Operativo"
+        verbose_name_plural = "Conti Operativi"
+
+class MezzoAziendale(models.Model):
+    targa = models.CharField(max_length=20, unique=True)
+    descrizione = models.CharField(max_length=255)
+    tipo = models.CharField(max_length=50, blank=True, null=True, help_text="Es: Furgone, Autovettura, Escavatore")
+    attivo = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"{self.descrizione} ({self.targa})"
+    class Meta:
+        verbose_name = "Mezzo Aziendale"
+        verbose_name_plural = "Mezzi Aziendali"
+
+class TipoScadenzaPersonale(models.Model):
+    descrizione = models.CharField(max_length=100, unique=True)
+    validita_mesi = models.IntegerField(null=True, blank=True, help_text="Numero di mesi di validità. Lasciare vuoto se non applicabile.")
+    note = models.TextField(blank=True, null=True)
+    attivo = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.descrizione
+    class Meta:
+        verbose_name = "Tipo Scadenza Personale"
+        verbose_name_plural = "Tipi Scadenze Personale"
+
 
 # ==============================================================================
 # === MODELLI CORE (Anagrafiche, Cantieri)                                  ===
@@ -177,3 +237,148 @@ class DocumentoRiga(models.Model):
     class Meta:
         verbose_name = "Riga Documento"
         verbose_name_plural = "Righe Documenti"
+
+class Scadenza(models.Model):
+    class Stato(models.TextChoices):
+        APERTA = 'Aperta', 'Aperta'
+        PARZIALE = 'Parziale', 'Pagata Parzialmente'
+        SALDATA = 'Saldata', 'Saldata'
+        ANNULLATA = 'Annullata', 'Annullata'
+    
+    class Tipo(models.TextChoices):
+        INCASSO = 'Incasso', 'Incasso da Cliente'
+        PAGAMENTO = 'Pagamento', 'Pagamento a Fornitore'
+
+    documento = models.ForeignKey(DocumentoTestata, on_delete=models.CASCADE, related_name='scadenze')
+    anagrafica = models.ForeignKey(Anagrafica, on_delete=models.PROTECT, related_name='scadenze')
+    data_scadenza = models.DateField(verbose_name="Data di Scadenza")
+    importo_rata = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Importo Rata")
+    stato = models.CharField(max_length=20, choices=Stato.choices, default=Stato.APERTA)
+    tipo_scadenza = models.CharField(max_length=20, choices=Tipo.choices)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    # NOTA: La logica per 'importo_pagato' e 'importo_residuo' che avevi nella
+    # reference la implementeremo in modo più "Djangonico" direttamente nelle viste
+    # o con delle properties del modello quando necessario. L'ORM di Django è così
+    # potente che spesso non serve pre-calcolare questi valori a livello di DB.
+
+    def __str__(self):
+        return f"Scadenza {self.id} - {self.anagrafica.nome_cognome_ragione_sociale} - €{self.importo_rata}"
+    
+    class Meta:
+        verbose_name = "Scadenza"
+        verbose_name_plural = "Scadenze"
+        ordering = ['data_scadenza']
+
+
+class PrimaNota(models.Model):
+    class TipoMovimento(models.TextChoices):
+        ENTRATA = 'E', 'Entrata'
+        USCITA = 'U', 'Uscita'
+
+    data_registrazione = models.DateField()
+    descrizione = models.CharField(max_length=255, verbose_name="Descrizione Movimento")
+    importo = models.DecimalField(max_digits=10, decimal_places=2)
+    tipo_movimento = models.CharField(max_length=1, choices=TipoMovimento.choices)
+    
+    conto_finanziario = models.ForeignKey(ContoFinanziario, on_delete=models.PROTECT, related_name='movimenti', verbose_name="Conto Finanziario")
+    conto_operativo = models.ForeignKey(ContoOperativo, on_delete=models.PROTECT, null=True, blank=True, related_name='movimenti', verbose_name="Conto Operativo (Costo/Ricavo)")
+    causale = models.ForeignKey(Causale, on_delete=models.PROTECT, related_name='movimenti', verbose_name="Causale")
+    anagrafica = models.ForeignKey(Anagrafica, on_delete=models.PROTECT, null=True, blank=True, related_name='movimenti_primanota')
+    cantiere = models.ForeignKey(Cantiere, on_delete=models.SET_NULL, null=True, blank=True, related_name='movimenti_primanota')
+    
+    # Collega il movimento di PN a una specifica scadenza (per pagamenti/incassi)
+    scadenza_collegata = models.ForeignKey(Scadenza, on_delete=models.SET_NULL, null=True, blank=True, related_name='pagamenti')
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='primanota_create', on_delete=models.SET_NULL, null=True, blank=True)
+    
+    def __str__(self):
+        return f"{self.data_registrazione} - {self.descrizione} - €{self.importo}"
+
+    class Meta:
+        verbose_name = "Prima Nota"
+        verbose_name_plural = "Prima Nota"
+        ordering = ['-data_registrazione']
+
+
+class DipendenteDettaglio(models.Model):
+    # OneToOneField crea una relazione uno-a-uno. Un'anagrafica di tipo Dipendente
+    # ha esattamente un record di dettaglio. È il modo corretto per "estendere" un modello.
+    anagrafica = models.OneToOneField(Anagrafica, on_delete=models.CASCADE, primary_key=True, related_name='dettaglio_dipendente', limit_choices_to={'tipo': Anagrafica.Tipo.DIPENDENTE})
+    mansione = models.CharField(max_length=100)
+    data_assunzione = models.DateField()
+    data_fine_rapporto = models.DateField(null=True, blank=True)
+    costo_orario = models.DecimalField(max_digits=6, decimal_places=2, default=0.00)
+    note_generali = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return self.anagrafica.nome_cognome_ragione_sociale
+
+    class Meta:
+        verbose_name = "Dettaglio Dipendente"
+        verbose_name_plural = "Dettagli Dipendenti"
+
+
+class DiarioAttivita(models.Model):
+    class StatoPresenza(models.TextChoices):
+        PRESENTE = 'Presente', 'Presente'
+        ASSENTE_G = 'Assente Giustificato', 'Assente Giustificato'
+        ASSENTE_I = 'Assente Ingiustificato', 'Assente Ingiustificato'
+    
+    data = models.DateField()
+    dipendente = models.ForeignKey(Anagrafica, on_delete=models.PROTECT, related_name='diario', limit_choices_to={'tipo': Anagrafica.Tipo.DIPENDENTE})
+    
+    # Pianificazione
+    cantiere_pianificato = models.ForeignKey(Cantiere, on_delete=models.SET_NULL, null=True, blank=True, related_name='personale_pianificato')
+    mezzo_pianificato = models.ForeignKey(MezzoAziendale, on_delete=models.SET_NULL, null=True, blank=True, related_name='utilizzi_pianificati')
+    
+    # Consuntivo
+    stato_presenza = models.CharField(max_length=30, choices=StatoPresenza.choices, null=True, blank=True)
+    tipo_assenza_giustificata = models.CharField(max_length=100, blank=True, null=True, help_text="Es: Ferie, Malattia, Permesso")
+    ore_ordinarie = models.DecimalField(max_digits=4, decimal_places=2, default=0.00)
+    ore_straordinarie = models.DecimalField(max_digits=4, decimal_places=2, default=0.00)
+    costo_orario_consuntivo = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True, help_text="Costo orario del giorno, se diverso dallo standard")
+    note_giornaliere = models.TextField(blank=True, null=True)
+
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+
+    def __str__(self):
+        return f"Diario del {self.data} per {self.dipendente.nome_cognome_ragione_sociale}"
+
+    class Meta:
+        verbose_name = "Diario Attività"
+        verbose_name_plural = "Diari Attività"
+        # Un dipendente può avere una sola riga di diario per un dato giorno
+        unique_together = ('data', 'dipendente')
+        ordering = ['-data', 'dipendente']
+
+
+class ScadenzaPersonale(models.Model):
+    class Stato(models.TextChoices):
+        VALIDA = 'Valida', 'Valida'
+        SCADUTA = 'Scaduta', 'Scaduta'
+        RINNOVATA = 'Rinnovata', 'Rinnovata'
+
+    dipendente = models.ForeignKey(Anagrafica, on_delete=models.CASCADE, related_name='scadenze_personali', limit_choices_to={'tipo': Anagrafica.Tipo.DIPENDENTE})
+    tipo_scadenza = models.ForeignKey(TipoScadenzaPersonale, on_delete=models.PROTECT)
+    data_esecuzione = models.DateField()
+    data_scadenza = models.DateField()
+    stato = models.CharField(max_length=20, choices=Stato.choices, default=Stato.VALIDA)
+    note = models.TextField(blank=True, null=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.tipo_scadenza.descrizione} di {self.dipendente.nome_cognome_ragione_sociale}"
+
+    class Meta:
+        verbose_name = "Scadenza Personale"
+        verbose_name_plural = "Scadenze Personale"
+        ordering = ['data_scadenza']
+
