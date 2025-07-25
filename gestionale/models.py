@@ -306,25 +306,48 @@ class PrimaNota(models.Model):
 
 
 class DipendenteDettaglio(models.Model):
-    # OneToOneField crea una relazione uno-a-uno. Un'anagrafica di tipo Dipendente
-    # ha esattamente un record di dettaglio. È il modo corretto per "estendere" un modello.
     anagrafica = models.OneToOneField(Anagrafica, on_delete=models.CASCADE, primary_key=True, related_name='dettaglio_dipendente', limit_choices_to={'tipo': Anagrafica.Tipo.DIPENDENTE})
     mansione = models.CharField(max_length=100)
     data_assunzione = models.DateField()
     data_fine_rapporto = models.DateField(null=True, blank=True)
+    
     ore_settimanali_contratto = models.DecimalField(
-    max_digits=4, decimal_places=2, default=40.00, 
-    verbose_name="Ore Settimanali da Contratto"
+        max_digits=4, decimal_places=2, default=40.00, 
+        verbose_name="Ore Settimanali da Contratto"
     )
     giorni_lavorativi_settimana = models.IntegerField(
         default=5, 
         verbose_name="Giorni Lavorativi a Settimana"
     )
-    costo_orario = models.DecimalField(max_digits=6, decimal_places=2, default=0.00)
+    
+    costo_orario = models.DecimalField(max_digits=6, decimal_places=2, default=10.00)
     note_generali = models.TextField(blank=True, null=True)
 
     def __str__(self):
         return self.anagrafica.nome_cognome_ragione_sociale
+
+    # === NUOVO METODO AGGIUNTO ===
+    def save(self, *args, **kwargs):
+        """
+        Sovrascrive il metodo di salvataggio per automatizzare lo stato 'attivo'
+        dell'anagrafica collegata in base alla data di fine rapporto.
+        """
+        # Caso 1: Viene inserita una data di fine rapporto.
+        # Il dipendente associato deve essere disattivato.
+        if self.data_fine_rapporto:
+            self.anagrafica.attivo = False
+        
+        # Caso 2: La data di fine rapporto viene rimossa (es. riassunzione).
+        # Il dipendente associato deve essere riattivato.
+        else:
+            self.anagrafica.attivo = True
+
+        # Dopo aver impostato lo stato, salviamo l'anagrafica collegata.
+        self.anagrafica.save()
+        
+        # Infine, chiamiamo il metodo save() originale della classe genitore
+        # per salvare l'oggetto DipendenteDettaglio stesso.
+        super().save(*args, **kwargs)
 
     class Meta:
         verbose_name = "Dettaglio Dipendente"
