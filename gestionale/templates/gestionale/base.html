@@ -24,12 +24,17 @@
             Azienda: <strong>{{ request.session.active_tenant_name }}</strong> 
             (Ruolo: {{ request.session.user_company_role }})
         </div>
-        <nav>
-            <!-- Aggiungiamo i link di navigazione -->
-            <a href="{% url 'dashboard' %}">Dashboard</a>
-            <a href="{% url 'anagrafica_list' %}">Anagrafiche</a>
+        <!-- La nav di Bootstrap è un flex container, quindi gli elementi figli si allineano -->
+        <nav class="d-flex align-items-center">
+            <a href="{% url 'dashboard' %}" class="nav-link text-white fw-bold me-3">Dashboard</a>
+            <a href="{% url 'anagrafica_list' %}" class="nav-link text-white fw-bold me-3">Anagrafiche</a>
             <!-- Altri link verranno qui -->
-            <a href="#">Logout</a>
+            
+            <form action="{% url 'logout' %}" method="post" class="m-0"> <!-- m-0 rimuove il margine del form -->
+                {% csrf_token %}
+                <!-- Diamo al button le stesse classi dei link 'a' per coerenza visiva -->
+                <button type="submit" class="btn btn-link nav-link text-white fw-bold p-0">Logout</button>
+            </form>
         </nav>
     </header>
 

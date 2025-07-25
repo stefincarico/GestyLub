@@ -147,3 +147,21 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Dice a Django di usare il nostro modello User personalizzato
 # per tutto ciò che riguarda l'autenticazione.
 AUTH_USER_MODEL = 'accounts.User'
+
+# ==============================================================================
+# === IMPOSTAZIONI DI AUTENTICAZIONE                                        ===
+# ==============================================================================
+
+# L'URL a cui reindirizzare gli utenti se provano ad accedere a una pagina
+# protetta senza essere loggati. Deve corrispondere al 'name' nel nostro urls.py.
+LOGIN_URL = 'login'
+
+# L'URL a cui reindirizzare gli utenti DOPO aver effettuato il login con successo.
+# La nostra vista di login personalizzata ha già questa logica, ma è una
+# buona pratica impostarlo anche qui per coerenza.
+LOGIN_REDIRECT_URL = 'tenant_selection'
+
+# L'URL a cui reindirizzare gli utenti DOPO aver effettuato il logout.
+# Lo reindirizziamo alla pagina di login.
+LOGOUT_REDIRECT_URL = 'login'
+

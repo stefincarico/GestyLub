@@ -1,4 +1,4 @@
-from django.contrib.auth.views import LoginView
+from django.contrib.auth.views import LoginView, LogoutView
 from django.urls import reverse_lazy
 
 # Creiamo la nostra vista di login personalizzata ereditando da quella di Django.
