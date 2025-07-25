@@ -28,8 +28,7 @@
                  di aziende che la nostra vista ha passato nel 'context'. -->
             {% for company in companies %}
                 <li>
-                    <!-- TODO: Questo link per ora non punta a nulla -->
-                    <a href="#">{{ company.company_name }}</a>
+                    <a href="{% url 'activate_tenant' company.id %}">{{ company.company_name }}</a>
                 </li>
             {% empty %}
                 <!-- Questo blocco viene mostrato se la lista 'companies' è vuota. -->
