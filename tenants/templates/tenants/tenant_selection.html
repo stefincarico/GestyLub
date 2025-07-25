@@ -1,0 +1,41 @@
+<!-- tenants/templates/tenants/tenant_selection.html -->
+
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seleziona Azienda - GestionaleDjango</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #f4f7f6; margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        .selection-container { background-color: white; padding: 40px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 100%; max-width: 500px; text-align: center; }
+        h2 { color: #333; }
+        p { color: #555; }
+        .company-list { list-style: none; padding: 0; margin-top: 30px; }
+        .company-list li { margin-bottom: 15px; }
+        .company-list a { display: block; padding: 15px; background-color: #007bff; color: white; text-decoration: none; border-radius: 4px; font-size: 16px; transition: background-color 0.2s; }
+        .company-list a:hover { background-color: #0056b3; }
+        .no-companies { color: #777; font-style: italic; }
+    </style>
+</head>
+<body>
+    <div class="selection-container">
+        <h2>Ciao, {{ user.username }}!</h2>
+        <p>Seleziona l'azienda su cui vuoi operare.</p>
+
+        <ul class="company-list">
+            <!-- Qui usiamo i "template tags" di Django per ciclare sulla lista
+                 di aziende che la nostra vista ha passato nel 'context'. -->
+            {% for company in companies %}
+                <li>
+                    <!-- TODO: Questo link per ora non punta a nulla -->
+                    <a href="#">{{ company.company_name }}</a>
+                </li>
+            {% empty %}
+                <!-- Questo blocco viene mostrato se la lista 'companies' è vuota. -->
+                <li class="no-companies">Non hai accesso a nessuna azienda. Contatta l'amministratore.</li>
+            {% endfor %}
+        </ul>
+    </div>
+</body>
+</html>
