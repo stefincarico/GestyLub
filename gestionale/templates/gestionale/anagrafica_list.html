@@ -1,0 +1,92 @@
+<!-- gestionale/templates/gestionale/anagrafica_list.html -->
+
+{% extends "gestionale/base.html" %} <!-- 1. Estendiamo un template base -->
+
+{% block title %}Elenco Anagrafiche{% endblock %} <!-- 2. Definiamo il titolo della pagina -->
+
+{% block content %} <!-- 3. Iniziamo il blocco del contenuto principale -->
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h2">Elenco Anagrafiche</h1>
+    <a href="#" class="btn btn-primary">
+        + Nuova Anagrafica
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Codice</th>
+                        <th>Nome / Ragione Sociale</th>
+                        <th>Tipo</th>
+                        <th>P. IVA</th>
+                        <th>Città</th>
+                        <th>Stato</th>
+                        <th>Azioni</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for anagrafica in anagrafiche %}
+                    <tr>
+                        <td>{{ anagrafica.codice }}</td>
+                        <td>
+                            <!-- TODO: Questo link porterà al partitario -->
+                            <a href="#">{{ anagrafica.nome_cognome_ragione_sociale }}</a>
+                        </td>
+                        <td>{{ anagrafica.get_tipo_display }}</td>
+                        <td>{{ anagrafica.p_iva|default:"-" }}</td>
+                        <td>{{ anagrafica.citta|default:"-" }}</td>
+                        <td>
+                            {% if anagrafica.attivo %}
+                                <span class="badge bg-success">Attivo</span>
+                            {% else %}
+                                <span class="badge bg-danger">Non Attivo</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <!-- TODO: Link per modifica -->
+                            <a href="#" class="btn btn-sm btn-outline-primary">Modifica</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center">Nessuna anagrafica trovata.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Paginazione -->
+        {% if is_paginated %}
+        <nav aria-label="Paginazione">
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                    <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">Precedente</a></li>
+                {% else %}
+                    <li class="page-item disabled"><span class="page-link">Precedente</span></li>
+                {% endif %}
+
+                {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                        <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                    {% else %}
+                        <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+                    {% endif %}
+                {% endfor %}
+
+                {% if page_obj.has_next %}
+                    <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">Successiva</a></li>
+                {% else %}
+                    <li class="page-item disabled"><span class="page-link">Successiva</span></li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}
