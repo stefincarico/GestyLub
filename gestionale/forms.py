@@ -15,7 +15,7 @@ class AnagraficaForm(forms.ModelForm):
         #    Escludiamo i campi che vengono gestiti automaticamente,
         #    come 'created_at', 'updated_at', 'created_by', ecc.
         fields = [
-            'codice', 'tipo', 'nome_cognome_ragione_sociale', 
+            'tipo', 'nome_cognome_ragione_sociale', 
             'p_iva', 'codice_fiscale', 'indirizzo', 'cap', 'citta', 
             'provincia', 'email', 'telefono', 'attivo'
         ]
@@ -23,8 +23,7 @@ class AnagraficaForm(forms.ModelForm):
         # 3. (Opzionale ma utile) Permette di personalizzare i widget HTML
         #    per ogni campo. Qui stiamo dicendo a Django di usare
         #    classi CSS di Bootstrap per rendere i campi più belli.
-        widgets = {
-            'codice': forms.TextInput(attrs={'class': 'form-control'}),
+        widgets = {            
             'tipo': forms.Select(attrs={'class': 'form-select'}),
             'nome_cognome_ragione_sociale': forms.TextInput(attrs={'class': 'form-control'}),
             'p_iva': forms.TextInput(attrs={'class': 'form-control'}),
@@ -44,4 +43,52 @@ class AnagraficaForm(forms.ModelForm):
             'nome_cognome_ragione_sociale': 'Nome/Cognome o Ragione Sociale',
             'p_iva': 'Partita IVA',
         }
+        
 
+    def clean_nome_cognome_ragione_sociale(self):
+        # self.cleaned_data è un dizionario con i dati validati.
+        data = self.cleaned_data['nome_cognome_ragione_sociale']
+        return data.title() # Converte in Title Case (Es. "mario rossi" -> "Mario Rossi")
+
+    def clean_p_iva(self):
+        data = self.cleaned_data['p_iva']
+        if data:
+            # Rimuove tutto ciò che non è un numero
+            return ''.join(filter(str.isdigit, data))
+        return data
+
+    def clean_codice_fiscale(self):
+        data = self.cleaned_data['codice_fiscale']
+        if data:
+            return data.upper()
+        return data
+
+    def clean_indirizzo(self):
+        data = self.cleaned_data['indirizzo']
+        if data:
+            return data.title()
+        return data
+
+    def clean_citta(self):
+        data = self.cleaned_data['citta']
+        if data:
+            return data.title()
+        return data
+
+    def clean_provincia(self):
+        data = self.cleaned_data['provincia']
+        if data:
+            return data.upper()
+        return data
+
+    def clean_email(self):
+        data = self.cleaned_data['email']
+        if data:
+            return data.lower()
+        return data
+
+    def clean_telefono(self):
+        data = self.cleaned_data['telefono']
+        if data:
+            return ''.join(filter(str.isdigit, data))
+        return data

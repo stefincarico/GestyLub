@@ -81,17 +81,46 @@ class AnagraficaCreateView(TenantRequiredMixin, CreateView):
     #    Lo mandiamo indietro alla lista delle anagrafiche.
     success_url = reverse_lazy('anagrafica_list')
 
-    def form_valid(self, form):
-        """
-        Questo metodo viene chiamato quando i dati del form sono validi.
-        È il posto perfetto per aggiungere logica extra prima di salvare.
-        """
-        # Prima che il form venga salvato, impostiamo il campo 'created_by'
-        # con l'utente attualmente loggato.
-        form.instance.created_by = self.request.user
-        form.instance.updated_by = self.request.user
+def form_valid(self, form):
+    # 1. Non salviamo ancora l'oggetto nel database. commit=False
+    #    ce lo restituisce in memoria.
+    anagrafica = form.save(commit=False)
+    
+    # 2. Impostiamo l'utente che sta creando il record.
+    anagrafica.created_by = self.request.user
+    anagrafica.updated_by = self.request.user
+
+    # --- LOGICA DI GENERAZIONE CODICE ---
+    tipo = anagrafica.tipo
+    prefisso = {
+        Anagrafica.Tipo.CLIENTE: 'CL',
+        Anagrafica.Tipo.FORNITORE: 'FO',
+        Anagrafica.Tipo.DIPENDENTE: 'DI'
+    }.get(tipo, 'XX') # 'XX' come default in caso di tipo non previsto
+
+    # Cerchiamo l'ultimo record dello stesso tipo per trovare il numero più alto
+    last_anagrafica = Anagrafica.objects.filter(tipo=tipo).order_by('codice').last()
+    
+    if last_anagrafica and last_anagrafica.codice:
+        # Estraiamo il numero dal codice, lo convertiamo in intero, lo incrementiamo
+        last_number = int(last_anagrafica.codice[2:])
+        new_number = last_number + 1
+    else:
+        # Se non ci sono record, questo è il primo
+        new_number = 1
         
-        # Ora chiamiamo il metodo 'form_valid' della classe genitore (CreateView),
-        # che si occuperà di salvare l'oggetto nel database.
-        return super().form_valid(form)
+    # Formattiamo il nuovo codice con 6 cifre, riempiendo con zeri (es. 000001)
+    anagrafica.codice = f"{prefisso}{new_number:06d}"
+    
+    # 3. Ora che l'oggetto è completo, lo salviamo.
+    anagrafica.save()
+
+    # Il form ha bisogno che l'oggetto salvato sia assegnato a self.object
+    # per funzionare correttamente con il reindirizzamento di success_url.
+    self.object = anagrafica
+    
+    # Chiamiamo il metodo della classe base, ma dopo aver già salvato,
+    # quindi non farà nulla di dannoso. In alternativa, e in modo più pulito,
+    # potremmo semplicemente restituire il reindirizzamento.
+    return super().form_valid(form)
     

@@ -107,7 +107,7 @@ class Anagrafica(models.Model):
         FORNITORE = 'Fornitore', 'Fornitore'
         DIPENDENTE = 'Dipendente', 'Dipendente'
 
-    codice = models.CharField(max_length=20, unique=True, verbose_name="Codice Anagrafica")
+    codice = models.CharField(max_length=20, verbose_name="Codice Anagrafica", blank=True, editable=False)
     tipo = models.CharField(max_length=20, choices=Tipo.choices, verbose_name="Tipo Anagrafica")
     nome_cognome_ragione_sociale = models.CharField(max_length=255, verbose_name="Nome/Cognome o Ragione Sociale")
     p_iva = models.CharField(max_length=16, blank=True, null=True, verbose_name="Partita IVA")
