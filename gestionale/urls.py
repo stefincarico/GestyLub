@@ -5,7 +5,7 @@ from .views import (
     DipendenteDettaglioCreateView, AnagraficaUpdateView,
     AnagraficaToggleAttivoView, DocumentoListView, DocumentoDetailView
 )
-from .views import documento_create_step1_testata
+from .views import documento_create_step1_testata, documento_create_step2_righe
 
 urlpatterns = [
     path('', DashboardView.as_view(), name='dashboard'),
@@ -17,4 +17,5 @@ urlpatterns = [
     path('documenti/', DocumentoListView.as_view(), name='documento_list'),
     path('documenti/<int:pk>/', DocumentoDetailView.as_view(), name='documento_detail'),
     path('documenti/nuovo/step1/', documento_create_step1_testata, name='documento_create_step1_testata'),
+    path('documenti/nuovo/step2/', documento_create_step2_righe, name='documento_create_step2_righe'),
 ]

@@ -4,6 +4,7 @@
 # === IMPORTAZIONI                                                          ===
 # ==============================================================================
 # Importazioni di Django
+from pyexpat.errors import messages
 from django.db import models, transaction # <-- ASSICURATI CHE 'models' SIA QUI
 from django.db.models import Sum, Value
 from django.db.models.functions import Coalesce
@@ -15,10 +16,11 @@ from django.views.generic.edit import CreateView, UpdateView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpResponseRedirect
 from django.contrib.auth.decorators import login_required
+from decimal import Decimal
 
 # Importazioni delle app locali
-from .models import Anagrafica, DipendenteDettaglio, DocumentoTestata, Scadenza
-from .forms import AnagraficaForm, DipendenteDettaglioForm, DocumentoTestataForm
+from .models import AliquotaIVA, Anagrafica, DipendenteDettaglio, DocumentoTestata, Scadenza
+from .forms import AnagraficaForm, DipendenteDettaglioForm, DocumentoRigaForm, DocumentoTestataForm
 
 
 # ==============================================================================
@@ -200,4 +202,73 @@ def documento_create_step1_testata(request):
     }
     return render(request, 'gestionale/documento_create_step1.html', context)
 
+def clear_doc_wizard_session(session):
+    session.pop('doc_testata_data', None)
+    session.pop('doc_righe_data', None)
+    session.pop('doc_scadenze_data', None)
+
+@login_required
+def documento_create_step2_righe(request):
+    """
+    Step 2 del wizard: inserimento delle righe del documento.
+    """
+    testata_data = request.session.get('doc_testata_data')
+    # Se per qualche motivo mancano i dati del passo 1, torna all'inizio.
+    if not testata_data:
+        return redirect(reverse('documento_create_step1_testata'))
+
+    righe_data = request.session.get('doc_righe_data', [])
+
+    if request.method == 'POST':
+        # Controlliamo se l'utente vuole andare al passo 3
+        if 'prosegui_step3' in request.POST:
+            if not righe_data:
+                # Non si può procedere senza almeno una riga
+                messages.error(request, "Devi inserire almeno una riga per proseguire.")
+                # Dobbiamo ricreare il form e il contesto anche in questo caso di errore
+                form = DocumentoRigaForm()
+            else:
+                return redirect(reverse('documento_create_step3_scadenze'))
+        else:
+            # L'utente sta aggiungendo una nuova riga
+            form = DocumentoRigaForm(request.POST)
+            if form.is_valid():
+                nuova_riga = form.cleaned_data
+                
+                # Calcoliamo i totali della riga
+                imponibile_riga = nuova_riga['quantita'] * nuova_riga['prezzo_unitario']
+                aliquota = AliquotaIVA.objects.get(pk=nuova_riga['aliquota_iva'].pk)
+                iva_riga = imponibile_riga * (aliquota.valore_percentuale / Decimal(100))
+                
+                # Aggiungiamo i dati alla sessione
+                righe_data.append({
+                    'descrizione': nuova_riga['descrizione'],
+                    'quantita': float(nuova_riga['quantita']),
+                    'prezzo_unitario': float(nuova_riga['prezzo_unitario']),
+                    'aliquota_iva_id': aliquota.pk,
+                    'aliquota_iva_valore': float(aliquota.valore_percentuale),
+                    'imponibile_riga': float(imponibile_riga),
+                    'iva_riga': float(iva_riga),
+                })
+                
+                request.session['doc_righe_data'] = righe_data
+                # Reindirizziamo alla stessa pagina per "pulire" il form POST
+                # e mostrare la nuova riga nella tabella. (Pattern Post-Redirect-Get)
+                return redirect(reverse('documento_create_step2_righe'))
+    else:
+        form = DocumentoRigaForm()
+        
+    # Calcoliamo i totali attuali per il riepilogo
+    totale_imponibile = sum(Decimal(r['imponibile_riga']) for r in righe_data)
+    totale_iva = sum(Decimal(r['iva_riga']) for r in righe_data)
+    
+    context = {
+        'form': form,
+        'testata_data': testata_data,
+        'righe_inserite': righe_data,
+        'totale_imponibile': totale_imponibile,
+        'totale_iva': totale_iva,
+        'totale_documento': totale_imponibile + totale_iva
+    }
+    return render(request, 'gestionale/documento_create_step2.html', context)
 

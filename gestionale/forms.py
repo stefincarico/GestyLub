@@ -1,7 +1,7 @@
 # gestionale/forms.py
 
 from django import forms
-from .models import Anagrafica, Cantiere, DipendenteDettaglio, DocumentoTestata
+from .models import Anagrafica, Cantiere, DipendenteDettaglio, DocumentoRiga, DocumentoTestata, AliquotaIVA
 
 class AnagraficaForm(forms.ModelForm):
     """
@@ -188,3 +188,22 @@ class DocumentoTestataForm(forms.ModelForm):
             attivo=True
         )
         self.fields['cantiere'].queryset = Cantiere.objects.filter(attivo=True)
+
+class DocumentoRigaForm(forms.ModelForm):
+    class Meta:
+        model = DocumentoRiga
+        # Escludiamo i campi calcolati (imponibile, iva) e la testata,
+        # perché li gestiremo noi nella vista.
+        fields = ['descrizione', 'quantita', 'prezzo_unitario', 'aliquota_iva']
+        widgets = {
+            'descrizione': forms.TextInput(attrs={'class': 'form-control'}),
+            'quantita': forms.NumberInput(attrs={'class': 'form-control'}),
+            'prezzo_unitario': forms.NumberInput(attrs={'class': 'form-control'}),
+            'aliquota_iva': forms.Select(attrs={'class': 'form-select'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Filtriamo per mostrare solo le aliquote IVA attive.
+        self.fields['aliquota_iva'].queryset = AliquotaIVA.objects.filter(attivo=True)
+

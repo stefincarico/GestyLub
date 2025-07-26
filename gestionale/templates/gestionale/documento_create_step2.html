@@ -1,0 +1,88 @@
+{% extends "gestionale/base.html" %}
+{% block title %}Nuovo Documento (Passo 2 di 3){% endblock %}
+{% block content %}
+<h1 class="h2 mb-4">Gestione Documento (Passo 2 di 3: Righe)</h1>
+
+<!-- Riepilogo Testata e Totali -->
+<div class="card mb-4">
+    <div class="card-header">Riepilogo</div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <p><strong>Tipo Documento:</strong> {{ testata_data.tipo_doc }}</p>
+                <p><strong>Data:</strong> {{ testata_data.data_documento }}</p>
+            </div>
+            <div class="col-md-6 text-md-end">
+                <h4>Imponibile: € {{ totale_imponibile|floatformat:2 }}</h4>
+                <h4>IVA: € {{ totale_iva|floatformat:2 }}</h4>
+                <hr>
+                <h3 class="text-primary">Totale: € {{ totale_documento|floatformat:2 }}</h3>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Righe Già Inserite -->
+<div class="card mb-4">
+    <div class="card-header">Righe Inserite</div>
+    <div class="card-body p-0">
+        <table class="table table-striped mb-0">
+            <thead>
+                <tr>
+                    <th>Descrizione</th>
+                    <th class="text-end">Q.tà</th>
+                    <th class="text-end">Prezzo Unit.</th>
+                    <th class="text-end">IVA %</th>
+                    <th class="text-end">Imponibile</th>
+                    <th>Azioni</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for riga in righe_inserite %}
+                <tr>
+                    <td>{{ riga.descrizione }}</td>
+                    <td class="text-end">{{ riga.quantita|floatformat:2 }}</td>
+                    <td class="text-end">€ {{ riga.prezzo_unitario|floatformat:2 }}</td>
+                    <td class="text-end">{{ riga.aliquota_iva_valore|floatformat:2 }}%</td>
+                    <td class="text-end">€ {{ riga.imponibile_riga|floatformat:2 }}</td>
+                    <td>
+                        <!-- TODO: Implementare la cancellazione di una riga dalla sessione -->
+                        <a href="#" class="btn btn-sm btn-danger">Elimina</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="text-center">Nessuna riga inserita.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Form per Aggiungere Nuova Riga -->
+<div class="card">
+    <div class="card-header">Aggiungi Nuova Riga</div>
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            <div class="row g-3 align-items-end">
+                <div class="col-md-5">{{ form.descrizione.label_tag }} {{ form.descrizione }}</div>
+                <div class="col-md-2">{{ form.prezzo_unitario.label_tag }} {{ form.prezzo_unitario }}</div>
+                <div class="col-md-1">{{ form.quantita.label_tag }} {{ form.quantita }}</div>
+                <div class="col-md-2">{{ form.aliquota_iva.label_tag }} {{ form.aliquota_iva }}</div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-success w-100">+ Aggiungi Riga</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Pulsanti di Navigazione -->
+<div class="d-flex justify-content-between mt-4">
+    <a href="{% url 'documento_create_step1_testata' %}" class="btn btn-secondary">← Torna alla Testata</a>
+    <form method="post">
+        {% csrf_token %}
+        <button type="submit" name="prosegui_step3" class="btn btn-primary">Finalizza e Crea Scadenze →</button>
+    </form>
+</div>
+{% endblock %}
