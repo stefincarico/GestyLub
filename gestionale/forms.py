@@ -1,7 +1,7 @@
 # gestionale/forms.py
 
 from django import forms
-from .models import Anagrafica, Cantiere, DipendenteDettaglio, DocumentoRiga, DocumentoTestata, AliquotaIVA,Scadenza
+from .models import Anagrafica, Cantiere, DipendenteDettaglio, DocumentoRiga, DocumentoTestata, AliquotaIVA,Scadenza, ContoFinanziario
 
 class AnagraficaForm(forms.ModelForm):
     """
@@ -238,7 +238,6 @@ class DocumentoTestataForm(forms.ModelForm):
         return cleaned_data
     
 
-
 class DocumentoRigaForm(forms.ModelForm):
     class Meta:
         model = DocumentoRiga
@@ -271,3 +270,35 @@ class ScadenzaWizardForm(forms.ModelForm):
             'importo_rata': forms.NumberInput(attrs={'class': 'form-control'}),
             'data_scadenza': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
         }
+
+class PagamentoForm(forms.Form):
+    """
+    Form per registrare un pagamento/incasso di una scadenza.
+    Non è un ModelForm perché crea un PrimaNota ma con logica custom.
+    """
+    # Usiamo un campo nascosto per passare l'ID della scadenza
+    scadenza_id = forms.IntegerField(widget=forms.HiddenInput())
+    
+    data_pagamento = forms.DateField(
+        label="Data Pagamento/Incasso",
+        widget=forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+        required=True
+    )
+    importo_pagato = forms.DecimalField(
+        label="Importo Pagato/Incassato",
+        widget=forms.NumberInput(attrs={'class': 'form-control'}),
+        required=True
+    )
+    conto_finanziario = forms.ModelChoiceField(
+        label="Conto Finanziario (Cassa/Banca)",
+        queryset=ContoFinanziario.objects.filter(attivo=True),
+        widget=forms.Select(attrs={'class': 'form-select'}),
+        required=True
+    )
+
+    def clean_importo_pagato(self):
+        # Validazione per assicurarsi che l'importo non sia negativo o zero
+        importo = self.cleaned_data.get('importo_pagato')
+        if importo <= 0:
+            raise forms.ValidationError("L'importo deve essere maggiore di zero.")
+        return importo

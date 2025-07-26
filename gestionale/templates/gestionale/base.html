@@ -39,6 +39,33 @@
         </nav>
     </header>
 
+    <!-- ================= MODALE REGISTRAZIONE PAGAMENTO ================= -->
+    <div class="modal fade" id="pagamentoModal" tabindex="-1" aria-labelledby="pagamentoModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="pagamentoModalLabel">Registra Pagamento/Incasso</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form action="{% url 'registra_pagamento' %}" method="post">
+                    {% csrf_token %}
+                    <div class="modal-body">
+                        <p>Stai registrando un movimento per la scadenza <strong id="scadenzaInfo"></strong>.</p>
+                        <!-- Qui Django può renderizzare il nostro form, ma lo faremo
+                             con un "template tag" personalizzato per pulizia -->
+                        {{ pagamento_form.as_p }}
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                        <button type="submit" class="btn btn-primary">Registra</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <!-- ================= FINE MODALE ================= -->
+
+
     <main class="container-fluid my-4">
         <!-- Qui è dove ogni pagina figlia inserirà il suo contenuto specifico -->
         {% block content %}
@@ -48,6 +75,36 @@
     <!-- Inclusione di Bootstrap 5 (JavaScript) per eventuali componenti interattivi -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <!-- BLOCCO PER GLI SCRIPT SPECIFICI DELLA PAGINA -->
-    {% block scripts %}{% endblock %}
+{% block scripts %}
+<script>
+// Logica per la modale di pagamento
+const pagamentoModal = document.getElementById('pagamentoModal');
+if (pagamentoModal) {
+    pagamentoModal.addEventListener('show.bs.modal', function (event) {
+        // Pulsante che ha triggerato la modale
+        const button = event.relatedTarget;
+        
+        // Estraiamo i dati dagli attributi data-* del pulsante
+        const scadenzaId = button.getAttribute('data-scadenza-id');
+        const scadenzaResiduo = button.getAttribute('data-scadenza-residuo');
+        const scadenzaInfoText = button.getAttribute('data-scadenza-info');
+
+        // Popoliamo i campi del form dentro la modale
+        const modalScadenzaIdInput = pagamentoModal.querySelector('#id_scadenza_id');
+        const modalImportoInput = pagamentoModal.querySelector('#id_importo_pagato');
+        const modalDataInput = pagamento_modal.querySelector('#id_data_pagamento');
+        const modalInfoElement = pagamentoModal.querySelector('#scadenzaInfo');
+
+        modalScadenzaIdInput.value = scadenzaId;
+        modalImportoInput.value = scadenzaResiduo.replace(',', '.'); // Assicuriamoci che usi il punto come separatore decimale
+        modalInfoElement.textContent = scadenzaInfoText;
+
+        // Imposta la data di oggi come default
+        const today = new Date().toISOString().split('T')[0];
+        modalDataInput.value = today;
+    });
+}
+</script>
+{% endblock %}
 </body>
 </html>

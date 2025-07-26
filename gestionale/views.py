@@ -1,30 +1,54 @@
 # gestionale/views.py
-
 # ==============================================================================
 # === IMPORTAZIONI                                                          ===
 # ==============================================================================
-# Importazioni di Django
+# Standard Library
 import json
-from pyexpat.errors import messages
-from django.db import models, transaction # <-- ASSICURATI CHE 'models' SIA QUI
+from datetime import date, timedelta
+from decimal import Decimal
+
+# Django Core
+from django.db import models, transaction
 from django.db.models import Sum, Value
 from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404, render, redirect
 from django.urls import reverse, reverse_lazy
+from django.http import HttpResponseRedirect, JsonResponse
+from django.contrib import messages
+
+# Django Views
 from django.views import View
 from django.views.generic import ListView, DetailView
 from django.views.generic.edit import CreateView, UpdateView
+
+# Django Auth
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.http import HttpResponseRedirect
 from django.contrib.auth.decorators import login_required
-from decimal import Decimal
-from datetime import date, timedelta
-from django.contrib import messages
-from django.http import HttpResponseRedirect, JsonResponse
 
 # Importazioni delle app locali
-from .models import AliquotaIVA, Anagrafica, Cantiere, DipendenteDettaglio, DocumentoRiga, DocumentoTestata, ModalitaPagamento, Scadenza,PrimaNota
-from .forms import AnagraficaForm, DipendenteDettaglioForm, DocumentoRigaForm, DocumentoTestataForm, ScadenzaWizardForm
+# Models
+from .models import (
+    AliquotaIVA,
+    Anagrafica,
+    Cantiere,
+    DipendenteDettaglio,
+    DocumentoRiga,
+    DocumentoTestata,
+    ModalitaPagamento,
+    Scadenza,
+    PrimaNota,
+    Causale
+)
+
+# Forms
+from .forms import (
+    AnagraficaForm,
+    DipendenteDettaglioForm,
+    DocumentoRigaForm,
+    DocumentoTestataForm,
+    ScadenzaWizardForm,
+    PagamentoForm
+)
 
 
 # ==============================================================================
@@ -542,6 +566,68 @@ class AnagraficaDetailView(TenantRequiredMixin, DetailView):
         context['esposizione_documenti'] = esposizione_documenti
         context['netto_movimenti'] = netto_movimenti
         context['saldo_finale'] = saldo_finale
+        context['pagamento_form'] = PagamentoForm()
 
         return context
     
+# ==============================================================================
+# === VISTE PAGAMENTI                                                       ===
+# ==============================================================================
+
+class RegistraPagamentoView(TenantRequiredMixin, View):
+    """
+    Gestisce la registrazione di un pagamento/incasso per una scadenza.
+    """
+    def post(self, request, *args, **kwargs):
+        form = PagamentoForm(request.POST)
+        # request.META.get('HTTP_REFERER') è l'URL della pagina da cui l'utente proviene
+        redirect_url = request.META.get('HTTP_REFERER', reverse('dashboard'))
+
+        if form.is_valid():
+            scadenza = get_object_or_404(Scadenza, pk=form.cleaned_data['scadenza_id'])
+            importo_pagato = form.cleaned_data['importo_pagato']
+            
+            # Controllo di sicurezza: non si può pagare più del residuo
+            residuo_attuale = scadenza.importo_rata - (Scadenza.objects.filter(pk=scadenza.pk).annotate(pagato=Coalesce(Sum('pagamenti__importo'), Value(0))).first().pagato)
+            if importo_pagato > residuo_attuale:
+                messages.error(request, f"L'importo inserito (€{importo_pagato}) supera il residuo (€{residuo_attuale}).")
+                return redirect(redirect_url)
+
+            with transaction.atomic():
+                # Determiniamo la causale (Incasso o Pagamento)
+                # Assumiamo che esistano causali con queste descrizioni.
+                if scadenza.tipo_scadenza == Scadenza.Tipo.INCASSO:
+                    causale, _ = Causale.objects.get_or_create(descrizione="INCASSO FATTURA CLIENTE")
+                    tipo_movimento = PrimaNota.TipoMovimento.ENTRATA
+                else:
+                    causale, _ = Causale.objects.get_or_create(descrizione="PAGAMENTO FATTURA FORNITORE")
+                    tipo_movimento = PrimaNota.TipoMovimento.USCITA
+                
+                # Creiamo il record di PrimaNota
+                PrimaNota.objects.create(
+                    data_registrazione=form.cleaned_data['data_pagamento'],
+                    descrizione=f"{causale.descrizione} - Doc. {scadenza.documento.numero_documento} - {scadenza.anagrafica.nome_cognome_ragione_sociale}",
+                    importo=importo_pagato,
+                    tipo_movimento=tipo_movimento,
+                    conto_finanziario=form.cleaned_data['conto_finanziario'],
+                    causale=causale,
+                    anagrafica=scadenza.anagrafica,
+                    scadenza_collegata=scadenza,
+                    created_by=request.user
+                )
+
+                # Aggiorniamo lo stato della scadenza
+                totale_pagato_ad_oggi = Scadenza.objects.filter(pk=scadenza.pk).annotate(pagato=Sum('pagamenti__importo')).first().pagato
+                if totale_pagato_ad_oggi >= scadenza.importo_rata:
+                    scadenza.stato = Scadenza.Stato.SALDATA
+                else:
+                    scadenza.stato = Scadenza.Stato.PARZIALE
+                scadenza.save()
+            
+            messages.success(request, "Pagamento registrato con successo.")
+        else:
+            # Se il form non è valido, mostriamo un errore generico.
+            # In un'app reale, potremmo gestire gli errori in modo più dettagliato.
+            messages.error(request, "Errore nella compilazione del form. Riprova.")
+            
+        return redirect(redirect_url)

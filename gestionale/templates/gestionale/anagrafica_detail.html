@@ -65,7 +65,15 @@
                     <td>{{ scadenza.get_tipo_scadenza_display }}</td>
                     <td class="text-end">€ {{ scadenza.importo_rata|floatformat:2 }}</td>
                     <td class="text-end">€ {{ scadenza.residuo|floatformat:2 }}</td>
-                    <td><a href="#" class="btn btn-sm btn-primary">Paga/Incassa</a></td>
+                    <td>
+                        <button type="button" class="btn btn-sm btn-primary" 
+                                data-bs-toggle="modal" data-bs-target="#pagamentoModal"
+                                data-scadenza-id="{{ scadenza.id }}"
+                                data-scadenza-residuo="{{ scadenza.residuo|stringformat:"-1.2f" }}"
+                                data-scadenza-info="N.{{ scadenza.id }} del {{ scadenza.data_scadenza|date:"d/m/Y" }}">
+                            Paga/Incassa
+                        </button>
+                    </td>
                 </tr>
                 {% empty %}
                 <tr><td colspan="6" class="text-center">Nessuna scadenza aperta.</td></tr>
