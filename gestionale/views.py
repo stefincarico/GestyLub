@@ -929,41 +929,55 @@ class ScadenzarioExportPdfView(ScadenzarioListView):
     Vista per esportare i dati dello scadenziario (filtrati) in un file PDF.
     """
     def get(self, request, *args, **kwargs):
-        # 1. Recuperiamo i dati usando il nostro metodo helper
+        # 1. Recuperiamo i dati usando il nostro metodo helper.
         scadenze_qs, kpi_data, filter_form, today = self._get_filtered_data(request)
 
-        # 2. Calcoliamo i KPI e i residui (logica duplicata da Excel e dalla vista principale)
-        incassi_aperti = kpi_data['incassi_totali_rate'] - kpi_data['incassi_pagati']
-        # ... (tutti gli altri calcoli KPI) ...
-        # Calcoliamo il residuo per ogni scadenza del queryset completo
-        for scadenza in scadenze_qs:
-            scadenza.pagato = sum(p.importo for p in scadenza.pagamenti.all()) if scadenza.pk else 0
+        # 2. Eseguiamo l'annotate per calcolare il 'pagato' su tutto il queryset,
+        #    esattamente come facciamo nella vista Excel.
+        scadenze_con_pagato = scadenze_qs.annotate(
+            pagato=Coalesce(Sum('pagamenti__importo'), Value(0), output_field=models.DecimalField())
+        )
+        
+        # 3. Calcoliamo il residuo in Python e lo aggiungiamo come attributo.
+        for scadenza in scadenze_con_pagato:
             scadenza.residuo = scadenza.importo_rata - scadenza.pagato
 
-        # 3. Prepariamo il contesto per il template PDF
-        # Costruiamo la stringa dei filtri (logica identica a Excel)
+        # 4. Calcoliamo i KPI finali (logica invariata)
+        incassi_aperti = kpi_data['incassi_totali_rate'] - kpi_data['incassi_pagati']
+        pagamenti_aperti = kpi_data['pagamenti_totali_rate'] - kpi_data['pagamenti_pagati']
+        incassi_scaduti = kpi_data['incassi_scaduti_rate'] - kpi_data['incassi_scaduti_pagati']
+        pagamenti_scaduti = kpi_data['pagamenti_scaduti_rate'] - kpi_data['pagamenti_scaduti_pagati']
+
+        # 5. Prepariamo il contesto per il template PDF
         filtri_attivi = []
-        # ... (copia e incolla la logica per costruire filtri_str da ScadenzarioExportExcelView)
+        if filter_form.is_valid():
+            for name, value in filter_form.cleaned_data.items():
+                if value:
+                    display_value = value
+                    if hasattr(filter_form.fields[name], 'choices'):
+                         display_value = dict(filter_form.fields[name].choices).get(value)
+                    if isinstance(value, date):
+                         display_value = value.strftime('%d/%m/%Y')
+                    filtri_attivi.append(f"{filter_form.fields[name].label}: {display_value}")
         filtri_str = " | ".join(filtri_attivi) if filtri_attivi else "Tutti"
 
         context = {
             'tenant_name': request.session.get('active_tenant_name', 'GestionaleDjango'),
             'timestamp': timezone.now().strftime('%d/%m/%Y %H:%M:%S'),
             'filtri_str': filtri_str,
-            'scadenze': scadenze_qs,
+            'scadenze': scadenze_con_pagato, # Usiamo il queryset arricchito
             'kpi': {
                 'incassi_aperti': incassi_aperti,
-                # ... tutti gli altri KPI ...
+                'pagamenti_aperti': pagamenti_aperti,
+                'saldo_circolante': incassi_aperti - pagamenti_aperti,
+                'incassi_scaduti': incassi_scaduti,
+                'pagamenti_scaduti': pagamenti_scaduti,
             }
         }
         
-        # 4. Renderizziamo il template HTML in una stringa
+        # 6. Renderizziamo e convertiamo in PDF (logica invariata)
         html_string = render_to_string('gestionale/scadenzario_pdf_template.html', context)
-        
-        # 5. Convertiamo l'HTML in PDF con WeasyPrint
         pdf_file = HTML(string=html_string).write_pdf()
-
-        # 6. Creiamo la risposta HTTP
         response = HttpResponse(pdf_file, content_type='application/pdf')
         response['Content-Disposition'] = f'attachment; filename="report_scadenziario_{today.strftime("%Y%m%d")}.pdf"'
         
