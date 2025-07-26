@@ -612,7 +612,7 @@ class AnagraficaDetailView(TenantRequiredMixin, DetailView):
         documenti = DocumentoTestata.objects.filter(
             anagrafica=anagrafica, 
             stato=DocumentoTestata.Stato.CONFERMATO
-        ).order_by('-data_documento')
+        ).order_by('data_documento')
 
         scadenze_aperte = Scadenza.objects.filter(
             anagrafica=anagrafica,
@@ -624,7 +624,7 @@ class AnagraficaDetailView(TenantRequiredMixin, DetailView):
         for s in scadenze_aperte:
             s.residuo = s.importo_rata - s.pagato
 
-        movimenti = PrimaNota.objects.filter(anagrafica=anagrafica).order_by('-data_registrazione')
+        movimenti = PrimaNota.objects.filter(anagrafica=anagrafica).order_by('data_registrazione')
 
         esposizione_documenti = sum(
             doc.totale if 'V' in doc.tipo_doc else -doc.totale for doc in documenti
