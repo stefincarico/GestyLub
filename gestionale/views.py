@@ -1,22 +1,25 @@
 # gestionale/views.py
+
 # ==============================================================================
 # === IMPORTAZIONI                                                          ===
 # ==============================================================================
 # Standard Library
 import json
-from datetime import date, timedelta, timezone
+from datetime import date, timedelta
 from decimal import Decimal
 
 # Django Core
 from django import forms
 from django.db import models, transaction
-from django.db.models import Sum, Value
+from django.db.models import Sum, Value, Q
 from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404, render, redirect
 from django.urls import reverse, reverse_lazy
-from django.http import HttpResponseRedirect, JsonResponse
+from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from django.contrib import messages
 from django.core.paginator import Paginator
+from django.template.loader import render_to_string
+from django.utils import timezone
 
 # Django Views
 from django.views import View
@@ -26,40 +29,21 @@ from django.views.generic.edit import CreateView, UpdateView
 # Django Auth
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponse
-from django.utils import timezone
 
-from openpyxl import Workbook
+# Librerie di terze parti
 import openpyxl
+from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment
-
-from django.template.loader import render_to_string
 from weasyprint import HTML
 
 # Importazioni delle app locali
-# Models
 from .models import (
-    AliquotaIVA,
-    Anagrafica,
-    Cantiere,
-    DipendenteDettaglio,
-    DocumentoRiga,
-    DocumentoTestata,
-    ModalitaPagamento,
-    Scadenza,
-    PrimaNota,
-    Causale
+    AliquotaIVA, Anagrafica, Cantiere, DipendenteDettaglio, DocumentoRiga,
+    DocumentoTestata, ModalitaPagamento, Scadenza, PrimaNota, Causale
 )
-
-# Forms
 from .forms import (
-    AnagraficaForm,
-    DipendenteDettaglioForm,
-    DocumentoRigaForm,
-    DocumentoTestataForm,
-    ScadenzaWizardForm,
-    PagamentoForm,
-    ScadenzarioFilterForm
+    AnagraficaForm, DipendenteDettaglioForm, DocumentoRigaForm,
+    DocumentoTestataForm, ScadenzaWizardForm, PagamentoForm, ScadenzarioFilterForm
 )
 
 
@@ -298,12 +282,12 @@ def documento_create_step2_righe(request):
                 # Aggiungiamo i dati alla sessione
                 righe_data.append({
                     'descrizione': nuova_riga['descrizione'],
-                    'quantita': float(nuova_riga['quantita']),
-                    'prezzo_unitario': float(nuova_riga['prezzo_unitario']),
+                    'quantita': str(nuova_riga['quantita']),
+                    'prezzo_unitario': str(nuova_riga['prezzo_unitario']),
                     'aliquota_iva_id': aliquota.pk,
-                    'aliquota_iva_valore': float(aliquota.valore_percentuale),
+                    'aliquota_iva_valore': str(aliquota.valore_percentuale),
                     'imponibile_riga': str(imponibile_riga.quantize(Decimal('0.01'))),
-                    'iva_riga': float(iva_riga),
+                    'iva_riga': str(iva_riga.quantize(Decimal('0.01'))),
                 })
                 
                 request.session['doc_righe_data'] = righe_data
@@ -452,9 +436,10 @@ def documento_create_step3_scadenze(request):
         elif form.is_valid():
             nuova_scadenza = form.cleaned_data
             scadenze_data.append({
-                'importo_rata': float(nuova_scadenza['importo_rata']),
+                'importo_rata': str(nuova_scadenza['importo_rata']),
                 'data_scadenza': nuova_scadenza['data_scadenza'].isoformat(),
             })
+
             request.session['doc_scadenze_data'] = scadenze_data
             return redirect(reverse('documento_create_step3_scadenze'))
     else: # GET
@@ -954,8 +939,6 @@ class ScadenzarioExportPdfView(ScadenzarioListView):
         scadenze_con_pagato = scadenze_qs.annotate(
             pagato=Coalesce(Sum('pagamenti__importo'), Value(0), output_field=models.DecimalField())
         )
-        
-        # 3. Calcoliamo il residuo in Python e lo aggiungiamo come attributo.
         for scadenza in scadenze_con_pagato:
             scadenza.residuo = scadenza.importo_rata - scadenza.pagato
 
