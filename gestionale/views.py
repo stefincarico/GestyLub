@@ -580,22 +580,25 @@ class RegistraPagamentoView(TenantRequiredMixin, View):
     """
     def post(self, request, *args, **kwargs):
         form = PagamentoForm(request.POST)
-        # request.META.get('HTTP_REFERER') è l'URL della pagina da cui l'utente proviene
         redirect_url = request.META.get('HTTP_REFERER', reverse('dashboard'))
 
         if form.is_valid():
             scadenza = get_object_or_404(Scadenza, pk=form.cleaned_data['scadenza_id'])
             importo_pagato = form.cleaned_data['importo_pagato']
             
-            # Controllo di sicurezza: non si può pagare più del residuo
-            residuo_attuale = scadenza.importo_rata - (Scadenza.objects.filter(pk=scadenza.pk).annotate(pagato=Coalesce(Sum('pagamenti__importo'), Value(0))).first().pagato)
+            # --- PRIMA CORREZIONE QUI ---
+            # Aggiungiamo output_field=models.DecimalField() a Coalesce
+            query_pagato = Scadenza.objects.filter(pk=scadenza.pk).annotate(
+                pagato=Coalesce(Sum('pagamenti__importo'), Value(0), output_field=models.DecimalField())
+            ).first()
+            pagato_precedente = query_pagato.pagato if query_pagato else Decimal('0.00')
+            residuo_attuale = scadenza.importo_rata - pagato_precedente
+
             if importo_pagato > residuo_attuale:
-                messages.error(request, f"L'importo inserito (€{importo_pagato}) supera il residuo (€{residuo_attuale}).")
+                messages.error(request, f"L'importo inserito (€{importo_pagato}) supera il residuo (€{residuo_attuale:.2f}).")
                 return redirect(redirect_url)
 
             with transaction.atomic():
-                # Determiniamo la causale (Incasso o Pagamento)
-                # Assumiamo che esistano causali con queste descrizioni.
                 if scadenza.tipo_scadenza == Scadenza.Tipo.INCASSO:
                     causale, _ = Causale.objects.get_or_create(descrizione="INCASSO FATTURA CLIENTE")
                     tipo_movimento = PrimaNota.TipoMovimento.ENTRATA
@@ -603,7 +606,6 @@ class RegistraPagamentoView(TenantRequiredMixin, View):
                     causale, _ = Causale.objects.get_or_create(descrizione="PAGAMENTO FATTURA FORNITORE")
                     tipo_movimento = PrimaNota.TipoMovimento.USCITA
                 
-                # Creiamo il record di PrimaNota
                 PrimaNota.objects.create(
                     data_registrazione=form.cleaned_data['data_pagamento'],
                     descrizione=f"{causale.descrizione} - Doc. {scadenza.documento.numero_documento} - {scadenza.anagrafica.nome_cognome_ragione_sociale}",
@@ -616,9 +618,12 @@ class RegistraPagamentoView(TenantRequiredMixin, View):
                     created_by=request.user
                 )
 
-                # Aggiorniamo lo stato della scadenza
-                totale_pagato_ad_oggi = Scadenza.objects.filter(pk=scadenza.pk).annotate(pagato=Sum('pagamenti__importo')).first().pagato
-                if totale_pagato_ad_oggi >= scadenza.importo_rata:
+                # --- SECONDA CORREZIONE QUI ---
+                # Riutilizziamo la stessa logica robusta.
+                # Il nuovo totale pagato è la somma di quanto già c'era più l'ultimo pagamento.
+                nuovo_totale_pagato = pagato_precedente + importo_pagato
+                
+                if nuovo_totale_pagato >= scadenza.importo_rata:
                     scadenza.stato = Scadenza.Stato.SALDATA
                 else:
                     scadenza.stato = Scadenza.Stato.PARZIALE
@@ -626,8 +631,9 @@ class RegistraPagamentoView(TenantRequiredMixin, View):
             
             messages.success(request, "Pagamento registrato con successo.")
         else:
-            # Se il form non è valido, mostriamo un errore generico.
-            # In un'app reale, potremmo gestire gli errori in modo più dettagliato.
-            messages.error(request, "Errore nella compilazione del form. Riprova.")
+            # Rendiamo il messaggio di errore più specifico
+            error_string = ". ".join([f"{key}: {value[0]}" for key, value in form.errors.items()])
+            messages.error(request, f"Errore nella compilazione del form. {error_string}")
             
         return redirect(redirect_url)
+    
