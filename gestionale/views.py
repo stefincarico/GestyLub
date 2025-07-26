@@ -574,6 +574,8 @@ class AnagraficaPartitarioExportExcelView(AnagraficaDetailView): # Eredita da De
         # 2. Prepara i dati per l'utility di export
         tenant_name = request.session.get('active_tenant_name', 'GestionaleDjango')
         report_title = f"Partitario {anagrafica.get_tipo_display}: {anagrafica.nome_cognome_ragione_sociale}"
+        safe_anag_name = "".join(c if c.isalnum() else "_" for c in anagrafica.nome_cognome_ragione_sociale)
+        filename_prefix = f"Partitario_{safe_anag_name}"
         
         kpi_report = {
             'Esposizione Documenti': partitario_data['esposizione_documenti'],
@@ -599,7 +601,13 @@ class AnagraficaPartitarioExportExcelView(AnagraficaDetailView): # Eredita da De
 
         # 3. Chiama l'utility
         return generate_excel_report(
-            tenant_name, report_title, "Nessun filtro applicato", kpi_report, headers, data_rows
+            tenant_name, 
+            report_title, 
+            "Dati al " + timezone.now().strftime('%d/%m/%Y'), # Filtri
+            kpi_report, 
+            headers, 
+            data_rows,
+            filename_prefix=filename_prefix # Passiamo il nuovo prefisso
         )
     
 class AnagraficaPartitarioExportPdfView(AnagraficaDetailView):
@@ -830,6 +838,7 @@ class ScadenzarioExportExcelView(ScadenzarioListView):
         # 2. Prepara i dati per la funzione di utility.
         tenant_name = request.session.get('active_tenant_name', 'GestionaleDjango')
         report_title = 'Report Scadenziario Aperto'
+        filename_prefix = 'Scadenziario_Aperto'
         
         # Costruisci la stringa dei filtri (logica che abbiamo già)
         filtri_attivi = []
@@ -882,7 +891,8 @@ class ScadenzarioExportExcelView(ScadenzarioListView):
             
         # 3. Chiama la funzione di utility e restituisci il risultato.
         return generate_excel_report(
-            tenant_name, report_title, filtri_str, kpi_report, headers, data_rows
+            tenant_name, report_title, filtri_str, kpi_report, headers, data_rows,
+            filename_prefix=filename_prefix
         )
 
 class ScadenzarioExportPdfView(ScadenzarioListView):

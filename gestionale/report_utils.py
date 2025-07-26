@@ -9,15 +9,19 @@ from openpyxl.utils import get_column_letter
 from django.template.loader import render_to_string
 from weasyprint import HTML
 
-def generate_excel_report(tenant_name, report_title, filters_string, kpi_data, headers, data_rows):
+# ==============================================================================
+# === UTILITY PER EXPORT EXCEL                                              ===
+# ==============================================================================
+
+def generate_excel_report(tenant_name, report_title, filters_string, kpi_data, headers, data_rows, filename_prefix='report'):
     """
     Funzione generica per creare un report Excel strutturato.
 
     Args:
         tenant_name (str): Nome dell'azienda attiva.
-        report_title (str): Titolo del report.
+        report_title (str): Titolo principale del report.
         filters_string (str): Stringa che riassume i filtri applicati.
-        kpi_data (dict): Dizionario contenente i KPI da mostrare.
+        kpi_data (dict): Dizionario con i KPI da mostrare.
         headers (list): Lista di stringhe per le intestazioni della tabella.
         data_rows (list of lists): Lista di liste, dove ogni lista interna è una riga di dati.
 
@@ -28,42 +32,58 @@ def generate_excel_report(tenant_name, report_title, filters_string, kpi_data, h
     response = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     )
-    filename = f"{report_title.replace(' ', '_').lower()}_{timezone.now().strftime('%Y%m%d')}.xlsx"
+    # Crea un nome di file pulito usando il prefisso
+    timestamp = timezone.now().strftime('%Y%m%d-%H%M')
+    filename = f"{timestamp}-{filename_prefix}.xlsx"
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
+
+
 
     # 2. CREAZIONE DEL FILE EXCEL
     workbook = Workbook()
     worksheet = workbook.active
-    worksheet.title = report_title
 
-    # 3. STILI
+    # --- CORREZIONE DEL TITOLO DEL FOGLIO ---
+    # Sanifichiamo il titolo del report per renderlo un nome di foglio valido per Excel.
+    # Rimuoviamo i caratteri non consentiti e lo tronchiamo a 31 caratteri.
+    safe_sheet_title = report_title.replace(":", "-").replace("/", "-").replace("\\", "-").replace("?", "").replace("*", "").replace("[", "").replace("]", "")
+    worksheet.title = safe_sheet_title[:31]
+    
+    # 3. DEFINIZIONE DEGLI STILI
     title_font = Font(name='Calibri', size=16, bold=True)
     header_font = Font(name='Calibri', size=12, bold=True)
-    currency_format = '"€" #,##0.00'
+    currency_format = '€ #,##0.00'  # Formato valuta italiano
     date_format = 'DD/MM/YYYY'
     
-    # --- INTESTAZIONE DEL REPORT ---
+    # 4. SCRITTURA DELL'INTESTAZIONE DEL REPORT
     current_row = 1
-    worksheet.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=len(headers))
+    # Uniamo le celle per la larghezza dell'intera tabella
+    end_column = len(headers) if headers else 1
+    
+    # Nome Azienda
+    worksheet.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=end_column)
     cell = worksheet.cell(row=current_row, column=1, value=tenant_name)
     cell.font = title_font
     cell.alignment = Alignment(horizontal='center')
     current_row += 1
     
-    worksheet.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=len(headers))
+    # Titolo Report
+    worksheet.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=end_column)
     cell = worksheet.cell(row=current_row, column=1, value=report_title)
     cell.alignment = Alignment(horizontal='center')
     current_row += 2 # Lascia una riga vuota
 
-    worksheet.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=len(headers))
+    # Filtri applicati
+    worksheet.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=end_column)
     worksheet.cell(row=current_row, column=1, value=f"Filtri Applicati: {filters_string}")
     current_row += 1
 
-    worksheet.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=len(headers))
+    # Timestamp
+    worksheet.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=end_column)
     worksheet.cell(row=current_row, column=1, value=f"Generato il: {timezone.now().strftime('%d/%m/%Y %H:%M:%S')}")
     current_row += 2
 
-    # --- KPI ---
+    # 5. SCRITTURA DEI KPI
     if kpi_data:
         for key, value in kpi_data.items():
             label = key.replace('_', ' ').title()
@@ -71,20 +91,20 @@ def generate_excel_report(tenant_name, report_title, filters_string, kpi_data, h
             cell = worksheet.cell(row=current_row, column=3, value=value)
             cell.number_format = currency_format
             current_row += 1
-        current_row += 1
+        current_row += 1 # Riga vuota dopo i KPI
 
-    # --- TABELLA DATI ---
+    # 6. SCRITTURA DELLA TABELLA DATI
+    # Aggiunge le intestazioni alla prima riga vuota disponibile
     worksheet.append(headers)
     for cell in worksheet[current_row]:
         cell.font = header_font
+        cell.alignment = Alignment(horizontal='center')
     
+    # Aggiunge le righe di dati
     for row_data in data_rows:
         worksheet.append(row_data)
-        # Applicazione formattazione condizionale (esempio)
-        # Puoi aggiungere qui logica per formattare date o numeri se necessario
-        # dato che i dati arrivano già pronti.
 
-    # --- ADATTAMENTO COLONNE ---
+    # 7. ADATTAMENTO FINALE E SALVATAGGIO
     for col_idx in range(1, len(headers) + 1):
         column_letter = get_column_letter(col_idx)
         max_length = 0
@@ -98,9 +118,13 @@ def generate_excel_report(tenant_name, report_title, filters_string, kpi_data, h
         adjusted_width = (max_length + 2)
         worksheet.column_dimensions[column_letter].width = adjusted_width
 
-    # 4. SALVATAGGIO E RESTITUZIONE
+    # Salva il file nella risposta HTTP
     workbook.save(response)
     return response
+
+# ==============================================================================
+# === UTILITY PER EXPORT PDF                                              ===
+# ==============================================================================
 
 def generate_pdf_report(request, template_name, context):
     """
