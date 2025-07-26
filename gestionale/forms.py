@@ -337,10 +337,12 @@ class ScadenzarioFilterForm(forms.Form):
     tipo = forms.ChoiceField(
         choices=TIPO_CHOICES, 
         required=False,
+        label="Tipo",
         widget=forms.Select(attrs={'class': 'form-select'})
     )
     stato = forms.ChoiceField(
         choices=STATO_CHOICES, 
         required=False,
+        label="Stato",
         widget=forms.Select(attrs={'class': 'form-select'})
     )

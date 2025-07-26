@@ -8,6 +8,7 @@ from datetime import date, timedelta, timezone
 from decimal import Decimal
 
 # Django Core
+from django import forms
 from django.db import models, transaction
 from django.db.models import Sum, Value
 from django.db.models.functions import Coalesce
@@ -828,15 +829,31 @@ class ScadenzarioExportExcelView(ScadenzarioListView):
         if filter_form.is_valid():
             for name, value in filter_form.cleaned_data.items():
                 if value:
+                    # Recuperiamo il campo dal form per accedere alle sue proprietà
+                    field = filter_form.fields.get(name)
+                    if not field: continue # Salta se per qualche motivo il campo non esiste
+
+                    # Otteniamo l'etichetta del campo, con un fallback sul nome del campo
+                    label = field.label or name.replace('_', ' ').title()
+                    
+                    # Otteniamo il valore leggibile per i campi con scelte
                     display_value = value
-                    # Se il campo è un ChoiceField o ModelChoiceField, otteniamo l'etichetta leggibile
-                    if hasattr(filter_form.fields[name], 'choices'):
-                         display_value = dict(filter_form.fields[name].choices).get(value)
-                    # Per le date, formattiamole
+                    if hasattr(field, 'choices'):
+                         display_value = dict(field.choices).get(value, value)
+                    
+                    # Formattiamo le date
                     if isinstance(value, date):
-                        display_value = value.strftime('%d/%m/%Y')
-                    filtri_attivi.append(f"{filter_form.fields[name].label}: {display_value}")
-        filtri_str = " | ".join(filtri_attivi) if filtri_attivi else "Nessun filtro"
+                         display_value = value.strftime('%d/%m/%Y')
+                    
+                    # Per i ModelChoiceField (come anagrafica), l'oggetto stesso è il valore
+                    if isinstance(field, forms.ModelChoiceField):
+                        display_value = str(value)
+                    
+                    filtri_attivi.append(f"{label}: {display_value}")
+        
+        filtri_str = " | ".join(filtri_attivi) if filtri_attivi else "Tutti"
+
+
         worksheet['A4'] = f"Filtri Applicati: {filtri_str}"
         
         worksheet['A5'] = f"Generato il: {timezone.now().strftime('%d/%m/%Y %H:%M:%S')}"
@@ -949,16 +966,33 @@ class ScadenzarioExportPdfView(ScadenzarioListView):
         pagamenti_scaduti = kpi_data['pagamenti_scaduti_rate'] - kpi_data['pagamenti_scaduti_pagati']
 
         # 5. Prepariamo il contesto per il template PDF
+        # Costruiamo la stringa dei filtri applicati
         filtri_attivi = []
         if filter_form.is_valid():
             for name, value in filter_form.cleaned_data.items():
                 if value:
+                    # Recuperiamo il campo dal form per accedere alle sue proprietà
+                    field = filter_form.fields.get(name)
+                    if not field: continue # Salta se per qualche motivo il campo non esiste
+
+                    # Otteniamo l'etichetta del campo, con un fallback sul nome del campo
+                    label = field.label or name.replace('_', ' ').title()
+                    
+                    # Otteniamo il valore leggibile per i campi con scelte
                     display_value = value
-                    if hasattr(filter_form.fields[name], 'choices'):
-                         display_value = dict(filter_form.fields[name].choices).get(value)
+                    if hasattr(field, 'choices'):
+                         display_value = dict(field.choices).get(value, value)
+                    
+                    # Formattiamo le date
                     if isinstance(value, date):
                          display_value = value.strftime('%d/%m/%Y')
-                    filtri_attivi.append(f"{filter_form.fields[name].label}: {display_value}")
+                    
+                    # Per i ModelChoiceField (come anagrafica), l'oggetto stesso è il valore
+                    if isinstance(field, forms.ModelChoiceField):
+                        display_value = str(value)
+                    
+                    filtri_attivi.append(f"{label}: {display_value}")
+        
         filtri_str = " | ".join(filtri_attivi) if filtri_attivi else "Tutti"
 
         context = {
