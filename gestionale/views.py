@@ -14,7 +14,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpResponseRedirect
 
 # Importazioni delle app locali
-from .models import Anagrafica, DipendenteDettaglio
+from .models import Anagrafica, DipendenteDettaglio, DocumentoTestata
 from .forms import AnagraficaForm, DipendenteDettaglioForm
 
 
@@ -195,4 +195,27 @@ class AnagraficaToggleAttivoView(TenantRequiredMixin, View):
         
         # Reindirizziamo l'utente alla lista anagrafiche.
         return redirect('anagrafica_list')
+    
+# ==============================================================================
+# === VISTE DOCUMENTI                                                       ===
+# ==============================================================================
+
+class DocumentoListView(TenantRequiredMixin, ListView):
+    """
+    Mostra l'elenco paginato di tutti i documenti.
+    """
+    model = DocumentoTestata
+    template_name = 'gestionale/documento_list.html'
+    context_object_name = 'documenti'
+    paginate_by = 15
+
+    def get_queryset(self):
+        """
+        Sovrascriviamo questo metodo per ordinare i documenti
+        dal più recente al più vecchio.
+        """
+        # Recuperiamo il queryset di base
+        queryset = super().get_queryset()
+        # Applichiamo l'ordinamento
+        return queryset.order_by('-data_documento', '-numero_documento')
     
