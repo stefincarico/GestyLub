@@ -47,7 +47,7 @@ from .models import (
 )
 from .forms import (
     AnagraficaForm, DipendenteDettaglioForm, DocumentoRigaForm,
-    DocumentoTestataForm, ScadenzaWizardForm, PagamentoForm, ScadenzarioFilterForm
+    DocumentoTestataForm, ScadenzaWizardForm, PagamentoForm, ScadenzarioFilterForm, DiarioAttivitaForm
 )
 
 
@@ -1013,8 +1013,52 @@ class DashboardHRView(TenantRequiredMixin, View):
             # Passiamo anche i queryset per i futuri form di pianificazione
             'cantieri_disponibili': Cantiere.objects.filter(stato=Cantiere.Stato.APERTO),
             'mezzi_disponibili': MezzoAziendale.objects.filter(attivo=True),
+            'attivita_form': DiarioAttivitaForm(),
         }
         
         return render(request, self.template_name, context)
     
+class SalvaAttivitaDiarioView(TenantRequiredMixin, View):
+    """
+    Gestisce il salvataggio (creazione o modifica) di una voce
+    del DiarioAttivita tramite una richiesta POST dalla modale.
+    """
+    def post(self, request, *args, **kwargs):
+        # Recuperiamo i dati nascosti inviati dal form
+        data_str = request.POST.get('data')
+        dipendente_id = request.POST.get('dipendente_id')
+        
+        # Costruiamo l'URL a cui reindirizzare in caso di successo o errore
+        data = date.fromisoformat(data_str)
+        redirect_url = reverse('dashboard_hr_data', kwargs={'year': data.year, 'month': data.month, 'day': data.day})
+        
+        # Cerchiamo se esiste già una voce di diario per questo dipendente in questa data
+        # 'defaults' verrà usato solo se l'oggetto viene creato ex-novo.
+        attivita, created = DiarioAttivita.objects.get_or_create(
+            data=data,
+            dipendente_id=dipendente_id,
+            defaults={'created_by': request.user}
+        )
+        
+        # Passiamo l'istanza esistente (o quella nuova vuota) al form
+        # Questo permette al form di aggiornare un record esistente.
+        form = DiarioAttivitaForm(request.POST, instance=attivita)
 
+        if form.is_valid():
+            # Il form è valido, salviamo le modifiche
+            istanza_salvata = form.save(commit=False)
+            istanza_salvata.updated_by = request.user
+            
+            # Logica di business: se consuntivo le ore, lo stato deve essere 'Presente'
+            if istanza_salvata.ore_ordinarie > 0 or istanza_salvata.ore_straordinarie > 0:
+                if not istanza_salvata.stato_presenza:
+                    istanza_salvata.stato_presenza = DiarioAttivita.StatoPresenza.PRESENTE
+
+            istanza_salvata.save()
+            messages.success(request, f"Attività per {attivita.dipendente.nome_cognome_ragione_sociale} salvata con successo.")
+        else:
+            error_string = ". ".join([f"{key}: {value[0]}" for key, value in form.errors.items()])
+            messages.error(request, f"Errore nel salvataggio: {error_string}")
+        
+        return redirect(redirect_url)
+    

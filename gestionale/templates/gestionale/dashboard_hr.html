@@ -64,7 +64,27 @@
                         <td>{{ dipendente.attivita.note_giornaliere|default_if_none:"" }}</td>
                         <td>
                             <!-- TODO: Pulsanti di azione -->
-                            <a href="#" class="btn btn-sm btn-outline-primary">Pianifica/Consuntiva</a>
+                                {% if request.session.user_company_role == 'admin' %}
+                                <button type="button" class="btn btn-sm btn-outline-primary"
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#attivitaModal"
+                                        data-dipendente-id="{{ dipendente.pk }}"
+                                        data-dipendente-nome="{{ dipendente.nome_cognome_ragione_sociale }}"
+                                        data-data="{{ data_riferimento|date:"Y-m-d" }}"
+                                        data-attivita-json='{
+                                            "cantiere_id": "{{ dipendente.attivita.cantiere_pianificato.pk|default_if_none:"" }}",
+                                            "mezzo_id": "{{ dipendente.attivita.mezzo_pianificato.pk|default_if_none:"" }}",
+                                            "stato_presenza": "{{ dipendente.attivita.stato_presenza|default_if_none:"" }}",
+                                            "tipo_assenza": "{{ dipendente.attivita.tipo_assenza_giustificata|default_if_none:"" }}",
+                                            "ore_ord": "{{ dipendente.attivita.ore_ordinarie|default_if_none:"0.00" }}",
+                                            "ore_str": "{{ dipendente.attivita.ore_straordinarie|default_if_none:"0.00" }}",
+                                            "note": "{{ dipendente.attivita.note_giornaliere|default_if_none:"" }}"
+                                        }'>
+                                    Pianifica/Consuntiva
+                                </button>
+                            {% else %}
+                                -
+                            {% endif %}
                         </td>
                     </tr>
                     {% empty %}
@@ -75,4 +95,96 @@
         </div>
     </div>
 </div>
+<!-- ================= MODALE PIANIFICAZIONE/CONSUNTIVAZIONE ================= -->
+<div class="modal fade" id="attivitaModal" tabindex="-1" aria-labelledby="attivitaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="attivitaModalLabel">Pianifica/Consuntiva Attività</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{% url 'salva_attivita_diario' %}" method="post">
+                {% csrf_token %}
+                <!-- Campi nascosti per passare dati chiave -->
+                <input type="hidden" name="data" id="attivita_data">
+                <input type="hidden" name="dipendente_id" id="attivita_dipendente_id">
+                
+                <div class="modal-body">
+                    <p>Stai modificando l'attività di <strong id="dipendenteNome"></strong> per il giorno <strong>{{ data_riferimento|date:"d/m/Y" }}</strong>.</p>
+                    <hr>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5>Pianificazione</h5>
+                            <div class="mb-3">
+                                {{ attivita_form.cantiere_pianificato.label_tag }}
+                                {{ attivita_form.cantiere_pianificato }}
+                            </div>
+                            <div class="mb-3">
+                                {{ attivita_form.mezzo_pianificato.label_tag }}
+                                {{ attivita_form.mezzo_pianificato }}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h5>Consuntivo</h5>
+                            <div class="mb-3">
+                                {{ attivita_form.stato_presenza.label_tag }}
+                                {{ attivita_form.stato_presenza }}
+                            </div>
+                            <div class="mb-3">
+                                {{ attivita_form.tipo_assenza_giustificata.label_tag }}
+                                {{ attivita_form.tipo_assenza_giustificata }}
+                            </div>
+                            <div class="row">
+                                <div class="col">{{ attivita_form.ore_ordinarie.label_tag }}{{ attivita_form.ore_ordinarie }}</div>
+                                <div class="col">{{ attivita_form.ore_straordinarie.label_tag }}{{ attivita_form.ore_straordinarie }}</div>
+                            </div>
+                        </div>
+                    </div>
+                     <div class="mb-3 mt-3">
+                        {{ attivita_form.note_giornaliere.label_tag }}
+                        {{ attivita_form.note_giornaliere }}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-primary">Salva Modifiche</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock content %}
+
+{% block scripts %}
+<script>
+const attivitaModal = document.getElementById('attivitaModal');
+if (attivitaModal) {
+    attivitaModal.addEventListener('show.bs.modal', function (event) {
+        const button = event.relatedTarget;
+        
+        // Recupera i dati dal pulsante cliccato
+        const dipendenteId = button.getAttribute('data-dipendente-id');
+        const dipendenteNome = button.getAttribute('data-dipendente-nome');
+        const data = button.getAttribute('data-data');
+
+        // Recupera i valori attuali (serializzati come JSON)
+        const attivitaCorrente = JSON.parse(button.getAttribute('data-attivita-json'));
+
+        // Popola i campi nascosti
+        attivitaModal.querySelector('#attivita_dipendente_id').value = dipendenteId;
+        attivitaModal.querySelector('#attivita_data').value = data;
+        attivitaModal.querySelector('#dipendenteNome').textContent = dipendenteNome;
+
+        // Popola i campi del form con i valori esistenti (se ci sono)
+        attivitaModal.querySelector('#id_cantiere_pianificato').value = attivitaCorrente.cantiere_id || "";
+        attivitaModal.querySelector('#id_mezzo_pianificato').value = attivitaCorrente.mezzo_id || "";
+        attivitaModal.querySelector('#id_stato_presenza').value = attivitaCorrente.stato_presenza || "";
+        attivitaModal.querySelector('#id_tipo_assenza_giustificata').value = attivitaCorrente.tipo_assenza || "";
+        attivitaModal.querySelector('#id_ore_ordinarie').value = attivitaCorrente.ore_ord;
+        attivitaModal.querySelector('#id_ore_straordinarie').value = attivitaCorrente.ore_str;
+        attivitaModal.querySelector('#id_note_giornaliere').value = attivitaCorrente.note || "";
+    });
+}
+</script>
 {% endblock %}

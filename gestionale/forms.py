@@ -1,7 +1,9 @@
 # gestionale/forms.py
 
 from django import forms
-from .models import Anagrafica, Cantiere, DipendenteDettaglio, DocumentoRiga, DocumentoTestata, AliquotaIVA,Scadenza, ContoFinanziario
+from .models import (Anagrafica, Cantiere, 
+        DipendenteDettaglio, DocumentoRiga, DocumentoTestata, AliquotaIVA,
+        Scadenza, ContoFinanziario, DiarioAttivita, MezzoAziendale)
 
 class AnagraficaForm(forms.ModelForm):
     """
@@ -237,7 +239,6 @@ class DocumentoTestataForm(forms.ModelForm):
 
         return cleaned_data
     
-
 class DocumentoRigaForm(forms.ModelForm):
     class Meta:
         model = DocumentoRiga
@@ -346,3 +347,35 @@ class ScadenzarioFilterForm(forms.Form):
         label="Stato",
         widget=forms.Select(attrs={'class': 'form-select'})
     )
+
+class DiarioAttivitaForm(forms.ModelForm):
+    """
+    Form per la pianificazione e consuntivazione delle attività giornaliere.
+    """
+    class Meta:
+        model = DiarioAttivita
+        fields = [
+            'cantiere_pianificato', 'mezzo_pianificato',
+            'stato_presenza', 'tipo_assenza_giustificata',
+            'ore_ordinarie', 'ore_straordinarie', 'note_giornaliere'
+        ]
+        widgets = {
+            'cantiere_pianificato': forms.Select(attrs={'class': 'form-select'}),
+            'mezzo_pianificato': forms.Select(attrs={'class': 'form-select'}),
+            'stato_presenza': forms.Select(attrs={'class': 'form-select'}),
+            'tipo_assenza_giustificata': forms.TextInput(attrs={'class': 'form-control'}),
+            'ore_ordinarie': forms.NumberInput(attrs={'class': 'form-control'}),
+            'ore_straordinarie': forms.NumberInput(attrs={'class': 'form-control'}),
+            'note_giornaliere': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Popoliamo i queryset con le opzioni valide e attive.
+        self.fields['cantiere_pianificato'].queryset = Cantiere.objects.filter(stato=Cantiere.Stato.APERTO)
+        self.fields['mezzo_pianificato'].queryset = MezzoAziendale.objects.filter(attivo=True)
+        
+        # Rendiamo i campi non obbligatori, la logica sarà gestita dalla vista.
+        for field in self.fields.values():
+            field.required = False
+

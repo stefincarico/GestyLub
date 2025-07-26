@@ -3,7 +3,7 @@ from django.urls import path
 from .views import (
     AnagraficaPartitarioExportPdfView, DashboardView, AnagraficaListView, AnagraficaCreateView, 
     DipendenteDettaglioCreateView, AnagraficaUpdateView, AnagraficaDetailView,
-    AnagraficaToggleAttivoView, DocumentoListView, DocumentoDetailView,RegistraPagamentoView, ScadenzarioExportPdfView,
+    AnagraficaToggleAttivoView, DocumentoListView, DocumentoDetailView,RegistraPagamentoView, SalvaAttivitaDiarioView, ScadenzarioExportPdfView,
     ScadenzarioListView, ScadenzarioExportExcelView, AnagraficaPartitarioExportExcelView,
     DashboardHRView
 )
@@ -31,4 +31,5 @@ urlpatterns = [
     path('anagrafiche/<int:pk>/export/pdf/', AnagraficaPartitarioExportPdfView.as_view(), name='anagrafica_partitario_export_pdf'),
     path('hr/', DashboardHRView.as_view(), name='dashboard_hr'),
     path('hr/<int:year>/<int:month>/<int:day>/', DashboardHRView.as_view(), name='dashboard_hr_data'),
+    path('hr/salva-attivita/', SalvaAttivitaDiarioView.as_view(), name='salva_attivita_diario'),
 ]
