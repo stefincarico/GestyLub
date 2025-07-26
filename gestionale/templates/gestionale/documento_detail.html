@@ -1,0 +1,107 @@
+<!-- gestionale/templates/gestionale/documento_detail.html -->
+
+{% extends "gestionale/base.html" %}
+
+{% block title %}Dettaglio: {{ documento }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h2">Dettaglio: {{ documento.get_tipo_doc_display }} N. {{ documento.numero_documento }}</h1>
+    <div>
+        <a href="{% url 'documento_list' %}" class="btn btn-secondary">Torna alla Lista</a>
+        <!-- TODO: Aggiungere pulsanti Export -->
+    </div>
+</div>
+
+<!-- Riepilogo Documento -->
+<div class="card mb-4">
+    <div class="card-header">
+        Riepilogo Documento
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <p><strong>Cliente/Fornitore:</strong> {{ documento.anagrafica.nome_cognome_ragione_sociale }}</p>
+                <p><strong>Imponibile:</strong> € {{ documento.imponibile|floatformat:2 }}</p>
+                <p><strong>Totale Documento:</strong> € {{ documento.totale|floatformat:2 }}</p>
+                <p><strong>Note:</strong> {{ documento.note|default:"-" }}</p>
+            </div>
+            <div class="col-md-6">
+                <p><strong>Data Documento:</strong> {{ documento.data_documento|date:"d/m/Y" }}</p>
+                <p><strong>IVA:</strong> € {{ documento.iva|floatformat:2 }}</p>
+                <p><strong>Stato:</strong>
+                    {% if documento.stato == 'Confermato' %}<span class="badge bg-success">{{ documento.stato }}</span>{% endif %}
+                    {% if documento.stato == 'Bozza' %}<span class="badge bg-warning text-dark">{{ documento.stato }}</span>{% endif %}
+                    {% if documento.stato == 'Annullato' %}<span class="badge bg-secondary">{{ documento.stato }}</span>{% endif %}
+                </p>
+            </div>
+        </div>
+        <hr>
+        <h4 class="text-end text-danger">SALDO RESIDUO: € {{ saldo_residuo|floatformat:2 }}</h4>
+    </div>
+</div>
+
+<!-- Righe del Documento -->
+<div class="card mb-4">
+    <div class="card-header">Righe del Documento</div>
+    <div class="card-body p-0">
+        <table class="table table-striped mb-0">
+            <thead>
+                <tr>
+                    <th>Descrizione</th>
+                    <th class="text-end">Q.tà</th>
+                    <th class="text-end">Prezzo Unit.</th>
+                    <th class="text-end">IVA %</th>
+                    <th class="text-end">Imponibile</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for riga in documento.righe.all %}
+                <tr>
+                    <td>{{ riga.descrizione }}</td>
+                    <td class="text-end">{{ riga.quantita|floatformat:2 }}</td>
+                    <td class="text-end">€ {{ riga.prezzo_unitario|floatformat:2 }}</td>
+                    <td class="text-end">{{ riga.aliquota_iva.valore_percentuale|floatformat:2 }}%</td>
+                    <td class="text-end">€ {{ riga.imponibile_riga|floatformat:2 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Scadenze -->
+<div class="card mb-4">
+    <div class="card-header">Scadenze</div>
+    <div class="card-body p-0">
+        <table class="table mb-0">
+            <thead>
+                <tr>
+                    <th>Data Scadenza</th>
+                    <th class="text-end">Importo Rata</th>
+                    <th class="text-end">Residuo</th>
+                    <th>Stato</th>
+                    <th>Azioni</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for scadenza in scadenze %}
+                <tr>
+                    <td>{{ scadenza.data_scadenza|date:"d/m/Y" }}</td>
+                    <td class="text-end">€ {{ scadenza.importo_rata|floatformat:2 }}</td>
+                    <td class="text-end">€ {{ scadenza.residuo|floatformat:2 }}</td>
+                    <td>{{ scadenza.get_stato_display }}</td>
+                    <td>
+                        <!-- TODO: Aggiungere pulsante Paga/Incassa -->
+                        <a href="#" class="btn btn-sm btn-primary">Paga/Incassa</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="text-center">Nessuna scadenza associata.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

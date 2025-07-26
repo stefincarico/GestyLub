@@ -3,7 +3,7 @@ from django.urls import path
 from .views import (
     DashboardView, AnagraficaListView, AnagraficaCreateView, 
     DipendenteDettaglioCreateView, AnagraficaUpdateView,
-    AnagraficaToggleAttivoView, DocumentoListView
+    AnagraficaToggleAttivoView, DocumentoListView, DocumentoDetailView
 )
 
 
@@ -15,4 +15,5 @@ urlpatterns = [
     path('anagrafiche/<int:pk>/modifica/', AnagraficaUpdateView.as_view(), name='anagrafica_update'),
     path('anagrafiche/<int:pk>/toggle-attivo/', AnagraficaToggleAttivoView.as_view(), name='anagrafica_toggle_attivo'),
     path('documenti/', DocumentoListView.as_view(), name='documento_list'),
+    path('documenti/<int:pk>/', DocumentoDetailView.as_view(), name='documento_detail'),
 ]

@@ -49,7 +49,7 @@
                         </td>
                         <td>
                             <!-- TODO: Aggiungere link e permessi -->
-                            <a href="#" class="btn btn-sm btn-info text-white">Dettaglio</a>
+                            <a href="{% url 'documento_detail' doc.pk %}" class="btn btn-sm btn-info text-white">Dettaglio</a>
                         </td>
                     </tr>
                     {% empty %}
