@@ -510,27 +510,21 @@ def get_anagrafiche_by_tipo(request):
 # ==============================================================================
 
 class AnagraficaDetailView(TenantRequiredMixin, DetailView):
-    """
-    Mostra il partitario completo di un'anagrafica (Cliente o Fornitore).
-    """
     model = Anagrafica
     template_name = 'gestionale/anagrafica_detail.html'
     context_object_name = 'anagrafica'
 
-    def get_context_data(self, **kwargs):
+    def _get_partitario_data(self):
         """
-        Prepara tutti i dati aggregati per il partitario.
+        Metodo helper per recuperare tutti i dati del partitario.
         """
-        context = super().get_context_data(**kwargs)
         anagrafica = self.get_object()
 
-        # 1. Recupera tutti i documenti confermati
         documenti = DocumentoTestata.objects.filter(
             anagrafica=anagrafica, 
             stato=DocumentoTestata.Stato.CONFERMATO
         ).order_by('-data_documento')
 
-        # 2. Recupera lo scadenziario aperto
         scadenze_aperte = Scadenza.objects.filter(
             anagrafica=anagrafica,
             stato__in=[Scadenza.Stato.APERTA, Scadenza.Stato.PARZIALE]
@@ -538,37 +532,102 @@ class AnagraficaDetailView(TenantRequiredMixin, DetailView):
             pagato=Coalesce(Sum('pagamenti__importo'), Value(0), output_field=models.DecimalField())
         ).order_by('data_scadenza')
         
-        # Aggiungiamo il residuo calcolato a ogni scadenza
         for s in scadenze_aperte:
             s.residuo = s.importo_rata - s.pagato
 
-        # 3. Recupera la cronologia di tutti i movimenti di Prima Nota
         movimenti = PrimaNota.objects.filter(anagrafica=anagrafica).order_by('-data_registrazione')
 
-        # 4. Calcola i totali per il riepilogo contabile
         esposizione_documenti = sum(
-            doc.totale if 'V' in doc.tipo_doc else -doc.totale 
-            for doc in documenti
+            doc.totale if 'V' in doc.tipo_doc else -doc.totale for doc in documenti
         )
-        
         netto_movimenti = sum(
-            mov.importo if mov.tipo_movimento == PrimaNota.TipoMovimento.ENTRATA else -mov.importo 
-            for mov in movimenti
+            mov.importo if mov.tipo_movimento == PrimaNota.TipoMovimento.ENTRATA else -mov.importo for mov in movimenti
         )
-        
         saldo_finale = esposizione_documenti - netto_movimenti
+        
+        return {
+            "anagrafica": anagrafica, "documenti": documenti, "scadenze_aperte": scadenze_aperte,
+            "movimenti": movimenti, "esposizione_documenti": esposizione_documenti,
+            "netto_movimenti": netto_movimenti, "saldo_finale": saldo_finale
+        }
 
-        # 5. Aggiungi tutto al contesto
-        context['documenti'] = documenti
-        context['scadenze_aperte'] = scadenze_aperte
-        context['movimenti'] = movimenti
-        context['esposizione_documenti'] = esposizione_documenti
-        context['netto_movimenti'] = netto_movimenti
-        context['saldo_finale'] = saldo_finale
+    def get_context_data(self, **kwargs):
+        """
+        Prepara il contesto per la vista HTML.
+        """
+        context = super().get_context_data(**kwargs)
+        partitario_data = self._get_partitario_data()
+        context.update(partitario_data)
         context['pagamento_form'] = PagamentoForm()
-
         return context
     
+
+class AnagraficaPartitarioExportExcelView(AnagraficaDetailView): # Eredita da DetailView
+    """
+    Esporta il partitario di un'anagrafica in formato Excel.
+    """
+    def get(self, request, *args, **kwargs):
+        # 1. Recupera tutti i dati chiamando il nostro nuovo metodo helper!
+        partitario_data = self._get_partitario_data()
+        anagrafica = partitario_data['anagrafica']
+
+        # 2. Prepara i dati per l'utility di export
+        tenant_name = request.session.get('active_tenant_name', 'GestionaleDjango')
+        report_title = f"Partitario {anagrafica.get_tipo_display}: {anagrafica.nome_cognome_ragione_sociale}"
+        
+        kpi_report = {
+            'Esposizione Documenti': partitario_data['esposizione_documenti'],
+            'Netto Incassato/Pagato': partitario_data['netto_movimenti'],
+            'Saldo Aperto Finale': partitario_data['saldo_finale']
+        }
+
+        # Il partitario è complesso, quindi lo costruiremo con più tabelle.
+        # La nostra utility attuale non lo supporta. Per ora, esportiamo
+        # solo lo scadenziario aperto per semplicità.
+        # In futuro, potremmo estendere l'utility per gestire report multi-tabella.
+        
+        headers = ["Data Scad.", "Rif. Doc.", "Tipo", "Importo Rata", "Residuo"]
+        data_rows = []
+        for scadenza in partitario_data['scadenze_aperte']:
+            data_rows.append([
+                scadenza.data_scadenza,
+                scadenza.documento.numero_documento,
+                scadenza.get_tipo_scadenza_display(),
+                scadenza.importo_rata,
+                scadenza.residuo
+            ])
+
+        # 3. Chiama l'utility
+        return generate_excel_report(
+            tenant_name, report_title, "Nessun filtro applicato", kpi_report, headers, data_rows
+        )
+    
+class AnagraficaPartitarioExportPdfView(AnagraficaDetailView):
+    """
+    Esporta il partitario di un'anagrafica in formato PDF.
+    """
+    def get(self, request, *args, **kwargs):
+        # 1. Recupera i dati
+        partitario_data = self._get_partitario_data()
+        anagrafica = partitario_data['anagrafica']
+
+        # 2. Prepara il contesto per il template PDF
+        context = {
+            'tenant_name': request.session.get('active_tenant_name'),
+           'report_title': f"Partitario {anagrafica.get_tipo_display()}",
+            'anagrafica': anagrafica,
+            'timestamp': timezone.now().strftime('%d/%m/%Y %H:%M:%S'),
+            'filtri_str': "Nessun filtro applicato", # Non ci sono filtri qui
+            **partitario_data # Aggiunge tutte le chiavi del dizionario al contesto
+        }
+        
+        # 3. Chiama l'utility
+        return generate_pdf_report(
+            request,
+            'gestionale/partitario_pdf_template.html', # <-- PERCORSO CORRETTO
+            context
+        )
+
 # ==============================================================================
 # === VISTE PAGAMENTI                                                       ===
 # ==============================================================================

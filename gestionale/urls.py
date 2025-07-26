@@ -1,9 +1,10 @@
 # gestionale/urls.py
 from django.urls import path
 from .views import (
-    DashboardView, AnagraficaListView, AnagraficaCreateView, 
+    AnagraficaPartitarioExportPdfView, DashboardView, AnagraficaListView, AnagraficaCreateView, 
     DipendenteDettaglioCreateView, AnagraficaUpdateView, AnagraficaDetailView,
-    AnagraficaToggleAttivoView, DocumentoListView, DocumentoDetailView,RegistraPagamentoView, ScadenzarioExportPdfView, ScadenzarioListView, ScadenzarioExportExcelView
+    AnagraficaToggleAttivoView, DocumentoListView, DocumentoDetailView,RegistraPagamentoView, ScadenzarioExportPdfView,
+      ScadenzarioListView, ScadenzarioExportExcelView, AnagraficaPartitarioExportExcelView
 )
 from .views import documento_create_step1_testata, documento_create_step2_righe, documento_create_step3_scadenze, get_anagrafiche_by_tipo
 
@@ -25,4 +26,6 @@ urlpatterns = [
     path('scadenzario/', ScadenzarioListView.as_view(), name='scadenzario_list'),
     path('scadenzario/export/excel/', ScadenzarioExportExcelView.as_view(), name='scadenzario_export_excel'),
     path('scadenzario/export/pdf/', ScadenzarioExportPdfView.as_view(), name='scadenzario_export_pdf'),
+    path('anagrafiche/<int:pk>/export/excel/', AnagraficaPartitarioExportExcelView.as_view(), name='anagrafica_partitario_export_excel'),
+    path('anagrafiche/<int:pk>/export/pdf/', AnagraficaPartitarioExportPdfView.as_view(), name='anagrafica_partitario_export_pdf'),
 ]

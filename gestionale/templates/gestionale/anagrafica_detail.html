@@ -4,7 +4,12 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1 class="h2">Partitario {{ anagrafica.get_tipo_display }}: {{ anagrafica.nome_cognome_ragione_sociale }}</h1>
-    <a href="{% url 'anagrafica_list' %}" class="btn btn-secondary">Torna alla Lista</a>
+    <div>
+        <a href="{% url 'anagrafica_partitario_export_excel' anagrafica.pk %}" class="btn" style="background-color: #185C37; color: white;">Esporta Excel</a>
+        <!-- Il link al PDF lo aggiungeremo tra poco -->
+        <a href="{% url 'anagrafica_partitario_export_pdf' anagrafica.pk %}" class="btn" style="background-color: #FF9900; color: white;">Esporta PDF</a>
+        <a href="{% url 'anagrafica_list' %}" class="btn btn-secondary ms-2">Torna alla Lista</a>
+    </div>
 </div>
 
 <!-- Riepilogo Contabile -->
