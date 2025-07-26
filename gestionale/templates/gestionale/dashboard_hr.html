@@ -63,28 +63,34 @@
                         </td>
                         <td>{{ dipendente.attivita.note_giornaliere|default_if_none:"" }}</td>
                         <td>
-                            <!-- TODO: Pulsanti di azione -->
-                                {% if request.session.user_company_role == 'admin' %}
-                                <button type="button" class="btn btn-sm btn-outline-primary"
-                                        data-bs-toggle="modal" 
-                                        data-bs-target="#attivitaModal"
-                                        data-dipendente-id="{{ dipendente.pk }}"
-                                        data-dipendente-nome="{{ dipendente.nome_cognome_ragione_sociale }}"
-                                        data-data="{{ data_riferimento|date:"Y-m-d" }}"
-                                        data-attivita-json='{
-                                            "cantiere_id": "{{ dipendente.attivita.cantiere_pianificato.pk|default_if_none:"" }}",
-                                            "mezzo_id": "{{ dipendente.attivita.mezzo_pianificato.pk|default_if_none:"" }}",
-                                            "stato_presenza": "{{ dipendente.attivita.stato_presenza|default_if_none:"" }}",
-                                            "tipo_assenza": "{{ dipendente.attivita.tipo_assenza_giustificata|default_if_none:"" }}",
-                                            "ore_ord": "{{ dipendente.attivita.ore_ordinarie|default_if_none:"0.00" }}",
-                                            "ore_str": "{{ dipendente.attivita.ore_straordinarie|default_if_none:"0.00" }}",
-                                            "note": "{{ dipendente.attivita.note_giornaliere|default_if_none:"" }}"
-                                        }'>
-                                    Pianifica/Consuntiva
-                                </button>
-                            {% else %}
-                                -
-                            {% endif %}
+                        <!-- TODO: Pulsanti di azione -->
+                            {% if request.session.user_company_role == 'admin' %}
+                        <button type="button" class="btn btn-sm btn-outline-primary"
+                                data-bs-toggle="modal" 
+                                data-bs-target="#attivitaModal"
+                                data-dipendente-id="{{ dipendente.pk }}"
+                                data-dipendente-nome="{{ dipendente.nome_cognome_ragione_sociale }}"
+                                data-data="{{ data_riferimento|date:"Y-m-d" }}"
+                                data-attivita-json='{
+                                    "cantiere_id": "{{ dipendente.attivita.cantiere_pianificato.pk|default_if_none:"" }}",
+                                    "mezzo_id": "{{ dipendente.attivita.mezzo_pianificato.pk|default_if_none:"" }}",
+                                    "stato_presenza": "{{ dipendente.attivita.stato_presenza|default_if_none:"" }}",
+                                    "tipo_assenza": "{{ dipendente.attivita.tipo_assenza_giustificata|default_if_none:"" }}",
+                                    
+                                    {# === INIZIO CORREZIONE === #}
+                                    {# Usiamo il filtro 'unlocalize' per forzare il punto come separatore decimale #}
+                                    {% load l10n %}
+                                    "ore_ord": "{{ dipendente.attivita.ore_ordinarie|unlocalize|default_if_none:"0.00" }}",
+                                    "ore_str": "{{ dipendente.attivita.ore_straordinarie|unlocalize|default_if_none:"0.00" }}",
+                                    {# === FINE CORREZIONE === #}
+
+                                    "note": "{{ dipendente.attivita.note_giornaliere|escapejs|default_if_none:"" }}"
+                                }'>
+                            Pianifica/Consuntiva
+                        </button>
+                        {% else %}
+                            -
+                        {% endif %}
                         </td>
                     </tr>
                     {% empty %}
@@ -155,7 +161,6 @@
 </div>
 
 {% endblock content %}
-
 {% block scripts %}
 <script>
 const attivitaModal = document.getElementById('attivitaModal');
@@ -168,22 +173,42 @@ if (attivitaModal) {
         const dipendenteNome = button.getAttribute('data-dipendente-nome');
         const data = button.getAttribute('data-data');
 
-        // Recupera i valori attuali (serializzati come JSON)
+        // Recupera la stringa JSON e la "analizza" per trasformarla in un oggetto JavaScript
         const attivitaCorrente = JSON.parse(button.getAttribute('data-attivita-json'));
 
-        // Popola i campi nascosti
+        // Popola i campi nascosti (questi sono sempre necessari)
         attivitaModal.querySelector('#attivita_dipendente_id').value = dipendenteId;
         attivitaModal.querySelector('#attivita_data').value = data;
+        
+        // Popola gli elementi visibili per l'utente
         attivitaModal.querySelector('#dipendenteNome').textContent = dipendenteNome;
 
-        // Popola i campi del form con i valori esistenti (se ci sono)
-        attivitaModal.querySelector('#id_cantiere_pianificato').value = attivitaCorrente.cantiere_id || "";
-        attivitaModal.querySelector('#id_mezzo_pianificato').value = attivitaCorrente.mezzo_id || "";
-        attivitaModal.querySelector('#id_stato_presenza').value = attivitaCorrente.stato_presenza || "";
-        attivitaModal.querySelector('#id_tipo_assenza_giustificata').value = attivitaCorrente.tipo_assenza || "";
-        attivitaModal.querySelector('#id_ore_ordinarie').value = attivitaCorrente.ore_ord;
-        attivitaModal.querySelector('#id_ore_straordinarie').value = attivitaCorrente.ore_str;
-        attivitaModal.querySelector('#id_note_giornaliere').value = attivitaCorrente.note || "";
+        // === INIZIO CORREZIONE ===
+        // Popola i campi del form con i valori esistenti, usando le chiavi JSON corrette.
+        // Aggiungiamo controlli per assicurarci che gli elementi esistano prima di impostare il valore.
+        
+        const cantiereSelect = attivitaModal.querySelector('#id_cantiere_pianificato');
+        if (cantiereSelect) cantiereSelect.value = attivitaCorrente.cantiere_id || "";
+
+        const mezzoSelect = attivitaModal.querySelector('#id_mezzo_pianificato');
+        if (mezzoSelect) mezzoSelect.value = attivitaCorrente.mezzo_id || "";
+
+        const statoSelect = attivitaModal.querySelector('#id_stato_presenza');
+        if (statoSelect) statoSelect.value = attivitaCorrente.stato_presenza || "";
+        
+        const tipoAssenzaInput = attivitaModal.querySelector('#id_tipo_assenza_giustificata');
+        if (tipoAssenzaInput) tipoAssenzaInput.value = attivitaCorrente.tipo_assenza || "";
+
+        // Ecco il punto cruciale: le chiavi sono 'ore_ord' e 'ore_str'
+        const oreOrdInput = attivitaModal.querySelector('#id_ore_ordinarie');
+        if (oreOrdInput) oreOrdInput.value = attivitaCorrente.ore_ord;
+
+        const oreStrInput = attivitaModal.querySelector('#id_ore_straordinarie');
+        if (oreStrInput) oreStrInput.value = attivitaCorrente.ore_str;
+
+        const noteInput = attivitaModal.querySelector('#id_note_giornaliere');
+        if (noteInput) noteInput.value = attivitaCorrente.note || "";
+        // === FINE CORREZIONE ===
     });
 }
 </script>
