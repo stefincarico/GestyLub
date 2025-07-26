@@ -302,3 +302,45 @@ class PagamentoForm(forms.Form):
         if importo <= 0:
             raise forms.ValidationError("L'importo deve essere maggiore di zero.")
         return importo
+    
+class ScadenzarioFilterForm(forms.Form):
+    """
+    Form per i filtri della dashboard scadenziario.
+    """
+    TIPO_CHOICES = (
+        ('', 'Tutti i Tipi'),
+        (Scadenza.Tipo.INCASSO, 'Incassi'),
+        (Scadenza.Tipo.PAGAMENTO, 'Pagamenti'),
+    )
+    STATO_CHOICES = (
+        ('aperte', 'Tutte Aperte'),
+        ('scadute', 'Scadute'),
+        ('a_scadere', 'A Scadere'),
+    )
+
+    anagrafica = forms.ModelChoiceField(
+        queryset=Anagrafica.objects.filter(attivo=True).order_by('nome_cognome_ragione_sociale'),
+        required=False,
+        label="Filtra per Anagrafica",
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+    data_da = forms.DateField(
+        required=False, 
+        label="Data Scadenza Da",
+        widget=forms.DateInput(attrs={'class': 'form-control', 'type': 'date'})
+    )
+    data_a = forms.DateField(
+        required=False, 
+        label="Data Scadenza A",
+        widget=forms.DateInput(attrs={'class': 'form-control', 'type': 'date'})
+    )
+    tipo = forms.ChoiceField(
+        choices=TIPO_CHOICES, 
+        required=False,
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+    stato = forms.ChoiceField(
+        choices=STATO_CHOICES, 
+        required=False,
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )

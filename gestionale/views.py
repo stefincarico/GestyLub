@@ -15,6 +15,7 @@ from django.shortcuts import get_object_or_404, render, redirect
 from django.urls import reverse, reverse_lazy
 from django.http import HttpResponseRedirect, JsonResponse
 from django.contrib import messages
+from django.core.paginator import Paginator
 
 # Django Views
 from django.views import View
@@ -47,7 +48,8 @@ from .forms import (
     DocumentoRigaForm,
     DocumentoTestataForm,
     ScadenzaWizardForm,
-    PagamentoForm
+    PagamentoForm,
+    ScadenzarioFilterForm
 )
 
 
@@ -637,3 +639,89 @@ class RegistraPagamentoView(TenantRequiredMixin, View):
             
         return redirect(redirect_url)
     
+# ==============================================================================
+# === VISTE SCADENZIARIO                                                    ===
+# ==============================================================================
+
+class ScadenzarioListView(TenantRequiredMixin, View):
+    template_name = 'gestionale/scadenzario_list.html'
+    paginate_by = 15
+
+    def get(self, request, *args, **kwargs):
+        from datetime import date
+        today = date.today()
+
+        # 1. Creiamo un'istanza del form con i dati GET della richiesta (o vuota).
+        filter_form = ScadenzarioFilterForm(request.GET)
+        
+        # Iniziamo con il queryset di base
+        scadenze_qs = Scadenza.objects.filter(
+            stato__in=[Scadenza.Stato.APERTA, Scadenza.Stato.PARZIALE]
+        ).select_related('anagrafica', 'documento').order_by('data_scadenza')
+
+        # 2. Applichiamo i filtri se il form è valido
+        if filter_form.is_valid():
+            
+            anagrafica = filter_form.cleaned_data.get('anagrafica')
+            if anagrafica:
+                scadenze_qs = scadenze_qs.filter(anagrafica=anagrafica)
+
+            data_da = filter_form.cleaned_data.get('data_da')
+            if data_da:
+                scadenze_qs = scadenze_qs.filter(data_scadenza__gte=data_da) # gte = Greater Than or Equal
+
+            data_a = filter_form.cleaned_data.get('data_a')
+            if data_a:
+                scadenze_qs = scadenze_qs.filter(data_scadenza__lte=data_a) # lte = Less Than or Equal
+
+            tipo = filter_form.cleaned_data.get('tipo')
+            if tipo:
+                scadenze_qs = scadenze_qs.filter(tipo_scadenza=tipo)
+
+            stato = filter_form.cleaned_data.get('stato')
+            if stato == 'scadute':
+                scadenze_qs = scadenze_qs.filter(data_scadenza__lt=today) # lt = Less Than
+            elif stato == 'a_scadere':
+                scadenze_qs = scadenze_qs.filter(data_scadenza__gte=today)
+
+
+        # Calcolo dei KPI (sull'intero queryset, prima della paginazione)
+        kpi_qs = scadenze_qs.aggregate(
+            incassi_totali=Coalesce(Sum('importo_rata', filter=models.Q(tipo_scadenza=Scadenza.Tipo.INCASSO)), Value(0), output_field=models.DecimalField()),
+            pagamenti_totali=Coalesce(Sum('importo_rata', filter=models.Q(tipo_scadenza=Scadenza.Tipo.PAGAMENTO)), Value(0), output_field=models.DecimalField()),
+            incassi_pagati=Coalesce(Sum('pagamenti__importo', filter=models.Q(tipo_scadenza=Scadenza.Tipo.INCASSO)), Value(0), output_field=models.DecimalField()),
+            pagamenti_pagati=Coalesce(Sum('pagamenti__importo', filter=models.Q(tipo_scadenza=Scadenza.Tipo.PAGAMENTO)), Value(0), output_field=models.DecimalField())
+        )
+        
+        incassi_aperti = kpi_qs['incassi_totali'] - kpi_qs['incassi_pagati']
+        pagamenti_aperti = kpi_qs['pagamenti_totali'] - kpi_qs['pagamenti_pagati']
+
+
+        paginator = Paginator(scadenze_qs, self.paginate_by)
+        page_number = request.GET.get('page')
+        page_obj = paginator.get_page(page_number)
+        
+        # Annotiamo il pagato solo per gli oggetti della pagina corrente, per efficienza.
+        ids_pagina_corrente = [s.id for s in page_obj]
+        scadenze_pagina_con_pagato = Scadenza.objects.filter(pk__in=ids_pagina_corrente).annotate(
+            pagato=Coalesce(Sum('pagamenti__importo'), Value(0), output_field=models.DecimalField())
+        )
+        
+        # Creiamo un dizionario per mappare facilmente i dati
+        pagato_map = {s.id: s.pagato for s in scadenze_pagina_con_pagato}
+
+        for s in page_obj:
+            s.residuo = s.importo_rata - pagato_map.get(s.id, Decimal(0))
+
+        context = {
+            'page_obj': page_obj,
+            'is_paginated': page_obj.has_other_pages(),
+            'pagamento_form': PagamentoForm(),
+            'today': date.today(),
+            'kpi': {
+                'incassi_aperti': incassi_aperti,
+                'pagamenti_aperti': pagamenti_aperti,
+                'saldo_circolante': incassi_aperti - pagamenti_aperti,
+            }
+        }
+        return render(request, self.template_name, context)

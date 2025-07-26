@@ -24,6 +24,7 @@
             <a href="{% url 'dashboard' %}" class="nav-link text-white fw-bold me-3">Dashboard</a>
             <a href="{% url 'anagrafica_list' %}" class="nav-link text-white fw-bold me-3">Anagrafiche</a>
             <a href="{% url 'documento_list' %}" class="nav-link text-white fw-bold me-3">Documenti</a>
+            <a href="{% url 'scadenzario_list' %}" class="nav-link text-white fw-bold me-3">Scadenzario</a>
             <!-- Altri link verranno qui -->
             <form action="{% url 'logout' %}" method="post" class="m-0">
                 {% csrf_token %}

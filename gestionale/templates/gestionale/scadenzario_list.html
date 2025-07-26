@@ -1,0 +1,144 @@
+{% extends "gestionale/base.html" %}
+{% block title %}Scadenziario Aperto{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h2">Scadenziario Aperto</h1>
+    <div>
+        <!-- TODO: Pulsanti Export -->
+        <a href="#" class="btn" style="background-color: #185C37; color: white;">Esporta Excel</a>
+        <a href="#" class="btn" style="background-color: #FF9900; color: white;">Esporta PDF</a>
+    </div>
+</div>
+
+<!-- KPI Cards -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body text-center">
+                <h6 class="card-title text-muted">Incassi Aperti</h6>
+                <h3 class="text-success">€ {{ kpi.incassi_aperti|floatformat:2 }}</h3>
+                <small class="text-muted">(di cui scaduti: € 0,00)</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body text-center">
+                <h6 class="card-title text-muted">Pagamenti Aperti</h6>
+                <h3 class="text-danger">€ {{ kpi.pagamenti_aperti|floatformat:2 }}</h3>
+                <small class="text-muted">(di cui scaduti: € 0,00)</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body text-center">
+                <h6 class="card-title text-muted">Saldo Circolante</h6>
+                <h3>€ {{ kpi.saldo_circolante|floatformat:2 }}</h3>
+                <small class="text-muted">(Incassi - Pagamenti)</small>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" action="">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    {{ filter_form.anagrafica.label_tag }}
+                    {{ filter_form.anagrafica }}
+                </div>
+                <div class="col-md-2">
+                    {{ filter_form.data_da.label_tag }}
+                    {{ filter_form.data_da }}
+                </div>
+                <div class="col-md-2">
+                    {{ filter_form.data_a.label_tag }}
+                    {{ filter_form.data_a }}
+                </div>
+                <div class="col-md-2">
+                    {{ filter_form.tipo.label_tag }}
+                    {{ filter_form.tipo }}
+                </div>
+                <div class="col-md-2">
+                    {{ filter_form.stato.label_tag }}
+                    {{ filter_form.stato }}
+                </div>
+                <div class="col-md-1">
+                    <button type="submit" class="btn btn-primary w-100">Filtra</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+<div class="card mb-4">
+    <div class="card-body">
+        <p class="text-muted">Area Filtri (in costruzione)</p>
+    </div>
+</div>
+
+<!-- Tabella Scadenziario -->
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Data Scad.</th>
+                        <th>Tipo</th>
+                        <th>Cliente/Fornitore</th>
+                        <th>Rif. Doc.</th>
+                        <th class="text-end">Importo Rata</th>
+                        <th class="text-end">Residuo</th>
+                        <th>Stato Rata</th>
+                        <th>Azioni</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for scadenza in page_obj %}
+                    <tr class="{% if scadenza.data_scadenza < today %}table-warning{% endif %}">
+                        <td><strong>{{ scadenza.data_scadenza|date:"d/m/Y" }}</strong></td>
+                        <td>{{ scadenza.get_tipo_scadenza_display }}</td>
+                        <td><a href="{% url 'anagrafica_detail' scadenza.anagrafica.pk %}">{{ scadenza.anagrafica.nome_cognome_ragione_sociale }}</a></td>
+                        <td><a href="{{ scadenza.documento.get_absolute_url }}">{{ scadenza.documento.numero_documento }}</a></td>
+                        <td class="text-end">€ {{ scadenza.importo_rata|floatformat:2 }}</td>
+                        <td class="text-end fw-bold">€ {{ scadenza.residuo|floatformat:2 }}</td>
+                        <td><span class="badge {% if scadenza.stato == 'Parziale' %}bg-warning text-dark{% else %}bg-info{% endif %}">{{ scadenza.get_stato_display }}</span></td>
+                        <td>
+                            <button type="button" class="btn btn-sm btn-primary" 
+                                    data-bs-toggle="modal" data-bs-target="#pagamentoModal"
+                                    data-scadenza-id="{{ scadenza.id }}"
+                                    data-scadenza-residuo="{{ scadenza.residuo|stringformat:"-1.2f" }}"
+                                    data-scadenza-info="N.{{ scadenza.id }} del {{ scadenza.data_scadenza|date:"d/m/Y" }}">
+                                Paga/Incassa
+                            </button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="8" class="text-center">Nessuna scadenza aperta trovata.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Paginazione -->
+{% if is_paginated %}
+<nav aria-label="Paginazione" class="mt-4">
+    <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+            <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">Precedente</a></li>
+        {% else %}
+            <li class="page-item disabled"><span class="page-link">Precedente</span></li>
+        {% endif %}
+        <li class="page-item active"><span class="page-link">Pagina {{ page_obj.number }} di {{ page_obj.paginator.num_pages }}</span></li>
+        {% if page_obj.has_next %}
+            <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">Successiva</a></li>
+        {% else %}
+            <li class="page-item disabled"><span class="page-link">Successiva</span></li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+{% endblock %}
