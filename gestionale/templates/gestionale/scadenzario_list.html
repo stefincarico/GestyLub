@@ -40,43 +40,48 @@
         </div>
     </div>
 </div>
-<div class="card mb-4">
-    <div class="card-body">
-        <form method="get" action="">
-            <div class="row g-3 align-items-end">
-                <div class="col-md-3">
-                    {{ filter_form.anagrafica.label_tag }}
-                    {{ filter_form.anagrafica }}
-                </div>
-                <div class="col-md-2">
-                    {{ filter_form.data_da.label_tag }}
-                    {{ filter_form.data_da }}
-                </div>
-                <div class="col-md-2">
-                    {{ filter_form.data_a.label_tag }}
-                    {{ filter_form.data_a }}
-                </div>
-                <div class="col-md-2">
-                    {{ filter_form.tipo.label_tag }}
-                    {{ filter_form.tipo }}
-                </div>
-                <div class="col-md-2">
-                    {{ filter_form.stato.label_tag }}
-                    {{ filter_form.stato }}
-                </div>
-                <div class="col-md-1">
-                    <button type="submit" class="btn btn-primary w-100">Filtra</button>
-                </div>
-            </div>
-        </form>
-    </div>
-</div>
-<div class="card mb-4">
-    <div class="card-body">
-        <p class="text-muted">Area Filtri (in costruzione)</p>
-    </div>
-</div>
+<!-- ======================= INIZIO BLOCCO FILTRI  ======================= -->
+    <div class="card mb-4">
+        <div class="card-header">
+            Filtra Scadenziario
+        </div>
+        <div class="card-body">
+            <form method="get" action="">
+                <div class="row g-3 align-items-end">
+                    <div class="col-lg-3 col-md-6">
+                        <label for="{{ filter_form.anagrafica.id_for_label }}" class="form-label">{{ filter_form.anagrafica.label }}</label>
+                        {{ filter_form.anagrafica }}
+                    </div>
+                    <div class="col-lg-2 col-md-6">
+                        <label for="{{ filter_form.data_da.id_for_label }}" class="form-label">{{ filter_form.data_da.label }}</label>
+                        {{ filter_form.data_da }}
+                    </div>
+                    <div class="col-lg-2 col-md-6">
+                        <label for="{{ filter_form.data_a.id_for_label }}" class="form-label">{{ filter_form.data_a.label }}</label>
+                        {{ filter_form.data_a }}
+                    </div>
+                    <div class="col-lg-2 col-md-6">
+                        <label for="{{ filter_form.tipo.id_for_label }}" class="form-label">{{ filter_form.tipo.label }}</label>
+                        {{ filter_form.tipo }}
+                    </div>
+                    <div class="col-lg-2 col-md-6">
+                        <label for="{{ filter_form.stato.id_for_label }}" class="form-label">{{ filter_form.stato.label }}</label>
+                        {{ filter_form.stato }}
+                    </div>
 
+                    <!-- === NUOVO BLOCCO PULSANTI === -->
+                    <div class="col-lg-1 col-md-12 d-flex">
+                        <button type="submit" class="btn btn-primary w-100 me-2">Filtra</button>
+                        <!-- Questo link punta all'URL base della pagina, senza parametri -->
+                        <a href="{% url 'scadenzario_list' %}" class="btn btn-secondary w-100">Reset</a>
+                    </div>
+                    <!-- === FINE NUOVO BLOCCO === -->
+
+                </div>
+            </form>
+        </div>
+    </div>
+    <!-- ======================== FINE BLOCCO FILTRI  ======================== -->
 <!-- Tabella Scadenziario -->
 <div class="card">
     <div class="card-body p-0">
