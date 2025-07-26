@@ -15,8 +15,9 @@
             <div class="card">
                 <div class="card-body text-center">
                     <h6 class="card-title text-muted">Incassi Aperti</h6>
-                    <h3 class="text-success">€ {{ kpi.incassi_aperti|floatformat:2 }}</h3>
-                    <small class="text-muted">(di cui scaduti: € {{ kpi.incassi_scaduti|floatformat:2 }})</small>
+                    {% load l10n %} <!-- Carichiamo i tag di localizzazione -->
+                    <h3 class="text-success">€ {{ kpi.incassi_aperti|floatformat:2|localize }}</h3>
+                    <small class="text-muted"><strong>(di cui scaduti: € {{ kpi.incassi_scaduti|floatformat:2|localize }})</strong></small>
                 </div>
             </div>
         </div>
@@ -24,8 +25,9 @@
             <div class="card">
                 <div class="card-body text-center">
                     <h6 class="card-title text-muted">Pagamenti Aperti</h6>
-                    <h3 class="text-danger">€ {{ kpi.pagamenti_aperti|floatformat:2 }}</h3>
-                    <small class="text-muted">(di cui scaduti: € {{ kpi.pagamenti_scaduti|floatformat:2 }})</small>
+                    {% load l10n %}
+                    <h3 class="text-danger">€ {{ kpi.pagamenti_aperti|floatformat:2|localize }}</h3>
+                    <small class="text-muted"><strong>(di cui scaduti: € {{ kpi.pagamenti_scaduti|floatformat:2|localize }})</strong></small>
                 </div>
             </div>
         </div>
@@ -34,8 +36,9 @@
             <div class="card">
                 <div class="card-body text-center">
                     <h6 class="card-title text-muted">Saldo Circolante</h6>
-                    <h3>€ {{ kpi.saldo_circolante|floatformat:2 }}</h3>
-                    <small class="text-muted">(Incassi - Pagamenti)</small>
+                    {% load l10n %}
+                    <h3>€ {{ kpi.saldo_circolante|floatformat:2|localize }}</h3>
+                    <small class="text-muted"><strong>(Incassi - Pagamenti)</strong></small>
                 </div>
             </div>
         </div>
