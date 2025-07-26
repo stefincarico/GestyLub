@@ -1,114 +1,92 @@
 {% extends "gestionale/base.html" %}
+
 {% block title %}Nuovo Documento (Passo 1 di 3){% endblock %}
+
 {% block content %}
 <h1 class="h2 mb-4">Nuovo Documento (Passo 1 di 3: Testata)</h1>
 <div class="card">
     <div class="card-body">
         <p>Compila i dati principali del documento.</p>
         <form method="post">
-                    {% csrf_token %}
+            {% csrf_token %}
 
-                    <!-- ================= INIZIO BLOCCO AGGIORNATO ================= -->
+            <!-- ================= INIZIO BLOCCO CON INCLUDE ================= -->
 
-                    <!-- Iteriamo su tutti i campi nascosti del form (come il csrf_token, se ce ne fossero altri) -->
-                    {% for hidden in form.hidden_fields %}
-                    {{ hidden }}
-                    {% endfor %}
+            {% for hidden in form.hidden_fields %}
+              {{ hidden }}
+            {% endfor %}
 
-                    <!-- Iteriamo sui campi visibili per disegnarli -->
-                    {% for field in form.visible_fields %}
-                        <div class="mb-3" 
-                            {% if field.name == 'numero_documento_manuale' %} 
-                                id="p_numero_documento_manuale" style="display: none;" 
-                            {% endif %}>
-                            
-                            {{ field.label_tag }}
-                            
-                            {{ field }}
-                            
-                            {% if field.help_text %}
-                                <small class="form-text text-muted">{{ field.help_text }}</small>
-                            {% endif %}
-                            
-                            {% for error in field.errors %}
-                                <div class="alert alert-danger mt-1 p-1" role="alert">
-                                    {{ error }}
-                                </div>
-                            {% endfor %}
-                        </div>
-                    {% endfor %}
+            <!-- Includiamo il nostro template parziale per ogni campo,
+                 passandogli il campo corrente del form come variabile 'field'. -->
+            
+            {% include "gestionale/partials/_form_field.html" with field=form.tipo_doc %}
+            {% include "gestionale/partials/_form_field.html" with field=form.anagrafica %}
+            {% include "gestionale/partials/_form_field.html" with field=form.numero_documento_manuale %}
+            {% include "gestionale/partials/_form_field.html" with field=form.data_documento %}
+            {% include "gestionale/partials/_form_field.html" with field=form.modalita_pagamento %}
+            {% include "gestionale/partials/_form_field.html" with field=form.cantiere %}
+            {% include "gestionale/partials/_form_field.html" with field=form.note %}
+            
+            <!-- ================== FINE BLOCCO CON INCLUDE ================== -->
 
-                    <!-- ================== FINE BLOCCO AGGIORNATO ================== -->
-
-                    <div class="mt-4">
-                        <button type="submit" class="btn btn-primary">Prosegui a Inserimento Righe →</button>
-                        <a href="{% url 'documento_list' %}" class="btn btn-secondary">Annulla</a>
-                    </div>
-                </form>
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary">Prosegui a Inserimento Righe →</button>
+                <a href="{% url 'documento_list' %}" class="btn btn-secondary">Annulla</a>
+            </div>
+        </form>
     </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const tipoDocSelect = document.getElementById('id_tipo_doc');
-        const anagraficaSelect = document.getElementById('id_anagrafica');
-        
-        // Selezioniamo il paragrafo che contiene il campo del numero manuale
-        const numeroDocManualeContainer = document.getElementById('p_numero_documento_manuale');
-        const numeroDocManualeInput = document.getElementById('id_numero_documento_manuale');
-        
-        // Definiamo quali tipi di documento sono "passivi" (di acquisto)
-        const tipiPassivi = ['{{ DocumentoTestata.TipoDoc.FATTURA_ACQUISTO }}', '{{ DocumentoTestata.TipoDoc.NOTA_CREDITO_ACQUISTO }}'];
+document.addEventListener('DOMContentLoaded', function() {
+    
+    const tipoDocSelect = document.getElementById('id_tipo_doc');
+    const anagraficaSelect = document.getElementById('id_anagrafica');
+    
+    // Cambiamo il selettore per essere più specifici
+    const numeroDocManualeContainer = document.getElementById('container_numero_documento_manuale');
+    const numeroDocManualeInput = document.getElementById('id_numero_documento_manuale');
+    
+    // Per usare le costanti di Django in JS in modo sicuro, le "iniettiamo" qui
+    const tipiPassivi = JSON.parse('{{ tipi_passivi_json|safe }}');
 
-        tipoDocSelect.addEventListener('change', function() {
-            const tipoDoc = this.value;
-            
-            // --- Logica per mostrare/nascondere il campo numero documento ---
-            if (tipiPassivi.includes(tipoDoc)) {
-                numeroDocManualeContainer.style.display = 'block'; // Mostra il campo
-                numeroDocManualeInput.required = true; // Rendilo obbligatorio
-            } else {
-                numeroDocManualeContainer.style.display = 'none'; // Nascondi il campo
-                numeroDocManualeInput.required = false; // Non è più obbligatorio
-            }
-            
-            // Se non è stato selezionato nulla, svuotiamo e disabilitiamo il secondo menu
-            if (!tipoDoc) {
-                anagraficaSelect.innerHTML = '<option value="">---------</option>';
-                anagraficaSelect.disabled = true;
-                return;
-            }
-            
-            // Prepariamo l'URL per la nostra chiamata API, aggiungendo il tipo_doc come parametro
-            const url = `{% url 'api_get_anagrafiche' %}?tipo_doc=${tipoDoc}`;
-            
-            // Usiamo 'fetch', il modo moderno per fare chiamate AJAX in JavaScript
-            fetch(url)
-                .then(response => response.json()) // Convertiamo la risposta in JSON
-                .then(data => {
-                    // Svuotiamo il menu delle anagrafiche
-                    anagraficaSelect.innerHTML = '<option value="">---------</option>';
-                    
-                    // Cicliamo sui risultati ricevuti da Django
-                    data.results.forEach(anagrafica => {
-                        // Creiamo una nuova opzione per ogni anagrafica
-                        const option = document.createElement('option');
-                        option.value = anagrafica.id;
-                        option.textContent = anagrafica.text;
-                        // Aggiungiamo l'opzione al menu a tendina
-                        anagraficaSelect.appendChild(option);
-                    });
-                    
-                    // Riattiviamo il menu
-                    anagraficaSelect.disabled = false;
-                });
-        });
+    function updateFormVisibility() {
+        const tipoDoc = tipoDocSelect.value;
         
-        // All'avvio della pagina, "triggeriamo" manualmente l'evento 'change'
-        // per caricare le anagrafiche corrette se un valore è già selezionato (es. in modifica).
-        tipoDocSelect.dispatchEvent(new Event('change'));
-    });
+        // --- Logica per mostrare/nascondere il campo ---
+        if (tipiPassivi.includes(tipoDoc)) {
+            numeroDocManualeContainer.style.display = 'block';
+            numeroDocManualeInput.required = true;
+        } else {
+            numeroDocManualeContainer.style.display = 'none';
+            numeroDocManualeInput.required = false;
+        }
+
+        // --- Logica AJAX (invariata) ---
+        if (!tipoDoc) {
+            anagraficaSelect.innerHTML = '<option value="">---------</option>';
+            anagraficaSelect.disabled = true;
+            return;
+        }
+        const url = `{% url 'api_get_anagrafiche' %}?tipo_doc=${tipoDoc}`;
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                anagraficaSelect.innerHTML = '<option value="">---------</option>';
+                data.results.forEach(anagrafica => {
+                    const option = document.createElement('option');
+                    option.value = anagrafica.id;
+                    option.textContent = anagrafica.text;
+                    anagraficaSelect.appendChild(option);
+                });
+                anagraficaSelect.disabled = false;
+            });
+    }
+    
+    tipoDocSelect.addEventListener('change', updateFormVisibility);
+    updateFormVisibility(); // Esegui la funzione una volta al caricamento della pagina
+});
 </script>
 {% endblock %}

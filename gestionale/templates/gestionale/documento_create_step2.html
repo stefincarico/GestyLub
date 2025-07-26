@@ -46,8 +46,7 @@
                     <td class="text-end">{{ riga.aliquota_iva_valore|floatformat:2 }}%</td>
                     <td class="text-end">€ {{ riga.imponibile_riga|floatformat:2 }}</td>
                     <td>
-                        <!-- TODO: Implementare la cancellazione di una riga dalla sessione -->
-                        <a href="#" class="btn btn-sm btn-danger">Elimina</a>
+                        <a href="{% url 'documento_create_step2_righe' %}?delete_riga={{ forloop.counter0 }}" class="btn btn-sm btn-danger">Elimina</a>
                     </td>
                 </tr>
                 {% empty %}

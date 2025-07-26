@@ -4,6 +4,7 @@
 # === IMPORTAZIONI                                                          ===
 # ==============================================================================
 # Importazioni di Django
+import json
 from pyexpat.errors import messages
 from django.db import models, transaction # <-- ASSICURATI CHE 'models' SIA QUI
 from django.db.models import Sum, Value
@@ -171,19 +172,20 @@ class DocumentoDetailView(TenantRequiredMixin, DetailView):
 # ==============================================================================
 # === VISTE WIZARD CREAZIONE DOCUMENTO                                      ===
 # ==============================================================================
-@login_required # Questo "decoratore" fa lo stesso lavoro di LoginRequiredMixin
+def clear_doc_wizard_session(session):
+    session.pop('doc_testata_data', None)
+    session.pop('doc_righe_data', None)
+    session.pop('doc_scadenze_data', None)
+
+
+@login_required
 def documento_create_step1_testata(request):
     """
     Step 1 del wizard: inserimento dati della testata.
     """
-    # Se il form viene inviato (metodo POST)
     if request.method == 'POST':
         form = DocumentoTestataForm(request.POST)
         if form.is_valid():
-            # I dati sono validi. Li salviamo nella sessione.
-            # form.cleaned_data è un dizionario con i dati puliti.
-            # Dobbiamo convertire gli oggetti (anagrafica, etc.) in ID
-            # perché gli oggetti complessi non possono essere salvati in sessione.
             request.session['doc_testata_data'] = {
                 'tipo_doc': form.cleaned_data['tipo_doc'],
                 'anagrafica_id': form.cleaned_data['anagrafica'].pk,
@@ -193,26 +195,23 @@ def documento_create_step1_testata(request):
                 'note': form.cleaned_data['note'],
                 'numero_documento_manuale': form.cleaned_data.get('numero_documento_manuale'),
             }
-            # Puliamo eventuali dati vecchi dei passi successivi
             request.session.pop('doc_righe_data', None)
             request.session.pop('doc_scadenze_data', None)
-
-            # Reindirizziamo al passo 2 (che creeremo tra poco)
             return redirect(reverse('documento_create_step2_righe'))
     else:
-        # Se la pagina viene caricata per la prima volta (metodo GET)
-        # creiamo un form vuoto.
         form = DocumentoTestataForm()
 
+    # Definiamo la lista di tipi passivi e la passiamo al template come JSON
+    tipi_passivi = [
+        DocumentoTestata.TipoDoc.FATTURA_ACQUISTO, 
+        DocumentoTestata.TipoDoc.NOTA_CREDITO_ACQUISTO
+    ]
+    
     context = {
-        'form': form
+        'form': form,
+        'tipi_passivi_json': json.dumps(tipi_passivi) # Converte la lista Python in una stringa JSON
     }
     return render(request, 'gestionale/documento_create_step1.html', context)
-
-def clear_doc_wizard_session(session):
-    session.pop('doc_testata_data', None)
-    session.pop('doc_righe_data', None)
-    session.pop('doc_scadenze_data', None)
 
 @login_required
 def documento_create_step2_righe(request):
@@ -225,6 +224,19 @@ def documento_create_step2_righe(request):
         return redirect(reverse('documento_create_step1_testata'))
 
     righe_data = request.session.get('doc_righe_data', [])
+    # === NUOVA LOGICA DI ELIMINAZIONE RIGA (GESTITA CON GET) ===
+    riga_da_eliminare_idx = request.GET.get('delete_riga')
+    if riga_da_eliminare_idx is not None:
+        try:
+        # Rimuoviamo la riga dalla lista usando il suo indice
+            righe_data.pop(int(riga_da_eliminare_idx))
+            request.session['doc_righe_data'] = righe_data
+            messages.success(request, "Riga eliminata con successo.")
+        except (ValueError, IndexError):
+            messages.error(request, "Errore durante l'eliminazione della riga.")
+        # Reindirizziamo per pulire l'URL dal parametro 'delete_riga'
+        return redirect(reverse('documento_create_step2_righe'))
+
 
     if request.method == 'POST':
         # Controlliamo se l'utente vuole andare al passo 3
@@ -290,6 +302,17 @@ def documento_create_step3_scadenze(request):
 
     if not testata_data or not righe_data:
         return redirect(reverse('documento_create_step1_testata'))
+    
+    # === NUOVA LOGICA DI ELIMINAZIONE SCADENZA (GESTITA CON GET) ===
+    scadenza_da_eliminare_idx = request.GET.get('delete_scadenza')
+    if scadenza_da_eliminare_idx is not None:
+        try:
+            scadenze_data.pop(int(scadenza_da_eliminare_idx))
+            request.session['doc_scadenze_data'] = scadenze_data
+            messages.success(request, "Scadenza eliminata con successo.")
+        except (ValueError, IndexError):
+            messages.error(request, "Errore durante l'eliminazione della scadenza.")
+        return redirect(reverse('documento_create_step3_scadenze'))
 
     # Riconvertiamo le stringhe dalla sessione in Decimal prima di sommarle.
     totale_documento = sum(Decimal(r['imponibile_riga']) + Decimal(r['iva_riga']) for r in righe_data)
@@ -349,11 +372,6 @@ def documento_create_step3_scadenze(request):
                         # Componiamo il numero finale
                         numero_doc_finale = f"{prefisso}-{anno_corrente}-{nuovo_progressivo:06d}"
                     else:
-                        # Per i documenti di acquisto, il numero dovrebbe arrivare dal form.
-                        # Per ora, non abbiamo questo campo nel wizard, quindi dobbiamo gestirlo.
-                        # Aggiungeremo il campo per i documenti passivi in un secondo momento.
-                        # Per ora, usiamo un placeholder per evitare l'errore.
-                        # Questo è un debito tecnico che salderemo.
                         numero_doc_finale = testata_data.get('numero_documento_manuale', 'ERRORE_NUM_MANCANTE')
 
                     # === FINE LOGICA DI NUMERAZIONE AUTOMATICA ===

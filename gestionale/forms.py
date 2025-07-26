@@ -161,15 +161,13 @@ class DipendenteDettaglioForm(forms.ModelForm):
         return data
     
 class DocumentoTestataForm(forms.ModelForm):
-
-    # Aggiungiamo un campo extra che non esiste nel modello.
-    # Lo useremo per l'inserimento manuale del numero per i documenti di acquisto.
-    # required=False perché sarà reso obbligatorio da JavaScript solo quando serve.
+    # === IL CAMPO DEVE ESSERE DEFINITO QUI, FUORI DALLA CLASSE META ===
     numero_documento_manuale = forms.CharField(
         label="Numero Documento (del fornitore)",
-        required=False,
+        required=False, # La validazione 'required' è gestita da JavaScript
         widget=forms.TextInput(attrs={'class': 'form-control'})
     )
+
     class Meta:
         model = DocumentoTestata
         fields = [
@@ -186,16 +184,10 @@ class DocumentoTestataForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
-        """
-        Popoliamo dinamicamente il queryset di anagrafica per la validazione.
-        """
         super().__init__(*args, **kwargs)
         self.fields['cantiere'].queryset = Cantiere.objects.filter(attivo=True)
-        
-        # Inizializziamo il queryset a vuoto
         self.fields['anagrafica'].queryset = Anagrafica.objects.none()
 
-        # 'data' esiste se il form è stato "bound", cioè creato con dati POST.
         if 'tipo_doc' in self.data:
             try:
                 tipo_doc = self.data.get('tipo_doc')
@@ -204,14 +196,48 @@ class DocumentoTestataForm(forms.ModelForm):
                 elif tipo_doc in [DocumentoTestata.TipoDoc.FATTURA_ACQUISTO, DocumentoTestata.TipoDoc.NOTA_CREDITO_ACQUISTO]:
                     self.fields['anagrafica'].queryset = Anagrafica.objects.filter(tipo=Anagrafica.Tipo.FORNITORE, attivo=True)
             except (ValueError, TypeError):
-                pass  # Ignora errori se il tipo_doc non è valido, la validazione se ne occuperà
+                pass
         elif self.instance.pk:
-            # Questo si attiva quando apriamo un form in modalità "modifica" (UpdateView).
-            # Popola il queryset in base al tipo_doc dell'oggetto esistente.
             if self.instance.tipo_doc in [DocumentoTestata.TipoDoc.FATTURA_VENDITA, DocumentoTestata.TipoDoc.NOTA_CREDITO_VENDITA]:
                 self.fields['anagrafica'].queryset = Anagrafica.objects.filter(tipo=Anagrafica.Tipo.CLIENTE, attivo=True)
             elif self.instance.tipo_doc in [DocumentoTestata.TipoDoc.FATTURA_ACQUISTO, DocumentoTestata.TipoDoc.NOTA_CREDITO_ACQUISTO]:
                  self.fields['anagrafica'].queryset = Anagrafica.objects.filter(tipo=Anagrafica.Tipo.FORNITORE, attivo=True)
+        # === LOGICA DI VALIDAZIONE ===
+    def clean(self):
+        """
+        Validazione incrociata per l'unicità del documento fornitore.
+        """
+        cleaned_data = super().clean()
+        
+        tipo_doc = cleaned_data.get('tipo_doc')
+        anagrafica = cleaned_data.get('anagrafica')
+        numero_manuale = cleaned_data.get('numero_documento_manuale')
+
+        # Eseguiamo questo controllo solo per i documenti di acquisto che hanno un numero
+        tipi_passivi = [
+            DocumentoTestata.TipoDoc.FATTURA_ACQUISTO, 
+            DocumentoTestata.TipoDoc.NOTA_CREDITO_ACQUISTO
+        ]
+        
+        if tipo_doc in tipi_passivi and anagrafica and numero_manuale:
+            # Cerchiamo nel database se esiste già un documento con questa combinazione.
+            # self.instance.pk ci assicura che in modifica non controlliamo l'oggetto stesso.
+            if DocumentoTestata.objects.filter(
+                anagrafica=anagrafica,
+                tipo_doc=tipo_doc,
+                numero_documento=numero_manuale
+            ).exclude(pk=self.instance.pk).exists():
+                
+                # Se esiste, solleviamo un errore di validazione specifico
+                # sul campo 'numero_documento_manuale'.
+                self.add_error(
+                    'numero_documento_manuale', 
+                    f"Questo numero documento è già stato registrato per {anagrafica.nome_cognome_ragione_sociale}."
+                )
+
+        return cleaned_data
+    
+
 
 class DocumentoRigaForm(forms.ModelForm):
     class Meta:
