@@ -37,7 +37,7 @@ from openpyxl.styles import Font, Alignment
 from weasyprint import HTML
 
 # Importazioni delle app locali
-from .report_utils import generate_excel_report
+from .report_utils import generate_excel_report, generate_pdf_report
 
 from .models import (
     AliquotaIVA, Anagrafica, Cantiere, DipendenteDettaglio, DocumentoRiga,
@@ -828,61 +828,51 @@ class ScadenzarioExportExcelView(ScadenzarioListView):
 
 class ScadenzarioExportPdfView(ScadenzarioListView):
     """
-    Vista per esportare i dati dello scadenziario (filtrati) in un file PDF.
+    Esporta i dati dello scadenziario in PDF, usando la utility centralizzata.
     """
     def get(self, request, *args, **kwargs):
-        # 1. Recuperiamo i dati usando il nostro metodo helper.
+        # 1. Recupera i dati filtrati e i KPI.
         scadenze_qs, kpi_data, filter_form, today = self._get_filtered_data(request)
 
-        # 2. Eseguiamo l'annotate per calcolare il 'pagato' su tutto il queryset,
-        #    esattamente come facciamo nella vista Excel.
+        # 2. Prepara i dati per il contesto del template PDF.
+        # Calcola il residuo per ogni scadenza.
         scadenze_con_pagato = scadenze_qs.annotate(
             pagato=Coalesce(Sum('pagamenti__importo'), Value(0), output_field=models.DecimalField())
         )
         for scadenza in scadenze_con_pagato:
             scadenza.residuo = scadenza.importo_rata - scadenza.pagato
+            
+        # Costruisci la stringa dei filtri.
+        filtri_attivi = []
+        if filter_form.is_valid():
+            for name, value in filter_form.cleaned_data.items():
+                if value:
+                    field = filter_form.fields.get(name)
+                    if not field: continue
+                    label = field.label or name.replace('_', ' ').title()
+                    display_value = value
+                    if hasattr(field, 'choices'):
+                         display_value = dict(field.choices).get(value, value)
+                    if isinstance(value, date):
+                         display_value = value.strftime('%d/%m/%Y')
+                    if isinstance(field, forms.ModelChoiceField):
+                        display_value = str(value)
+                    filtri_attivi.append(f"{label}: {display_value}")
+        filtri_str = " | ".join(filtri_attivi) if filtri_attivi else "Tutti"
 
-        # 4. Calcoliamo i KPI finali (logica invariata)
+        # Calcola i valori finali dei KPI.
         incassi_aperti = kpi_data['incassi_totali_rate'] - kpi_data['incassi_pagati']
         pagamenti_aperti = kpi_data['pagamenti_totali_rate'] - kpi_data['pagamenti_pagati']
         incassi_scaduti = kpi_data['incassi_scaduti_rate'] - kpi_data['incassi_scaduti_pagati']
         pagamenti_scaduti = kpi_data['pagamenti_scaduti_rate'] - kpi_data['pagamenti_scaduti_pagati']
 
-        # 5. Prepariamo il contesto per il template PDF
-        # Costruiamo la stringa dei filtri applicati
-        filtri_attivi = []
-        if filter_form.is_valid():
-            for name, value in filter_form.cleaned_data.items():
-                if value:
-                    # Recuperiamo il campo dal form per accedere alle sue proprietà
-                    field = filter_form.fields.get(name)
-                    if not field: continue # Salta se per qualche motivo il campo non esiste
-
-                    # Otteniamo l'etichetta del campo, con un fallback sul nome del campo
-                    label = field.label or name.replace('_', ' ').title()
-                    
-                    # Otteniamo il valore leggibile per i campi con scelte
-                    display_value = value
-                    if hasattr(field, 'choices'):
-                         display_value = dict(field.choices).get(value, value)
-                    
-                    # Formattiamo le date
-                    if isinstance(value, date):
-                         display_value = value.strftime('%d/%m/%Y')
-                    
-                    # Per i ModelChoiceField (come anagrafica), l'oggetto stesso è il valore
-                    if isinstance(field, forms.ModelChoiceField):
-                        display_value = str(value)
-                    
-                    filtri_attivi.append(f"{label}: {display_value}")
-        
-        filtri_str = " | ".join(filtri_attivi) if filtri_attivi else "Tutti"
-
+        # 3. Crea il dizionario di contesto.
         context = {
             'tenant_name': request.session.get('active_tenant_name', 'GestionaleDjango'),
+            'report_title': 'Report Scadenziario Aperto',
             'timestamp': timezone.now().strftime('%d/%m/%Y %H:%M:%S'),
             'filtri_str': filtri_str,
-            'scadenze': scadenze_con_pagato, # Usiamo il queryset arricchito
+            'scadenze': scadenze_con_pagato,
             'kpi': {
                 'incassi_aperti': incassi_aperti,
                 'pagamenti_aperti': pagamenti_aperti,
@@ -892,11 +882,9 @@ class ScadenzarioExportPdfView(ScadenzarioListView):
             }
         }
         
-        # 6. Renderizziamo e convertiamo in PDF (logica invariata)
-        html_string = render_to_string('gestionale/scadenzario_pdf_template.html', context)
-        pdf_file = HTML(string=html_string).write_pdf()
-        response = HttpResponse(pdf_file, content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="report_scadenziario_{today.strftime("%Y%m%d")}.pdf"'
-        
-        return response
-    
+        # 4. Chiama la funzione di utility e restituisci il risultato.
+        return generate_pdf_report(
+            request, 
+            'gestionale/scadenzario_pdf_template.html', 
+            context
+        )
