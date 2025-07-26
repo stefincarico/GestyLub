@@ -6,7 +6,6 @@
     <h1 class="h2">Partitario {{ anagrafica.get_tipo_display }}: {{ anagrafica.nome_cognome_ragione_sociale }}</h1>
     <div>
         <a href="{% url 'anagrafica_partitario_export_excel' anagrafica.pk %}" class="btn" style="background-color: #185C37; color: white;">Esporta Excel</a>
-        <!-- Il link al PDF lo aggiungeremo tra poco -->
         <a href="{% url 'anagrafica_partitario_export_pdf' anagrafica.pk %}" class="btn" style="background-color: #FF9900; color: white;">Esporta PDF</a>
         <a href="{% url 'anagrafica_list' %}" class="btn btn-secondary ms-2">Torna alla Lista</a>
     </div>
@@ -17,29 +16,18 @@
     <div class="card-header">Riepilogo Contabile</div>
     <div class="card-body">
         <div class="row text-center">
-            <div class="col-md-4">
-                <h6 class="text-muted">Esposizione Documenti</h6>
-                <h4>€ {{ esposizione_documenti|format_currency }}</h4> 
-            </div>
-            <div class="col-md-4">
-                <h6 class="text-muted">Netto Incassato/Pagato</h6>
-                <h4>€ {{ netto_movimenti|format_currency }}</h4>
-            </div>
-            <div class="col-md-4">
-                <h6 class="text-muted">Saldo Aperto Finale</h6>
-                <h4 class="{% if saldo_finale > 0 %}text-danger{% elif saldo_finale < 0 %}text-success{% endif %}">
-                     € {{ saldo_finale|format_currency }}
-                </h4>
-            </div>
+            <div class="col-md-4"><h6 class="text-muted">Esposizione Documenti</h6><h4>€ {{ esposizione_documenti|format_currency }}</h4></div>
+            <div class="col-md-4"><h6 class="text-muted">Netto Incassato/Pagato</h6><h4>€ {{ netto_movimenti|format_currency }}</h4></div>
+            <div class="col-md-4"><h6 class="text-muted">Saldo Aperto Finale</h6><h4 class="{% if saldo_finale > 0 %}text-danger{% elif saldo_finale < 0 %}text-success{% endif %}">€ {{ saldo_finale|format_currency }}</h4></div>
         </div>
     </div>
 </div>
 
-<!-- Storico Documenti -->
+<!-- Storico Documenti (invariato) -->
 <div class="card mb-4">
     <div class="card-header">Storico Documenti (Confermati)</div>
     <div class="card-body p-0">
-        <table class="table table-striped mb-0">
+        <div class="table-responsive"><table class="table table-striped mb-0">
             <thead><tr><th>Data</th><th>Tipo</th><th>Numero</th><th class="text-end">Totale</th></tr></thead>
             <tbody>
                 {% for doc in documenti %}
@@ -47,13 +35,13 @@
                     <td>{{ doc.data_documento|date:"d/m/Y" }}</td>
                     <td>{{ doc.get_tipo_doc_display }}</td>
                     <td><a href="{{ doc.get_absolute_url }}">{{ doc.numero_documento }}</a></td>
-                    <td class="text-end">€ {{ doc.totale|floatformat:2 }}</td>
+                    <td class="text-end">€ {{ doc.totale|format_currency }}</td>
                 </tr>
                 {% empty %}
                 <tr><td colspan="4" class="text-center">Nessun documento trovato.</td></tr>
                 {% endfor %}
             </tbody>
-        </table>
+        </table></div>
     </div>
 </div>
 
@@ -61,55 +49,90 @@
 <div class="card mb-4">
     <div class="card-header">Scadenziario Aperto</div>
     <div class="card-body p-0">
-        <table class="table table-striped mb-0">
-            <thead><tr><th>Data Scad.</th><th>Rif. Doc.</th><th>Tipo</th><th class="text-end">Importo Rata</th><th class="text-end">Residuo</th><th>Azioni</th></tr></thead>
+        <div class="table-responsive"><table class="table table-striped mb-0">
+            <thead>
+                <tr>
+                    <th>Data Scad.</th><th>Rif. Doc.</th><th>Tipo</th>
+                    <th class="text-end">Importo Rata</th><th class="text-end">Residuo</th>
+                    <th>Stato Rata</th><th>Azioni</th>
+                </tr>
+            </thead>
             <tbody>
                 {% for scadenza in scadenze_aperte %}
                 <tr>
                     <td>{{ scadenza.data_scadenza|date:"d/m/Y" }}</td>
                     <td><a href="{{ scadenza.documento.get_absolute_url }}">{{ scadenza.documento.numero_documento }}</a></td>
                     <td>{{ scadenza.get_tipo_scadenza_display }}</td>
-                    <td class="text-end">€ {{ scadenza.importo_rata|floatformat:2 }}</td>
-                    <td class="text-end">€ {{ scadenza.residuo|floatformat:2 }}</td>
+                    <td class="text-end">€ {{ scadenza.importo_rata|format_currency }}</td>
+                    <td class="text-end">€ {{ scadenza.residuo|format_currency }}</td>
+                    <td><span class="badge {% if scadenza.stato == 'Parziale' %}bg-warning text-dark{% else %}bg-info{% endif %}">{{ scadenza.get_stato_display }}</span></td>
                     <td>
-                        <button type="button" class="btn btn-sm btn-primary" 
-                                data-bs-toggle="modal" data-bs-target="#pagamentoModal"
-                                data-scadenza-id="{{ scadenza.id }}"
-                                data-scadenza-residuo="{{ scadenza.residuo|stringformat:"-1.2f" }}"
-                                data-scadenza-info="N.{{ scadenza.id }} del {{ scadenza.data_scadenza|date:"d/m/Y" }}">
-                            Paga/Incassa
-                        </button>
+                        <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#pagamentoModal" data-scadenza-id="{{ scadenza.id }}" data-scadenza-residuo="{{ scadenza.residuo|stringformat:'-1.2f' }}" data-scadenza-info="N.{{ scadenza.id }} del {{ scadenza.data_scadenza|date:'d/m/Y' }}">Paga/Incassa</button>
                     </td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="6" class="text-center">Nessuna scadenza aperta.</td></tr>
+                <tr><td colspan="7" class="text-center">Nessuna scadenza aperta.</td></tr>
                 {% endfor %}
             </tbody>
-        </table>
+        </table></div>
     </div>
+    <!-- Paginazione Scadenze -->
+    {% with page_obj=scadenze_aperte %}
+    {% if page_obj.has_other_pages %}
+        <div class="card-footer bg-light">
+            <nav aria-label="Paginazione scadenze">
+                <ul class="pagination justify-content-center mb-0">
+                    <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+                        <a class="page-link" href="?pagina_scadenze={% if page_obj.has_previous %}{{ page_obj.previous_page_number }}{% else %}1{% endif %}&pagina_movimenti={{ movimenti.number }}">Precedente</a>
+                    </li>
+                    <li class="page-item active"><span class="page-link">Pagina {{ page_obj.number }} di {{ page_obj.paginator.num_pages }}</span></li>
+                    <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+                        <a class="page-link" href="?pagina_scadenze={% if page_obj.has_next %}{{ page_obj.next_page_number }}{% else %}{{ page_obj.paginator.num_pages }}{% endif %}&pagina_movimenti={{ movimenti.number }}">Successiva</a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    {% endif %}
+    {% endwith %}
 </div>
 
 <!-- Cronologia Movimenti -->
 <div class="card">
     <div class="card-header">Cronologia Movimenti</div>
     <div class="card-body p-0">
-        <table class="table table-striped mb-0">
+        <div class="table-responsive"><table class="table table-striped mb-0">
             <thead><tr><th>Data</th><th>Descrizione</th><th class="text-end">Importo</th><th>Conto</th></tr></thead>
             <tbody>
                 {% for movimento in movimenti %}
                 <tr>
                     <td>{{ movimento.data_registrazione|date:"d/m/Y" }}</td>
                     <td>{{ movimento.descrizione }}</td>
-                    <td class="text-end {% if movimento.tipo_movimento == 'E' %}text-success{% else %}text-danger{% endif %}">
-                        € {{ movimento.importo|floatformat:2 }}
-                    </td>
+                    <td class="text-end {% if movimento.tipo_movimento == 'E' %}text-success{% else %}text-danger{% endif %}">€ {{ movimento.importo|format_currency }}</td>
                     <td>{{ movimento.conto_finanziario.nome_conto }}</td>
                 </tr>
                 {% empty %}
                 <tr><td colspan="4" class="text-center">Nessun movimento trovato.</td></tr>
                 {% endfor %}
             </tbody>
-        </table>
+        </table></div>
     </div>
+    <!-- Paginazione Movimenti -->
+    {% with page_obj=movimenti %}
+    {% if page_obj.has_other_pages %}
+        <div class="card-footer bg-light">
+            <nav aria-label="Paginazione movimenti">
+                <ul class="pagination justify-content-center mb-0">
+                    <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+                        <a class="page-link" href="?pagina_movimenti={% if page_obj.has_previous %}{{ page_obj.previous_page_number }}{% else %}1{% endif %}&pagina_scadenze={{ scadenze_aperte.number }}">Precedente</a>
+                    </li>
+                    <li class="page-item active"><span class="page-link">Pagina {{ page_obj.number }} di {{ page_obj.paginator.num_pages }}</span></li>
+                    <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+                        <a class="page-link" href="?pagina_movimenti={% if page_obj.has_next %}{{ page_obj.next_page_number }}{% else %}{{ page_obj.paginator.num_pages }}{% endif %}&pagina_scadenze={{ scadenze_aperte.number }}">Successiva</a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    {% endif %}
+    {% endwith %}
 </div>
 {% endblock %}

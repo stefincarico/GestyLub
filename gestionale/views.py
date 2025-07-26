@@ -642,11 +642,31 @@ class AnagraficaDetailView(TenantRequiredMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         """
-        Prepara il contesto per la vista HTML.
+        Prepara tutti i dati aggregati per il partitario, ora con paginazione.
         """
         context = super().get_context_data(**kwargs)
+        
+        # Recuperiamo tutti i dati di base chiamando il nostro helper
         partitario_data = self._get_partitario_data()
         context.update(partitario_data)
+
+            # === INIZIO LOGICA DI PAGINAZIONE (CORRETTA) ===
+        # Paginazione per lo Scadenziario Aperto
+        paginator_scadenze = Paginator(partitario_data['scadenze_aperte'], 5)
+        # Usiamo .get('...', 1) per fornire '1' come valore di default se il parametro non c'è.
+        page_number_scadenze = self.request.GET.get('pagina_scadenze', 1)
+        page_obj_scadenze = paginator_scadenze.get_page(page_number_scadenze)
+        
+        # Paginazione per i Movimenti
+        paginator_movimenti = Paginator(partitario_data['movimenti'], 10)
+        page_number_movimenti = self.request.GET.get('pagina_movimenti', 1) # Default a 1
+        page_obj_movimenti = paginator_movimenti.get_page(page_number_movimenti)
+        
+        # Sostituiamo le liste complete nel contesto con gli oggetti pagina
+        context['scadenze_aperte'] = page_obj_scadenze
+        context['movimenti'] = page_obj_movimenti
+        # === FINE LOGICA DI PAGINAZIONE ===
+        
         context['pagamento_form'] = PagamentoForm()
         return context
     

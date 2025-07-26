@@ -32,12 +32,20 @@ def format_currency(value):
         # Se il valore non è un numero, restituiscilo così com'è
         return value
     
+
 @register.simple_tag(takes_context=True)
 def url_replace(context, **kwargs):
     """
     Tag per sostituire o aggiungere parametri GET all'URL corrente.
+    Esempio di uso: {% url_replace page=3 %}
     """
+    # Crea una copia modificabile dei parametri GET attuali
     query = context['request'].GET.copy()
-    for k, v in kwargs.items():
-        query[k] = v
+    
+    # Itera sugli argomenti passati al tag (es. page=3, order_by='name')
+    for key, value in kwargs.items():
+        # Aggiorna o aggiunge il parametro nella nostra copia
+        query[key] = value
+        
+    # Restituisce i parametri codificati come stringa per l'URL
     return query.urlencode()
