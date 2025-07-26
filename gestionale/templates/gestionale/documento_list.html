@@ -17,7 +17,32 @@
         <a href="{% url 'documento_list_export_pdf' %}" class="btn" style="background-color: #FF9900; color: white;">Esporta PDF</a>
     </div>
 </div>
-
+    <!-- ======================= BLOCCO FILTRI ======================= -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" action="">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-4">
+                        <label for="{{ filter_form.tipo_doc.id_for_label }}" class="form-label">{{ filter_form.tipo_doc.label }}</label>
+                        {{ filter_form.tipo_doc }}
+                    </div>
+                    <div class="col-md-3">
+                        <label for="{{ filter_form.data_da.id_for_label }}" class="form-label">{{ filter_form.data_da.label }}</label>
+                        {{ filter_form.data_da }}
+                    </div>
+                    <div class="col-md-3">
+                        <label for="{{ filter_form.data_a.id_for_label }}" class="form-label">{{ filter_form.data_a.label }}</label>
+                        {{ filter_form.data_a }}
+                    </div>
+                    <div class="col-md-2 d-flex">
+                        <button type="submit" class="btn btn-primary w-100 me-2">Filtra</button>
+                        <a href="{% url 'documento_list' %}" class="btn btn-secondary w-100">Reset</a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    <!-- ===================== FINE BLOCCO FILTRI ===================== -->
 <div class="card">
     <div class="card-body">
         <!-- TODO: Aggiungere i filtri come da mockup -->

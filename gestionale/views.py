@@ -47,7 +47,8 @@ from .models import (
 )
 from .forms import (
     AnagraficaForm, DipendenteDettaglioForm, DocumentoRigaForm,
-    DocumentoTestataForm, ScadenzaWizardForm, PagamentoForm, ScadenzarioFilterForm, DiarioAttivitaForm
+    DocumentoTestataForm, ScadenzaWizardForm, PagamentoForm, ScadenzarioFilterForm, DiarioAttivitaForm,
+    DocumentoFilterForm
 )
 
 
@@ -472,14 +473,46 @@ def get_anagrafiche_by_tipo(request):
 # === VISTE DOCUMENTI (Dettaglio/Partitario)                              ===
 # ==============================================================================
 
-class DocumentoListView(TenantRequiredMixin, ListView):
-    
-    model = DocumentoTestata
+class DocumentoListView(TenantRequiredMixin, View): # Cambia da ListView a View
+    """
+    Mostra l'elenco paginato e filtrabile di tutti i documenti.
+    """
     template_name = 'gestionale/documento_list.html'
-    context_object_name = 'documenti'
     paginate_by = 15
-    def get_queryset(self):
-        return super().get_queryset().order_by('-data_documento', '-numero_documento')
+
+    def get(self, request, *args, **kwargs):
+        filter_form = DocumentoFilterForm(request.GET or None)
+        
+        # Queryset di base, ordinato come richiesto (ascendente)
+        documenti_qs = DocumentoTestata.objects.select_related('anagrafica').order_by('data_documento', 'numero_documento')
+
+        # Applica i filtri se il form è valido
+        if filter_form.is_valid():
+            
+            tipo_doc = filter_form.cleaned_data.get('tipo_doc')
+            if tipo_doc:
+                documenti_qs = documenti_qs.filter(tipo_doc=tipo_doc)
+
+            data_da = filter_form.cleaned_data.get('data_da')
+            if data_da:
+                documenti_qs = documenti_qs.filter(data_documento__gte=data_da)
+
+            data_a = filter_form.cleaned_data.get('data_a')
+            if data_a:
+                documenti_qs = documenti_qs.filter(data_documento__lte=data_a)
+        
+        # Applica la paginazione al queryset già filtrato
+        paginator = Paginator(documenti_qs, self.paginate_by)
+        page_number = request.GET.get('page')
+        page_obj = paginator.get_page(page_number)
+        
+        context = {
+            'documenti': page_obj, # Passiamo l'oggetto pagina, non il queryset
+            'is_paginated': page_obj.has_other_pages(),
+            'page_obj': page_obj, # Passiamo l'oggetto pagina anche per il template di paginazione
+            'filter_form': filter_form,
+        }
+        return render(request, self.template_name, context)
 
 class DocumentoDetailView(TenantRequiredMixin, DetailView):
     model = DocumentoTestata

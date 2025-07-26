@@ -379,3 +379,33 @@ class DiarioAttivitaForm(forms.ModelForm):
         for field in self.fields.values():
             field.required = False
 
+class DocumentoFilterForm(forms.Form):
+    """
+    Form per i filtri della lista documenti.
+    """
+    # Creiamo le scelte per il menu a tendina, includendo un'opzione vuota per "Tutti".
+    TIPO_CHOICES = (
+        ('', 'Tutti i Tipi'),
+        (DocumentoTestata.TipoDoc.FATTURA_VENDITA, 'Fatture di Vendita'),
+        (DocumentoTestata.TipoDoc.NOTA_CREDITO_VENDITA, 'Note di Credito di Vendita'),
+        (DocumentoTestata.TipoDoc.FATTURA_ACQUISTO, 'Fatture di Acquisto'),
+        (DocumentoTestata.TipoDoc.NOTA_CREDITO_ACQUISTO, 'Note di Credito di Acquisto'),
+    )
+
+    tipo_doc = forms.ChoiceField(
+        choices=TIPO_CHOICES,
+        required=False,
+        label="Tipo Documento",
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+    data_da = forms.DateField(
+        required=False, 
+        label="Data Documento Da",
+        widget=forms.DateInput(attrs={'class': 'form-control', 'type': 'date'})
+    )
+    data_a = forms.DateField(
+        required=False, 
+        label="Data Documento A",
+        widget=forms.DateInput(attrs={'class': 'form-control', 'type': 'date'})
+    )
+
