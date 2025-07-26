@@ -31,3 +31,13 @@ def format_currency(value):
     except (ValueError, TypeError):
         # Se il valore non è un numero, restituiscilo così com'è
         return value
+    
+@register.simple_tag(takes_context=True)
+def url_replace(context, **kwargs):
+    """
+    Tag per sostituire o aggiungere parametri GET all'URL corrente.
+    """
+    query = context['request'].GET.copy()
+    for k, v in kwargs.items():
+        query[k] = v
+    return query.urlencode()

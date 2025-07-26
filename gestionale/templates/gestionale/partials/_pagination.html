@@ -1,5 +1,6 @@
 <!-- gestionale/templates/gestionale/partials/_pagination.html -->
-    
+{% load currency_filters %}
+
 {% if is_paginated %}
     <nav aria-label="Paginazione" class="mt-4">
         <ul class="pagination justify-content-center">
@@ -7,15 +8,10 @@
             <!-- Pulsante 'Precedente' -->
             {% if page_obj.has_previous %}
                 <li class="page-item">
-                    <!-- === INIZIO CORREZIONE === -->
-                    {# Convertiamo il numero della pagina in una stringa prima di passarlo a 'cut' #}
-                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}&{{ request.GET.urlencode | cut:'page=' | cut:page_obj.number|stringformat:"s" }}">Precedente</a>
-                    <!-- === FINE CORREZIONE === -->
+                    <a class="page-link" href="?{% url_replace page=page_obj.previous_page_number %}">Precedente</a>
                 </li>
             {% else %}
-                <li class="page-item disabled">
-                    <span class="page-link">Precedente</span>
-                </li>
+                <li class="page-item disabled"><span class="page-link">Precedente</span></li>
             {% endif %}
 
             <!-- Numeri di Pagina -->
@@ -26,16 +22,11 @@
             <!-- Pulsante 'Successiva' -->
             {% if page_obj.has_next %}
                 <li class="page-item">
-                    <!-- === INIZIO CORREZIONE === -->
-                    <a class="page-link" href="?page={{ page_obj.next_page_number }}&{{ request.GET.urlencode | cut:'page=' | cut:page_obj.number|stringformat:"s" }}">Successiva</a>
-                    <!-- === FINE CORREZIONE === -->
+                    <a class="page-link" href="?{% url_replace page=page_obj.next_page_number %}">Successiva</a>
                 </li>
             {% else %}
-                <li class="page-item disabled">
-                    <span class="page-link">Successiva</span>
-                </li>
+                <li class="page-item disabled"><span class="page-link">Successiva</span></li>
             {% endif %}
-
         </ul>
     </nav>
 {% endif %}
