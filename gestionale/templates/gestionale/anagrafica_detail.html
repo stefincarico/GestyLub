@@ -1,4 +1,5 @@
 {% extends "gestionale/base.html" %}
+{% load currency_filters %}
 {% block title %}Partitario: {{ anagrafica.nome_cognome_ragione_sociale }}{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -13,16 +14,16 @@
         <div class="row text-center">
             <div class="col-md-4">
                 <h6 class="text-muted">Esposizione Documenti</h6>
-                <h4>€ {{ esposizione_documenti|floatformat:2 }}</h4>
+                <h4>€ {{ esposizione_documenti|format_currency }}</h4> 
             </div>
             <div class="col-md-4">
                 <h6 class="text-muted">Netto Incassato/Pagato</h6>
-                <h4>€ {{ netto_movimenti|floatformat:2 }}</h4>
+                <h4>€ {{ netto_movimenti|format_currency }}</h4>
             </div>
             <div class="col-md-4">
                 <h6 class="text-muted">Saldo Aperto Finale</h6>
                 <h4 class="{% if saldo_finale > 0 %}text-danger{% elif saldo_finale < 0 %}text-success{% endif %}">
-                    € {{ saldo_finale|floatformat:2 }}
+                     € {{ saldo_finale|format_currency }}
                 </h4>
             </div>
         </div>

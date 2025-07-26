@@ -172,11 +172,9 @@ class DocumentoDetailView(TenantRequiredMixin, DetailView):
             pagato=Coalesce(
                 Sum('pagamenti__importo'), 
                 Value(0), 
-                # === LA CORREZIONE È NELLA RIGA SEGUENTE ===
-                # Usiamo models.DecimalField() che abbiamo importato correttamente
                 output_field=models.DecimalField()
-            )
-        )
+            )).order_by('data_scadenza')
+        
         
         totale_pagato_doc = 0
         for scadenza in scadenze_con_pagato:
@@ -186,6 +184,8 @@ class DocumentoDetailView(TenantRequiredMixin, DetailView):
         context['scadenze'] = scadenze_con_pagato
         context['totale_pagato'] = totale_pagato_doc
         context['saldo_residuo'] = documento.totale - totale_pagato_doc
+
+        context['pagamento_form'] = PagamentoForm()
         
         return context
     

@@ -92,8 +92,13 @@
                     <td class="text-end">€ {{ scadenza.residuo|floatformat:2 }}</td>
                     <td>{{ scadenza.get_stato_display }}</td>
                     <td>
-                        <!-- TODO: Aggiungere pulsante Paga/Incassa -->
-                        <a href="#" class="btn btn-sm btn-primary">Paga/Incassa</a>
+                        <button type="button" class="btn btn-sm btn-primary" 
+                                data-bs-toggle="modal" data-bs-target="#pagamentoModal"
+                                data-scadenza-id="{{ scadenza.id }}"
+                                data-scadenza-residuo="{{ scadenza.residuo|stringformat:"-1.2f" }}"
+                                data-scadenza-info="N.{{ scadenza.id }} del {{ scadenza.data_scadenza|date:"d/m/Y" }}">
+                            Paga/Incassa
+                        </button>
                     </td>
                 </tr>
                 {% empty %}
