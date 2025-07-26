@@ -14,10 +14,11 @@ from django.views.generic import ListView, DetailView
 from django.views.generic.edit import CreateView, UpdateView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpResponseRedirect
+from django.contrib.auth.decorators import login_required
 
 # Importazioni delle app locali
 from .models import Anagrafica, DipendenteDettaglio, DocumentoTestata, Scadenza
-from .forms import AnagraficaForm, DipendenteDettaglioForm
+from .forms import AnagraficaForm, DipendenteDettaglioForm, DocumentoTestataForm
 
 
 # ==============================================================================
@@ -158,3 +159,45 @@ class DocumentoDetailView(TenantRequiredMixin, DetailView):
         context['saldo_residuo'] = documento.totale - totale_pagato_doc
         
         return context
+    
+# ==============================================================================
+# === VISTE WIZARD CREAZIONE DOCUMENTO                                      ===
+# ==============================================================================
+@login_required # Questo "decoratore" fa lo stesso lavoro di LoginRequiredMixin
+def documento_create_step1_testata(request):
+    """
+    Step 1 del wizard: inserimento dati della testata.
+    """
+    # Se il form viene inviato (metodo POST)
+    if request.method == 'POST':
+        form = DocumentoTestataForm(request.POST)
+        if form.is_valid():
+            # I dati sono validi. Li salviamo nella sessione.
+            # form.cleaned_data è un dizionario con i dati puliti.
+            # Dobbiamo convertire gli oggetti (anagrafica, etc.) in ID
+            # perché gli oggetti complessi non possono essere salvati in sessione.
+            request.session['doc_testata_data'] = {
+                'tipo_doc': form.cleaned_data['tipo_doc'],
+                'anagrafica_id': form.cleaned_data['anagrafica'].pk,
+                'data_documento': form.cleaned_data['data_documento'].isoformat(),
+                'modalita_pagamento_id': form.cleaned_data['modalita_pagamento'].pk,
+                'cantiere_id': form.cleaned_data['cantiere'].pk if form.cleaned_data['cantiere'] else None,
+                'note': form.cleaned_data['note'],
+            }
+            # Puliamo eventuali dati vecchi dei passi successivi
+            request.session.pop('doc_righe_data', None)
+            request.session.pop('doc_scadenze_data', None)
+
+            # Reindirizziamo al passo 2 (che creeremo tra poco)
+            return redirect(reverse('documento_create_step2_righe'))
+    else:
+        # Se la pagina viene caricata per la prima volta (metodo GET)
+        # creiamo un form vuoto.
+        form = DocumentoTestataForm()
+
+    context = {
+        'form': form
+    }
+    return render(request, 'gestionale/documento_create_step1.html', context)
+
+

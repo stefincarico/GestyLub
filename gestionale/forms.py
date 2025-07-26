@@ -1,7 +1,7 @@
 # gestionale/forms.py
 
 from django import forms
-from .models import Anagrafica, DipendenteDettaglio
+from .models import Anagrafica, Cantiere, DipendenteDettaglio, DocumentoTestata
 
 class AnagraficaForm(forms.ModelForm):
     """
@@ -159,3 +159,32 @@ class DipendenteDettaglioForm(forms.ModelForm):
         if data:
             return data.upper()
         return data
+    
+class DocumentoTestataForm(forms.ModelForm):
+    class Meta:
+        model = DocumentoTestata
+        fields = [
+            'tipo_doc', 'anagrafica', 'data_documento', 
+            'modalita_pagamento', 'cantiere', 'note'
+        ]
+        widgets = {
+            'tipo_doc': forms.Select(attrs={'class': 'form-select'}),
+            'anagrafica': forms.Select(attrs={'class': 'form-select'}),
+            'data_documento': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'modalita_pagamento': forms.Select(attrs={'class': 'form-select'}),
+            'cantiere': forms.Select(attrs={'class': 'form-select'}),
+            'note': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        """
+        Qui implementiamo la logica di filtraggio dinamico delle anagrafiche.
+        """
+        super().__init__(*args, **kwargs)
+        # Filtriamo le anagrafiche per mostrare solo Clienti e Fornitori attivi.
+        # Questo è un filtro di base, lo renderemo dinamico con JavaScript in seguito.
+        self.fields['anagrafica'].queryset = Anagrafica.objects.filter(
+            tipo__in=[Anagrafica.Tipo.CLIENTE, Anagrafica.Tipo.FORNITORE],
+            attivo=True
+        )
+        self.fields['cantiere'].queryset = Cantiere.objects.filter(attivo=True)
