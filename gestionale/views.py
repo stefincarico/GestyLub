@@ -154,45 +154,6 @@ class DipendenteDettaglioCreateView(TenantRequiredMixin, CreateView):
         self.object = dettaglio
         return HttpResponseRedirect(self.get_success_url())
 
-class DocumentoListView(TenantRequiredMixin, ListView):
-    # ... (codice invariato) ...
-    model = DocumentoTestata
-    template_name = 'gestionale/documento_list.html'
-    context_object_name = 'documenti'
-    paginate_by = 15
-    def get_queryset(self):
-        return super().get_queryset().order_by('-data_documento', '-numero_documento')
-
-class DocumentoDetailView(TenantRequiredMixin, DetailView):
-    model = DocumentoTestata
-    template_name = 'gestionale/documento_detail.html'
-    context_object_name = 'documento'
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        documento = self.get_object()
-        
-        scadenze_con_pagato = Scadenza.objects.filter(documento=documento).annotate(
-            pagato=Coalesce(
-                Sum('pagamenti__importo'), 
-                Value(0), 
-                output_field=models.DecimalField()
-            )).order_by('data_scadenza')
-        
-        
-        totale_pagato_doc = 0
-        for scadenza in scadenze_con_pagato:
-            scadenza.residuo = scadenza.importo_rata - scadenza.pagato
-            totale_pagato_doc += scadenza.pagato
-
-        context['scadenze'] = scadenze_con_pagato
-        context['totale_pagato'] = totale_pagato_doc
-        context['saldo_residuo'] = documento.totale - totale_pagato_doc
-
-        context['pagamento_form'] = PagamentoForm()
-        
-        return context
-    
 # ==============================================================================
 # === VISTE WIZARD CREAZIONE DOCUMENTO                                      ===
 # ==============================================================================
@@ -508,6 +469,99 @@ def get_anagrafiche_by_tipo(request):
     return JsonResponse({'results': data})
 
 # ==============================================================================
+# === VISTE DOCUMENTI (Dettaglio/Partitario)                              ===
+# ==============================================================================
+
+class DocumentoListView(TenantRequiredMixin, ListView):
+    
+    model = DocumentoTestata
+    template_name = 'gestionale/documento_list.html'
+    context_object_name = 'documenti'
+    paginate_by = 15
+    def get_queryset(self):
+        return super().get_queryset().order_by('-data_documento', '-numero_documento')
+
+class DocumentoDetailView(TenantRequiredMixin, DetailView):
+    model = DocumentoTestata
+    template_name = 'gestionale/documento_detail.html'
+    context_object_name = 'documento'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        documento = self.get_object()
+        
+        scadenze_con_pagato = Scadenza.objects.filter(documento=documento).annotate(
+            pagato=Coalesce(
+                Sum('pagamenti__importo'), 
+                Value(0), 
+                output_field=models.DecimalField()
+            )).order_by('data_scadenza')
+        
+        
+        totale_pagato_doc = 0
+        for scadenza in scadenze_con_pagato:
+            scadenza.residuo = scadenza.importo_rata - scadenza.pagato
+            totale_pagato_doc += scadenza.pagato
+
+        context['scadenze'] = scadenze_con_pagato
+        context['totale_pagato'] = totale_pagato_doc
+        context['saldo_residuo'] = documento.totale - totale_pagato_doc
+
+        context['pagamento_form'] = PagamentoForm()
+        
+        return context
+    
+class DocumentoListExportExcelView(DocumentoListView):
+    """
+    Esporta la lista dei documenti in formato Excel.
+    """
+    def get(self, request, *args, **kwargs):
+        documenti_qs = self.get_queryset()
+        
+        tenant_name = request.session.get('active_tenant_name', 'GestionaleDjango')
+        report_title = 'Elenco Documenti'
+        filename_prefix = 'Elenco_Documenti'
+        
+        headers = ["Tipo", "Numero", "Data", "Cliente/Fornitore", "Totale", "Stato"]
+        data_rows = []
+        for doc in documenti_qs:
+            data_rows.append([
+                doc.get_tipo_doc_display(),
+                doc.numero_documento,
+                doc.data_documento,
+                doc.anagrafica.nome_cognome_ragione_sociale,
+                doc.totale,
+                doc.get_stato_display()
+            ])
+            
+        return generate_excel_report(
+            tenant_name, report_title, "Nessun filtro applicato", None, headers, data_rows,
+            filename_prefix=filename_prefix
+        )
+
+class DocumentoListExportPdfView(DocumentoListView):
+    """
+    Esporta la lista dei documenti (non paginata) in formato PDF.
+    """
+    def get(self, request, *args, **kwargs):
+        # get_queryset() riutilizza la logica della ListView base,
+        # incluso l'ordinamento che avevamo definito.
+        documenti_qs = self.get_queryset()
+        
+        context = {
+            'tenant_name': request.session.get('active_tenant_name', 'GestionaleDjango'),
+            'report_title': 'Elenco Documenti',
+            'timestamp': timezone.now().strftime('%d/%m/%Y %H:%M:%S'),
+            'documenti': documenti_qs,
+        }
+        
+        return generate_pdf_report(
+            request,
+            'gestionale/documento_list_pdf.html', # Template che creeremo ora
+            context
+        )
+
+# ==============================================================================
 # === VISTE ANAGRAFICHE (Dettaglio/Partitario)                              ===
 # ==============================================================================
 
@@ -637,6 +691,58 @@ class AnagraficaPartitarioExportPdfView(AnagraficaDetailView):
             'gestionale/partitario_pdf_template.html', # <-- PERCORSO CORRETTO
             context
         )
+
+class AnagraficaListExportExcelView(AnagraficaListView):
+    """
+    Esporta la lista delle anagrafiche (non paginata) in formato Excel.
+    """
+    def get(self, request, *args, **kwargs):
+        # get_queryset() è un metodo di ListView che restituisce il queryset di base
+        anagrafiche_qs = self.get_queryset()
+        
+        tenant_name = request.session.get('active_tenant_name', 'GestionaleDjango')
+        report_title = 'Elenco Anagrafiche'
+        filename_prefix = 'Elenco_Anagrafiche'
+        
+        headers = ["Codice", "Tipo", "Nome/Ragione Sociale", "P.IVA", "Codice Fiscale", "Città", "Stato"]
+        data_rows = []
+        for anag in anagrafiche_qs:
+            data_rows.append([
+                anag.codice,
+                anag.get_tipo_display(),
+                anag.nome_cognome_ragione_sociale,
+                anag.p_iva,
+                anag.codice_fiscale,
+                anag.citta,
+                "Attivo" if anag.attivo else "Non Attivo"
+            ])
+            
+        return generate_excel_report(
+            tenant_name, report_title, "Nessun filtro applicato", None, headers, data_rows,
+            filename_prefix=filename_prefix
+        )
+
+class AnagraficaListExportPdfView(AnagraficaListView):
+    """
+    Esporta la lista delle anagrafiche (non paginata) in formato PDF.
+    """
+    def get(self, request, *args, **kwargs):
+        anagrafiche_qs = self.get_queryset()
+        
+        context = {
+            'tenant_name': request.session.get('active_tenant_name'),
+            'report_title': 'Elenco Anagrafiche',
+            'timestamp': timezone.now().strftime('%d/%m/%Y %H:%M:%S'),
+            'anagrafiche': anagrafiche_qs,
+        }
+        
+        return generate_pdf_report(
+            request,
+            'gestionale/anagrafica_list_pdf.html',
+            context
+        )
+    
+
 
 # ==============================================================================
 # === VISTE PAGAMENTI                                                       ===

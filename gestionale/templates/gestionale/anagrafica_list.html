@@ -14,8 +14,8 @@
             + Nuova Anagrafica
         </a>
         {% endif %}
-        <a href="#" class="btn" style="background-color: #185C37; color: white;">Esporta Excel</a>
-        <a href="#" class="btn" style="background-color: #FF9900; color: white;">Esporta PDF</a>
+        <a href="{% url 'anagrafica_list_export_excel' %}" class="btn" style="background-color: #185C37; color: white;">Esporta Excel</a>
+        <a href="{% url 'anagrafica_list_export_pdf' %}" class="btn" style="background-color: #FF9900; color: white;">Esporta PDF</a>
 
     </div>
 </div>

@@ -1,0 +1,46 @@
+{% load currency_filters %}
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ report_title }}</title>
+    <style>
+        /* Puoi copiare e incollare gli stili base da un altro template PDF */
+        @page { size: A4 portrait; margin: 1.5cm; }
+        body { font-family: 'Helvetica', sans-serif; font-size: 9pt; }
+        h1 { text-align: center; font-size: 18pt; }
+        p { text-align: center; font-size: 8pt; color: #666; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
+        th { background-color: #f2f2f2; font-size: 8pt; }
+    </style>
+</head>
+<body>
+    <h1>{{ report_title }}</h1>
+    <p>Report generato per {{ tenant_name }} il {{ timestamp }}</p>
+    <table>
+        <thead>
+            <tr>
+                <th>Codice</th>
+                <th>Tipo</th>
+                <th>Nome/Ragione Sociale</th>
+                <th>P.IVA</th>
+                <th>Stato</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for anag in anagrafiche %}
+            <tr>
+                <td>{{ anag.codice }}</td>
+                <td>{{ anag.get_tipo_display }}</td>
+                <td>{{ anag.nome_cognome_ragione_sociale }}</td>
+                <td>{{ anag.p_iva|default_if_none:"" }}</td>
+                <td>{% if anag.attivo %}Attivo{% else %}Non Attivo{% endif %}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" style="text-align: center;">Nessuna anagrafica trovata.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

@@ -1,9 +1,9 @@
 # gestionale/urls.py
 from django.urls import path
 from .views import (
-    AnagraficaPartitarioExportPdfView, DashboardView, AnagraficaListView, AnagraficaCreateView, 
+    AnagraficaListExportExcelView, AnagraficaListExportPdfView, AnagraficaPartitarioExportPdfView, DashboardView, AnagraficaListView, AnagraficaCreateView, 
     DipendenteDettaglioCreateView, AnagraficaUpdateView, AnagraficaDetailView,
-    AnagraficaToggleAttivoView, DocumentoListView, DocumentoDetailView,RegistraPagamentoView, SalvaAttivitaDiarioView, ScadenzarioExportPdfView,
+    AnagraficaToggleAttivoView, DocumentoListExportExcelView, DocumentoListExportPdfView, DocumentoListView, DocumentoDetailView,RegistraPagamentoView, SalvaAttivitaDiarioView, ScadenzarioExportPdfView,
     ScadenzarioListView, ScadenzarioExportExcelView, AnagraficaPartitarioExportExcelView,
     DashboardHRView
 )
@@ -32,4 +32,8 @@ urlpatterns = [
     path('hr/', DashboardHRView.as_view(), name='dashboard_hr'),
     path('hr/<int:year>/<int:month>/<int:day>/', DashboardHRView.as_view(), name='dashboard_hr_data'),
     path('hr/salva-attivita/', SalvaAttivitaDiarioView.as_view(), name='salva_attivita_diario'),
+    path('anagrafiche/export/excel/', AnagraficaListExportExcelView.as_view(), name='anagrafica_list_export_excel'),
+    path('anagrafiche/export/pdf/', AnagraficaListExportPdfView.as_view(), name='anagrafica_list_export_pdf'),
+    path('documenti/export/excel/', DocumentoListExportExcelView.as_view(), name='documento_list_export_excel'),
+    path('documenti/export/pdf/', DocumentoListExportPdfView.as_view(), name='documento_list_export_pdf')
 ]
