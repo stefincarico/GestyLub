@@ -161,6 +161,15 @@ class DipendenteDettaglioForm(forms.ModelForm):
         return data
     
 class DocumentoTestataForm(forms.ModelForm):
+
+    # Aggiungiamo un campo extra che non esiste nel modello.
+    # Lo useremo per l'inserimento manuale del numero per i documenti di acquisto.
+    # required=False perché sarà reso obbligatorio da JavaScript solo quando serve.
+    numero_documento_manuale = forms.CharField(
+        label="Numero Documento (del fornitore)",
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control'})
+    )
     class Meta:
         model = DocumentoTestata
         fields = [
@@ -178,16 +187,31 @@ class DocumentoTestataForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         """
-        Qui implementiamo la logica di filtraggio dinamico delle anagrafiche.
+        Popoliamo dinamicamente il queryset di anagrafica per la validazione.
         """
         super().__init__(*args, **kwargs)
-        # Filtriamo le anagrafiche per mostrare solo Clienti e Fornitori attivi.
-        # Questo è un filtro di base, lo renderemo dinamico con JavaScript in seguito.
-        self.fields['anagrafica'].queryset = Anagrafica.objects.filter(
-            tipo__in=[Anagrafica.Tipo.CLIENTE, Anagrafica.Tipo.FORNITORE],
-            attivo=True
-        )
         self.fields['cantiere'].queryset = Cantiere.objects.filter(attivo=True)
+        
+        # Inizializziamo il queryset a vuoto
+        self.fields['anagrafica'].queryset = Anagrafica.objects.none()
+
+        # 'data' esiste se il form è stato "bound", cioè creato con dati POST.
+        if 'tipo_doc' in self.data:
+            try:
+                tipo_doc = self.data.get('tipo_doc')
+                if tipo_doc in [DocumentoTestata.TipoDoc.FATTURA_VENDITA, DocumentoTestata.TipoDoc.NOTA_CREDITO_VENDITA]:
+                    self.fields['anagrafica'].queryset = Anagrafica.objects.filter(tipo=Anagrafica.Tipo.CLIENTE, attivo=True)
+                elif tipo_doc in [DocumentoTestata.TipoDoc.FATTURA_ACQUISTO, DocumentoTestata.TipoDoc.NOTA_CREDITO_ACQUISTO]:
+                    self.fields['anagrafica'].queryset = Anagrafica.objects.filter(tipo=Anagrafica.Tipo.FORNITORE, attivo=True)
+            except (ValueError, TypeError):
+                pass  # Ignora errori se il tipo_doc non è valido, la validazione se ne occuperà
+        elif self.instance.pk:
+            # Questo si attiva quando apriamo un form in modalità "modifica" (UpdateView).
+            # Popola il queryset in base al tipo_doc dell'oggetto esistente.
+            if self.instance.tipo_doc in [DocumentoTestata.TipoDoc.FATTURA_VENDITA, DocumentoTestata.TipoDoc.NOTA_CREDITO_VENDITA]:
+                self.fields['anagrafica'].queryset = Anagrafica.objects.filter(tipo=Anagrafica.Tipo.CLIENTE, attivo=True)
+            elif self.instance.tipo_doc in [DocumentoTestata.TipoDoc.FATTURA_ACQUISTO, DocumentoTestata.TipoDoc.NOTA_CREDITO_ACQUISTO]:
+                 self.fields['anagrafica'].queryset = Anagrafica.objects.filter(tipo=Anagrafica.Tipo.FORNITORE, attivo=True)
 
 class DocumentoRigaForm(forms.ModelForm):
     class Meta:

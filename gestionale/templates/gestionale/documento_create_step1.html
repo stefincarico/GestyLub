@@ -1,39 +1,78 @@
 {% extends "gestionale/base.html" %}
-
 {% block title %}Nuovo Documento (Passo 1 di 3){% endblock %}
-
 {% block content %}
 <h1 class="h2 mb-4">Nuovo Documento (Passo 1 di 3: Testata)</h1>
 <div class="card">
     <div class="card-body">
         <p>Compila i dati principali del documento.</p>
         <form method="post">
-            {% csrf_token %}
-            {{ form.as_p }}
-            <div class="mt-4">
-                <button type="submit" class="btn btn-primary">Prosegui a Inserimento Righe →</button>
-                <a href="{% url 'documento_list' %}" class="btn btn-secondary">Annulla</a>
-            </div>
-        </form>
+                    {% csrf_token %}
+
+                    <!-- ================= INIZIO BLOCCO AGGIORNATO ================= -->
+
+                    <!-- Iteriamo su tutti i campi nascosti del form (come il csrf_token, se ce ne fossero altri) -->
+                    {% for hidden in form.hidden_fields %}
+                    {{ hidden }}
+                    {% endfor %}
+
+                    <!-- Iteriamo sui campi visibili per disegnarli -->
+                    {% for field in form.visible_fields %}
+                        <div class="mb-3" 
+                            {% if field.name == 'numero_documento_manuale' %} 
+                                id="p_numero_documento_manuale" style="display: none;" 
+                            {% endif %}>
+                            
+                            {{ field.label_tag }}
+                            
+                            {{ field }}
+                            
+                            {% if field.help_text %}
+                                <small class="form-text text-muted">{{ field.help_text }}</small>
+                            {% endif %}
+                            
+                            {% for error in field.errors %}
+                                <div class="alert alert-danger mt-1 p-1" role="alert">
+                                    {{ error }}
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endfor %}
+
+                    <!-- ================== FINE BLOCCO AGGIORNATO ================== -->
+
+                    <div class="mt-4">
+                        <button type="submit" class="btn btn-primary">Prosegui a Inserimento Righe →</button>
+                        <a href="{% url 'documento_list' %}" class="btn btn-secondary">Annulla</a>
+                    </div>
+                </form>
     </div>
 </div>
 {% endblock %}
 
-
-<!-- NUOVO BLOCCO SCRIPT -->
 {% block scripts %}
 <script>
-    // Attendiamo che il documento HTML sia completamente caricato
     document.addEventListener('DOMContentLoaded', function() {
-        
-        // Selezioniamo i due menu a tendina dal DOM usando i loro ID
         const tipoDocSelect = document.getElementById('id_tipo_doc');
         const anagraficaSelect = document.getElementById('id_anagrafica');
         
-        // Aggiungiamo un "ascoltatore di eventi" al menu del tipo documento.
-        // Questa funzione verrà eseguita ogni volta che l'utente cambia la selezione.
+        // Selezioniamo il paragrafo che contiene il campo del numero manuale
+        const numeroDocManualeContainer = document.getElementById('p_numero_documento_manuale');
+        const numeroDocManualeInput = document.getElementById('id_numero_documento_manuale');
+        
+        // Definiamo quali tipi di documento sono "passivi" (di acquisto)
+        const tipiPassivi = ['{{ DocumentoTestata.TipoDoc.FATTURA_ACQUISTO }}', '{{ DocumentoTestata.TipoDoc.NOTA_CREDITO_ACQUISTO }}'];
+
         tipoDocSelect.addEventListener('change', function() {
-            const tipoDoc = this.value; // Otteniamo il valore selezionato (es. 'FTV')
+            const tipoDoc = this.value;
+            
+            // --- Logica per mostrare/nascondere il campo numero documento ---
+            if (tipiPassivi.includes(tipoDoc)) {
+                numeroDocManualeContainer.style.display = 'block'; // Mostra il campo
+                numeroDocManualeInput.required = true; // Rendilo obbligatorio
+            } else {
+                numeroDocManualeContainer.style.display = 'none'; // Nascondi il campo
+                numeroDocManualeInput.required = false; // Non è più obbligatorio
+            }
             
             // Se non è stato selezionato nulla, svuotiamo e disabilitiamo il secondo menu
             if (!tipoDoc) {

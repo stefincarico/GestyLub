@@ -191,6 +191,7 @@ def documento_create_step1_testata(request):
                 'modalita_pagamento_id': form.cleaned_data['modalita_pagamento'].pk,
                 'cantiere_id': form.cleaned_data['cantiere'].pk if form.cleaned_data['cantiere'] else None,
                 'note': form.cleaned_data['note'],
+                'numero_documento_manuale': form.cleaned_data.get('numero_documento_manuale'),
             }
             # Puliamo eventuali dati vecchi dei passi successivi
             request.session.pop('doc_righe_data', None)
@@ -253,7 +254,7 @@ def documento_create_step2_righe(request):
                     'prezzo_unitario': float(nuova_riga['prezzo_unitario']),
                     'aliquota_iva_id': aliquota.pk,
                     'aliquota_iva_valore': float(aliquota.valore_percentuale),
-                    'imponibile_riga': float(imponibile_riga),
+                    'imponibile_riga': str(imponibile_riga.quantize(Decimal('0.01'))),
                     'iva_riga': float(iva_riga),
                 })
                 
@@ -290,6 +291,7 @@ def documento_create_step3_scadenze(request):
     if not testata_data or not righe_data:
         return redirect(reverse('documento_create_step1_testata'))
 
+    # Riconvertiamo le stringhe dalla sessione in Decimal prima di sommarle.
     totale_documento = sum(Decimal(r['imponibile_riga']) + Decimal(r['iva_riga']) for r in righe_data)
     totale_scadenze = sum(Decimal(s['importo_rata']) for s in scadenze_data)
     residuo_da_scadenzare = totale_documento - totale_scadenze
@@ -352,7 +354,7 @@ def documento_create_step3_scadenze(request):
                         # Aggiungeremo il campo per i documenti passivi in un secondo momento.
                         # Per ora, usiamo un placeholder per evitare l'errore.
                         # Questo è un debito tecnico che salderemo.
-                        numero_doc_finale = "DA_COMPILARE_MANUALMENTE"
+                        numero_doc_finale = testata_data.get('numero_documento_manuale', 'ERRORE_NUM_MANCANTE')
 
                     # === FINE LOGICA DI NUMERAZIONE AUTOMATICA ===
 
@@ -448,22 +450,17 @@ def get_scadenza_initial_data(testata_data, scadenze_data, residuo_da_scadenzare
 
 @login_required
 def get_anagrafiche_by_tipo(request):
-    """
-    Una vista API che restituisce un elenco di anagrafiche in formato JSON,
-    filtrate per tipo (Cliente o Fornitore).
-    """
     tipo_documento = request.GET.get('tipo_doc')
-    anagrafiche_qs = Anagrafica.objects.none() # Queryset vuoto di default
+    anagrafiche_qs = Anagrafica.objects.none()
 
+    # Logica per i documenti di VENDITA
     if tipo_documento in [DocumentoTestata.TipoDoc.FATTURA_VENDITA, DocumentoTestata.TipoDoc.NOTA_CREDITO_VENDITA]:
         anagrafiche_qs = Anagrafica.objects.filter(tipo=Anagrafica.Tipo.CLIENTE, attivo=True)
-    # TODO: Aggiungere la logica per i documenti di acquisto quando li implementeremo
-    # elif tipo_documento in [ ... tipi acquisto ... ]:
-    #     anagrafiche_qs = Anagrafica.objects.filter(tipo=Anagrafica.Tipo.FORNITORE, attivo=True)
-
-    # Trasformiamo il queryset in una lista di dizionari
-    data = [{'id': anag.pk, 'text': str(anag)} for anag in anagrafiche_qs]
     
-    # Restituiamo i dati in formato JSON
+    # === NUOVA LOGICA PER I DOCUMENTI DI ACQUISTO ===
+    elif tipo_documento in [DocumentoTestata.TipoDoc.FATTURA_ACQUISTO, DocumentoTestata.TipoDoc.NOTA_CREDITO_ACQUISTO]:
+        anagrafiche_qs = Anagrafica.objects.filter(tipo=Anagrafica.Tipo.FORNITORE, attivo=True)
+
+    data = [{'id': anag.pk, 'text': str(anag)} for anag in anagrafiche_qs]
     return JsonResponse({'results': data})
 

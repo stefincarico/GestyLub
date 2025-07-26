@@ -205,7 +205,8 @@ class DocumentoTestata(models.Model):
     class TipoDoc(models.TextChoices):
         FATTURA_VENDITA = 'FTV', 'Fattura di Vendita'
         NOTA_CREDITO_VENDITA = 'NCV', 'Nota di Credito di Vendita'
-        # Aggiungeremo altri tipi se necessario (es. Fatture Acquisto)
+        FATTURA_ACQUISTO = 'FTA', 'Fattura di Acquisto'
+        NOTA_CREDITO_ACQUISTO = 'NCA', 'Nota di Credito di Acquisto'
 
     class Stato(models.TextChoices):
         BOZZA = 'Bozza', 'Bozza'
