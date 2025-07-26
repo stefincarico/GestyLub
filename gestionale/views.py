@@ -32,6 +32,9 @@ from openpyxl import Workbook
 import openpyxl
 from openpyxl.styles import Font, Alignment
 
+from django.template.loader import render_to_string
+from weasyprint import HTML
+
 # Importazioni delle app locali
 # Models
 from .models import (
@@ -918,6 +921,51 @@ class ScadenzarioExportExcelView(ScadenzarioListView):
 
         # Salva il workbook nella risposta HTTP
         workbook.save(response)
+        
+        return response
+    
+class ScadenzarioExportPdfView(ScadenzarioListView):
+    """
+    Vista per esportare i dati dello scadenziario (filtrati) in un file PDF.
+    """
+    def get(self, request, *args, **kwargs):
+        # 1. Recuperiamo i dati usando il nostro metodo helper
+        scadenze_qs, kpi_data, filter_form, today = self._get_filtered_data(request)
+
+        # 2. Calcoliamo i KPI e i residui (logica duplicata da Excel e dalla vista principale)
+        incassi_aperti = kpi_data['incassi_totali_rate'] - kpi_data['incassi_pagati']
+        # ... (tutti gli altri calcoli KPI) ...
+        # Calcoliamo il residuo per ogni scadenza del queryset completo
+        for scadenza in scadenze_qs:
+            scadenza.pagato = sum(p.importo for p in scadenza.pagamenti.all()) if scadenza.pk else 0
+            scadenza.residuo = scadenza.importo_rata - scadenza.pagato
+
+        # 3. Prepariamo il contesto per il template PDF
+        # Costruiamo la stringa dei filtri (logica identica a Excel)
+        filtri_attivi = []
+        # ... (copia e incolla la logica per costruire filtri_str da ScadenzarioExportExcelView)
+        filtri_str = " | ".join(filtri_attivi) if filtri_attivi else "Tutti"
+
+        context = {
+            'tenant_name': request.session.get('active_tenant_name', 'GestionaleDjango'),
+            'timestamp': timezone.now().strftime('%d/%m/%Y %H:%M:%S'),
+            'filtri_str': filtri_str,
+            'scadenze': scadenze_qs,
+            'kpi': {
+                'incassi_aperti': incassi_aperti,
+                # ... tutti gli altri KPI ...
+            }
+        }
+        
+        # 4. Renderizziamo il template HTML in una stringa
+        html_string = render_to_string('gestionale/scadenzario_pdf_template.html', context)
+        
+        # 5. Convertiamo l'HTML in PDF con WeasyPrint
+        pdf_file = HTML(string=html_string).write_pdf()
+
+        # 6. Creiamo la risposta HTTP
+        response = HttpResponse(pdf_file, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="report_scadenziario_{today.strftime("%Y%m%d")}.pdf"'
         
         return response
     

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>Report Scadenziario</title>
+    <style>
+        @page {
+            size: A4 landscape; /* Orientamento orizzontale */
+            margin: 1.5cm;
+        }
+        body { font-family: 'Helvetica', sans-serif; font-size: 9pt; color: #333; }
+        h1, h2 { text-align: center; margin: 0; padding: 0; }
+        h1 { font-size: 18pt; }
+        h2 { font-size: 14pt; font-weight: normal; margin-bottom: 20px; }
+        .report-info {
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-bottom: 20px;
+            font-size: 8pt;
+            text-align: center;
+        }
+        .kpi-container {
+            display: flex;
+            justify-content: space-around;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .kpi-box {
+            border: 1px solid #ccc;
+            padding: 10px;
+            width: 30%;
+        }
+        .kpi-box h4 { margin: 0; font-size: 12pt; }
+        .kpi-box p { margin: 0; font-size: 8pt; color: #666; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
+        th { background-color: #f2f2f2; font-size: 8pt; }
+        .text-right { text-align: right; }
+    </style>
+</head>
+<body>
+    <h1>{{ tenant_name }}</h1>
+    <h2>Report Scadenziario Aperto</h2>
+
+    <div class="report-info">
+        <strong>Filtri Applicati:</strong> {{ filtri_str }}<br>
+        <strong>Generato il:</strong> {{ timestamp }}
+    </div>
+
+    <div class="kpi-container">
+        <div class="kpi-box">
+            <p>INCASSI APERTI</p>
+            <h4>€ {{ kpi.incassi_aperti|format_currency }}</h4>
+            <p>(di cui scaduti: € {{ kpi.incassi_scaduti|format_currency }})</p>
+        </div>
+        <div class="kpi-box">
+            <p>PAGAMENTI APERTI</p>
+            <h4>€ {{ kpi.pagamenti_aperti|format_currency }}</h4>
+            <p>(di cui scaduti: € {{ kpi.pagamenti_scaduti|format_currency }})</p>
+        </div>
+        <div class="kpi-box">
+            <p>SALDO CIRCOLANTE</p>
+            <h4>€ {{ kpi.saldo_circolante|format_currency }}</h4>
+            <p>(Incassi - Pagamenti)</p>
+        </div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Data Scad.</th>
+                <th>Tipo</th>
+                <th>Cliente/Fornitore</th>
+                <th>Rif. Doc.</th>
+                <th>Tipo Doc.</th>
+                <th class="text-right">Importo</th>
+                <th class="text-right">Residuo</th>
+                <th>Stato</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for scadenza in scadenze %}
+            <tr>
+                <td>{{ scadenza.data_scadenza|date:"d/m/Y" }}</td>
+                <td>{{ scadenza.get_tipo_scadenza_display }}</td>
+                <td>{{ scadenza.anagrafica.nome_cognome_ragione_sociale }}</td>
+                <td>{{ scadenza.documento.numero_documento }}</td>
+                <td>{{ scadenza.documento.get_tipo_doc_display }}</td>
+                <td class="text-right">€ {{ scadenza.importo_rata|format_currency }}</td>
+                <td class="text-right">€ {{ scadenza.residuo|format_currency }}</td>
+                <td>{{ scadenza.get_stato_display }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="8" style="text-align: center;">Nessuna scadenza trovata con i filtri applicati.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

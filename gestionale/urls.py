@@ -3,7 +3,7 @@ from django.urls import path
 from .views import (
     DashboardView, AnagraficaListView, AnagraficaCreateView, 
     DipendenteDettaglioCreateView, AnagraficaUpdateView, AnagraficaDetailView,
-    AnagraficaToggleAttivoView, DocumentoListView, DocumentoDetailView,RegistraPagamentoView, ScadenzarioListView, ScadenzarioExportExcelView
+    AnagraficaToggleAttivoView, DocumentoListView, DocumentoDetailView,RegistraPagamentoView, ScadenzarioExportPdfView, ScadenzarioListView, ScadenzarioExportExcelView
 )
 from .views import documento_create_step1_testata, documento_create_step2_righe, documento_create_step3_scadenze, get_anagrafiche_by_tipo
 
@@ -24,4 +24,5 @@ urlpatterns = [
     path('pagamenti/registra/', RegistraPagamentoView.as_view(), name='registra_pagamento'),
     path('scadenzario/', ScadenzarioListView.as_view(), name='scadenzario_list'),
     path('scadenzario/export/excel/', ScadenzarioExportExcelView.as_view(), name='scadenzario_export_excel'),
+    path('scadenzario/export/pdf/', ScadenzarioExportPdfView.as_view(), name='scadenzario_export_pdf'),
 ]
