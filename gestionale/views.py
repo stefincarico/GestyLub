@@ -47,7 +47,7 @@ from .models import (
 )
 from .forms import (
     AnagraficaForm, DipendenteDettaglioForm, DocumentoRigaForm,
-    DocumentoTestataForm, PrimaNotaFilterForm, ScadenzaWizardForm, PagamentoForm, ScadenzarioFilterForm, DiarioAttivitaForm,
+    DocumentoTestataForm, PartitarioFilterForm, PrimaNotaFilterForm, ScadenzaWizardForm, PagamentoForm, ScadenzarioFilterForm, DiarioAttivitaForm,
     DocumentoFilterForm
 )
 
@@ -603,56 +603,7 @@ class AnagraficaDetailView(TenantRequiredMixin, DetailView):
     template_name = 'gestionale/anagrafica_detail.html'
     context_object_name = 'anagrafica'
 
-    def _get_partitario_data(self, request, anagrafica):
-        """
-        Metodo helper aggiornato per recuperare e filtrare tutti i dati del partitario.
-        Ora accetta la request per poter accedere ai filtri GET.
-        """
-        filter_form = PartitarioFilterForm(request.GET or None)
-        
-        # Queryset di base
-        documenti = DocumentoTestata.objects.filter(anagrafica=anagrafica, stato=DocumentoTestata.Stato.CONFERMATO)
-        scadenze_aperte = Scadenza.objects.filter(anagrafica=anagrafica, stato__in=[Scadenza.Stato.APERTA, Scadenza.Stato.PARZIALE])
-        movimenti = PrimaNota.objects.filter(anagrafica=anagrafica)
 
-        # Applica i filtri di data se il form è valido
-        if filter_form.is_valid():
-            data_da = filter_form.cleaned_data.get('data_da')
-            if data_da:
-                documenti = documenti.filter(data_documento__gte=data_da)
-                scadenze_aperte = scadenze_aperte.filter(data_scadenza__gte=data_da)
-                movimenti = movimenti.filter(data_registrazione__gte=data_da)
-
-            data_a = filter_form.cleaned_data.get('data_a')
-            if data_a:
-                documenti = documenti.filter(data_documento__lte=data_a)
-                scadenze_aperte = scadenze_aperte.filter(data_scadenza__lte=data_a)
-                movimenti = movimenti.filter(data_registrazione__lte=data_a)
-        
-        # Applica ordinamenti
-        documenti = documenti.order_by('-data_documento')
-        scadenze_aperte = scadenze_aperte.annotate(
-            pagato=Coalesce(Sum('pagamenti__importo'), Value(0), output_field=models.DecimalField())
-        ).order_by('data_scadenza')
-        movimenti = movimenti.order_by('-data_registrazione')
-        
-        # Calcolo KPI e residui (la logica rimane la stessa, ma ora opera sui dati filtrati)
-        for s in scadenze_aperte:
-            s.residuo = s.importo_rata - s.pagato
-            
-        esposizione_documenti = sum(doc.totale if 'V' in doc.tipo_doc else -doc.totale for doc in documenti)
-        netto_movimenti = sum(mov.importo if mov.tipo_movimento == PrimaNota.TipoMovimento.ENTRATA else -mov.importo for mov in movimenti)
-        saldo_finale = esposizione_documenti - netto_movimenti
-        
-        return {
-            "filter_form": filter_form,
-            "documenti": documenti,
-            "scadenze_aperte": scadenze_aperte,
-            "movimenti": movimenti,
-            "esposizione_documenti": esposizione_documenti,
-            "netto_movimenti": netto_movimenti,
-            "saldo_finale": saldo_finale
-        }
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -677,20 +628,83 @@ class AnagraficaDetailView(TenantRequiredMixin, DetailView):
         return context
 
 
+def _get_partitario_data(self, request, anagrafica):
+    """
+    Metodo helper aggiornato per recuperare e filtrare tutti i dati del partitario.
+    Ora accetta la request per poter accedere ai filtri GET.
+    """
+    filter_form = PartitarioFilterForm(request.GET or None)
+    
+    # Queryset di base
+    documenti = DocumentoTestata.objects.filter(anagrafica=anagrafica, stato=DocumentoTestata.Stato.CONFERMATO)
+    scadenze_aperte = Scadenza.objects.filter(anagrafica=anagrafica, stato__in=[Scadenza.Stato.APERTA, Scadenza.Stato.PARZIALE])
+    movimenti = PrimaNota.objects.filter(anagrafica=anagrafica)
+
+    # Applica i filtri di data se il form è valido
+    if filter_form.is_valid():
+        data_da = filter_form.cleaned_data.get('data_da')
+        if data_da:
+            documenti = documenti.filter(data_documento__gte=data_da)
+            scadenze_aperte = scadenze_aperte.filter(data_scadenza__gte=data_da)
+            movimenti = movimenti.filter(data_registrazione__gte=data_da)
+
+        data_a = filter_form.cleaned_data.get('data_a')
+        if data_a:
+            documenti = documenti.filter(data_documento__lte=data_a)
+            scadenze_aperte = scadenze_aperte.filter(data_scadenza__lte=data_a)
+            movimenti = movimenti.filter(data_registrazione__lte=data_a)
+    
+    # Applica ordinamenti
+    documenti = documenti.order_by('-data_documento')
+    scadenze_aperte = scadenze_aperte.annotate(
+        pagato=Coalesce(Sum('pagamenti__importo'), Value(0), output_field=models.DecimalField())
+    ).order_by('data_scadenza')
+    movimenti = movimenti.order_by('-data_registrazione')
+    
+    # Calcolo KPI e residui (la logica rimane la stessa, ma ora opera sui dati filtrati)
+    for s in scadenze_aperte:
+        s.residuo = s.importo_rata - s.pagato
+        
+    esposizione_documenti = sum(doc.totale if 'V' in doc.tipo_doc else -doc.totale for doc in documenti)
+    netto_movimenti = sum(mov.importo if mov.tipo_movimento == PrimaNota.TipoMovimento.ENTRATA else -mov.importo for mov in movimenti)
+    saldo_finale = esposizione_documenti - netto_movimenti
+    
+    return {
+        "filter_form": filter_form,
+        "documenti": documenti,
+        "scadenze_aperte": scadenze_aperte,
+        "movimenti": movimenti,
+        "esposizione_documenti": esposizione_documenti,
+        "netto_movimenti": netto_movimenti,
+        "saldo_finale": saldo_finale
+    }
+
 class AnagraficaPartitarioExportExcelView(AnagraficaDetailView): # Eredita da DetailView
     """
     Esporta il partitario di un'anagrafica in formato Excel.
     """
     def get(self, request, *args, **kwargs):
         # 1. Recupera tutti i dati chiamando il nostro nuovo metodo helper!
-        partitario_data = self._get_partitario_data()
-        anagrafica = partitario_data['anagrafica']
+        partitario_data = self._get_partitario_data(request, anagrafica)
+        anagrafica = self.get_object()
 
         # 2. Prepara i dati per l'utility di export
         tenant_name = request.session.get('active_tenant_name', 'GestionaleDjango')
         report_title = f"Partitario {anagrafica.get_tipo_display()}: {anagrafica.nome_cognome_ragione_sociale}"
         safe_anag_name = "".join(c if c.isalnum() else "_" for c in anagrafica.nome_cognome_ragione_sociale)
         filename_prefix = f"Partitario_{safe_anag_name}"
+
+        filter_form = partitario_data['filter_form']
+        filtri_attivi = []
+        if filter_form.is_valid():
+            for name, value in filter_form.cleaned_data.items():
+                if value:
+                    field = filter_form.fields.get(name)
+                    if not field: continue
+                    label = field.label or name.replace('_', ' ').title()
+                    display_value = value.strftime('%d/%m/%Y') if isinstance(value, date) else str(value)
+                    filtri_attivi.append(f"{label}: {display_value}")
+        filtri_str = " | ".join(filtri_attivi) if filtri_attivi else "Nessun filtro"
         
         kpi_report = {
             'Esposizione Documenti': partitario_data['esposizione_documenti'],
@@ -718,6 +732,7 @@ class AnagraficaPartitarioExportExcelView(AnagraficaDetailView): # Eredita da De
         return generate_excel_report(
             tenant_name, 
             report_title, 
+            filtri_str, 
             "Dati al " + timezone.now().strftime('%d/%m/%Y'), 
             kpi_report, 
             headers, 
@@ -731,8 +746,20 @@ class AnagraficaPartitarioExportPdfView(AnagraficaDetailView):
     """
     def get(self, request, *args, **kwargs):
         # 1. Recupera i dati
-        partitario_data = self._get_partitario_data()
-        anagrafica = partitario_data['anagrafica']
+        anagrafica = self.get_object()
+        partitario_data = self._get_partitario_data(request, anagrafica)
+
+        filter_form = partitario_data['filter_form']
+        filtri_attivi = []
+        if filter_form.is_valid():
+            for name, value in filter_form.cleaned_data.items():
+                if value:
+                    field = filter_form.fields.get(name)
+                    if not field: continue
+                    label = field.label or name.replace('_', ' ').title()
+                    display_value = value.strftime('%d/%m/%Y') if isinstance(value, date) else str(value)
+                    filtri_attivi.append(f"{label}: {display_value}")
+        filtri_str = " | ".join(filtri_attivi) if filtri_attivi else "Nessun filtro"
 
         # 2. Prepara il contesto per il template PDF
         context = {
@@ -740,14 +767,14 @@ class AnagraficaPartitarioExportPdfView(AnagraficaDetailView):
            'report_title': f"Partitario {anagrafica.get_tipo_display()}",
             'anagrafica': anagrafica,
             'timestamp': timezone.now().strftime('%d/%m/%Y %H:%M:%S'),
-            'filtri_str': "Nessun filtro applicato", # Non ci sono filtri qui
+            'filtri_str': filtri_str,
             **partitario_data # Aggiunge tutte le chiavi del dizionario al contesto
         }
         
         # 3. Chiama l'utility
         return generate_pdf_report(
             request,
-            'gestionale/partitario_pdf_template.html', # <-- PERCORSO CORRETTO
+            'gestionale/partitario_pdf_template.html', 
             context
         )
 
