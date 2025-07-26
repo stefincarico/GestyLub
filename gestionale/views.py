@@ -4,7 +4,7 @@
 # ==============================================================================
 # Standard Library
 import json
-from datetime import date, timedelta
+from datetime import date, timedelta, timezone
 from decimal import Decimal
 
 # Django Core
@@ -26,6 +26,7 @@ from django.views.generic.edit import CreateView, UpdateView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
+from django.utils import timezone
 
 from openpyxl import Workbook
 import openpyxl
@@ -648,82 +649,98 @@ class RegistraPagamentoView(TenantRequiredMixin, View):
 # === VISTE SCADENZIARIO                                                    ===
 # ==============================================================================
 
+
 class ScadenzarioListView(TenantRequiredMixin, View):
+    """
+    Gestisce la visualizzazione della dashboard dello Scadenziario.
+    Questa classe contiene la logica principale per recuperare e filtrare i dati,
+    che viene poi riutilizzata anche dalle viste di export.
+    """
     template_name = 'gestionale/scadenzario_list.html'
     paginate_by = 15
 
-    def get(self, request, *args, **kwargs):
+    def _get_filtered_data(self, request):
+        """
+        Metodo helper ("privato") che centralizza tutta la logica di recupero dati.
+        Viene chiamato sia dalla vista HTML che dalle viste di export.
+        
+        Restituisce:
+        - scadenze_qs: Il queryset delle scadenze, già filtrato.
+        - kpi: Un dizionario con i totali aggregati per i KPI.
+        - filter_form: L'istanza del form dei filtri, popolata con i dati GET.
+        - today: La data odierna.
+        """
         from datetime import date
         today = date.today()
 
-        # PUNTO DI CONTROLLO 1: Creazione del form.
-        # Creiamo un'istanza del form con i dati GET (se ci sono).
+        # Inizializza il form con i parametri GET della richiesta (es. ?tipo=Incasso)
         filter_form = ScadenzarioFilterForm(request.GET or None)
-
+        
+        # Queryset di base: tutte le scadenze che non sono né 'Saldata' né 'Annullata'.
+        # Usiamo select_related per ottimizzare le query, pre-caricando i dati
+        # delle tabelle collegate Anagrafica e DocumentoTestata con un unico JOIN.
         scadenze_qs = Scadenza.objects.filter(
             stato__in=[Scadenza.Stato.APERTA, Scadenza.Stato.PARZIALE]
         ).select_related('anagrafica', 'documento').order_by('data_scadenza')
 
-        # Applichiamo i filtri se il form è stato inviato e i dati sono validi.
+        # Applica i filtri al queryset se il form è stato inviato e i dati sono validi.
         if filter_form.is_valid():
-            anagrafica = filter_form.cleaned_data.get('anagrafica')
-            if anagrafica:
-                scadenze_qs = scadenze_qs.filter(anagrafica=anagrafica)
-
-            data_da = filter_form.cleaned_data.get('data_da')
-            if data_da:
-                scadenze_qs = scadenze_qs.filter(data_scadenza__gte=data_da)
-
-            data_a = filter_form.cleaned_data.get('data_a')
-            if data_a:
-                scadenze_qs = scadenze_qs.filter(data_scadenza__lte=data_a)
-
-            tipo = filter_form.cleaned_data.get('tipo')
-            if tipo:
-                scadenze_qs = scadenze_qs.filter(tipo_scadenza=tipo)
-
-            stato = filter_form.cleaned_data.get('stato')
-            if stato == 'scadute':
+            cleaned_data = filter_form.cleaned_data
+            
+            if cleaned_data.get('anagrafica'):
+                scadenze_qs = scadenze_qs.filter(anagrafica=cleaned_data['anagrafica'])
+            
+            if cleaned_data.get('data_da'):
+                scadenze_qs = scadenze_qs.filter(data_scadenza__gte=cleaned_data['data_da'])
+            
+            if cleaned_data.get('data_a'):
+                scadenze_qs = scadenze_qs.filter(data_scadenza__lte=cleaned_data['data_a'])
+            
+            if cleaned_data.get('tipo'):
+                scadenze_qs = scadenze_qs.filter(tipo_scadenza=cleaned_data['tipo'])
+            
+            if cleaned_data.get('stato') == 'scadute':
                 scadenze_qs = scadenze_qs.filter(data_scadenza__lt=today)
-            elif stato == 'a_scadere':
+            elif cleaned_data.get('stato') == 'a_scadere':
                 scadenze_qs = scadenze_qs.filter(data_scadenza__gte=today)
         
-        # Calcolo KPI
-
-        # Calcolo dei KPI (sull'intero queryset filtrato)
-        kpi_qs = scadenze_qs.aggregate(
-            # Somma totale delle rate
+        # Calcola i KPI aggregati sull'INTERO queryset GIA' FILTRATO.
+        # Questa è una singola, efficiente query al database.
+        kpi = scadenze_qs.aggregate(
             incassi_totali_rate=Coalesce(Sum('importo_rata', filter=models.Q(tipo_scadenza=Scadenza.Tipo.INCASSO)), Value(0), output_field=models.DecimalField()),
             pagamenti_totali_rate=Coalesce(Sum('importo_rata', filter=models.Q(tipo_scadenza=Scadenza.Tipo.PAGAMENTO)), Value(0), output_field=models.DecimalField()),
-            
-            # Somma totale dei pagamenti ricevuti/effettuati
             incassi_pagati=Coalesce(Sum('pagamenti__importo', filter=models.Q(tipo_scadenza=Scadenza.Tipo.INCASSO)), Value(0), output_field=models.DecimalField()),
             pagamenti_pagati=Coalesce(Sum('pagamenti__importo', filter=models.Q(tipo_scadenza=Scadenza.Tipo.PAGAMENTO)), Value(0), output_field=models.DecimalField()),
-            
-            # === NUOVI CALCOLI PER GLI SCADUTI ===
-            # Somma delle rate scadute
             incassi_scaduti_rate=Coalesce(Sum('importo_rata', filter=models.Q(tipo_scadenza=Scadenza.Tipo.INCASSO, data_scadenza__lt=today)), Value(0), output_field=models.DecimalField()),
             pagamenti_scaduti_rate=Coalesce(Sum('importo_rata', filter=models.Q(tipo_scadenza=Scadenza.Tipo.PAGAMENTO, data_scadenza__lt=today)), Value(0), output_field=models.DecimalField()),
-            
-            # Somma dei pagamenti ricevuti/effettuati SU rate scadute
             incassi_scaduti_pagati=Coalesce(Sum('pagamenti__importo', filter=models.Q(tipo_scadenza=Scadenza.Tipo.INCASSO, data_scadenza__lt=today)), Value(0), output_field=models.DecimalField()),
             pagamenti_scaduti_pagati=Coalesce(Sum('pagamenti__importo', filter=models.Q(tipo_scadenza=Scadenza.Tipo.PAGAMENTO, data_scadenza__lt=today)), Value(0), output_field=models.DecimalField())
         )
-
-
-
-        # Calcoliamo i residui
-        incassi_aperti = kpi_qs['incassi_totali_rate'] - kpi_qs['incassi_pagati']
-        pagamenti_aperti = kpi_qs['pagamenti_totali_rate'] - kpi_qs['pagamenti_pagati']
-        incassi_scaduti = kpi_qs['incassi_scaduti_rate'] - kpi_qs['incassi_scaduti_pagati']
-        pagamenti_scaduti = kpi_qs['pagamenti_scaduti_rate'] - kpi_qs['pagamenti_scaduti_pagati']
-        # === FINE NUOVI CALCOLI ===
         
-        # Paginazione
+        # Restituisce i dati pronti per essere usati.
+        return scadenze_qs, kpi, filter_form, today
+
+    def get(self, request, *args, **kwargs):
+        """
+        Metodo principale che gestisce la richiesta GET per la pagina HTML.
+        Il suo compito è orchestrare la chiamata all'helper, gestire la paginazione
+        e preparare il contesto finale per il template.
+        """
+        # 1. Chiama il metodo helper per ottenere tutti i dati di base.
+        scadenze_qs, kpi_data, filter_form, today = self._get_filtered_data(request)
+
+        # 2. Calcola i valori finali dei KPI dai dati aggregati.
+        incassi_aperti = kpi_data['incassi_totali_rate'] - kpi_data['incassi_pagati']
+        pagamenti_aperti = kpi_data['pagamenti_totali_rate'] - kpi_data['pagamenti_pagati']
+        incassi_scaduti = kpi_data['incassi_scaduti_rate'] - kpi_data['incassi_scaduti_pagati']
+        pagamenti_scaduti = kpi_data['pagamenti_scaduti_rate'] - kpi_data['pagamenti_scaduti_pagati']
+        
+        # 3. Applica la paginazione al queryset filtrato.
         paginator = Paginator(scadenze_qs, self.paginate_by)
         page_number = request.GET.get('page')
         page_obj = paginator.get_page(page_number)
         
+        # 4. Calcola il residuo per le sole scadenze della pagina corrente (per efficienza).
         ids_pagina_corrente = [s.id for s in page_obj]
         scadenze_pagina_con_pagato = Scadenza.objects.filter(pk__in=ids_pagina_corrente).annotate(
             pagato=Coalesce(Sum('pagamenti__importo'), Value(0), output_field=models.DecimalField())
@@ -733,105 +750,131 @@ class ScadenzarioListView(TenantRequiredMixin, View):
         for s in page_obj:
             s.residuo = s.importo_rata - pagato_map.get(s.id, Decimal(0))
 
-        # PUNTO DI CONTROLLO 2: Passaggio del form al contesto.
-        # Assicuriamoci che 'filter_form' sia sempre nel dizionario del contesto.
+        # 5. Prepara il contesto da passare al template.
         context = {
             'page_obj': page_obj,
             'is_paginated': page_obj.has_other_pages(),
-            'pagamento_form': PagamentoForm(),
+            'pagamento_form': PagamentoForm(), # Necessario per la modale
             'today': today,
-            'filter_form': filter_form, 
+            'filter_form': filter_form,
             'kpi': {
                 'incassi_aperti': incassi_aperti,
                 'pagamenti_aperti': pagamenti_aperti,
                 'saldo_circolante': incassi_aperti - pagamenti_aperti,
-                'incassi_scaduti': incassi_scaduti,  
-                'pagamenti_scaduti': pagamenti_scaduti, 
+                'incassi_scaduti': incassi_scaduti,
+                'pagamenti_scaduti': pagamenti_scaduti,
             }
         }
+        
+        # 6. Renderizza il template con il contesto.
         return render(request, self.template_name, context)
-    
+
 
 class ScadenzarioExportExcelView(ScadenzarioListView):
     """
-    Vista per esportare i dati dello scadenziario (filtrati) in un file Excel.
-    Eredita da ScadenzarioListView per riutilizzare la logica di recupero e filtro.
+    Gestisce l'export in formato Excel (.xlsx) dello scadenziario.
+    
+    Eredita da ScadenzarioListView per poter riutilizzare il metodo
+    _get_filtered_data, garantendo che i dati esportati siano
+    esattamente quelli visualizzati e filtrati dall'utente.
     """
+    
     def get(self, request, *args, **kwargs):
-        # 1. Eseguiamo la logica della vista genitore per ottenere il queryset filtrato
-        #    e i KPI. Non ci serve il risultato di render(), quindi lo ignoriamo.
-        #    Per farlo, dobbiamo chiamare la logica che abbiamo nel nostro `get`
-        #    ma senza la parte di paginazione e rendering.
-        #    Refactoring: Spostiamo la logica del queryset in un metodo separato.
-        
-        # Questa chiamata esegue il metodo get() della classe da cui ereditiamo
-        # ma noi vogliamo solo i dati, non l'intera risposta HTML.
-        # Dobbiamo fare un piccolo refactoring...
-        
-        # *** TORNA ALLA CLASSE ScadenzarioListView E APPORTA QUESTA MODIFICA ***
-        # Spostiamo la logica di recupero dei dati in un metodo riutilizzabile.
-        
-        # In ScadenzarioListView, aggiungi un nuovo metodo:
-        # def get_queryset_e_kpi(self, request):
-        #     ... (tutto il codice per ottenere scadenze_qs e i kpi) ...
-        #     return scadenze_qs, kpi
-        
-        # E modifica il suo metodo get():
-        # def get(self, request, *args, **kwargs):
-        #     scadenze_qs, kpi = self.get_queryset_e_kpi(request)
-        #     ... (logica di paginazione e context) ...
+        # 1. RECUPERO DATI
+        # Chiamiamo il nostro metodo helper centralizzato per ottenere
+        # il queryset già filtrato e i dati aggregati per i KPI.
+        scadenze_qs, kpi_data, filter_form, today = self._get_filtered_data(request)
 
-        # Per ora, per semplicità, duplichiamo la logica. La ottimizzeremo dopo.
-        from datetime import date
-        today = date.today()
-        filter_form = ScadenzarioFilterForm(request.GET or None)
-        scadenze_qs = Scadenza.objects.filter(
-            stato__in=[Scadenza.Stato.APERTA, Scadenza.Stato.PARZIALE]
-        ).select_related('anagrafica', 'documento').order_by('data_scadenza')
-
-        if filter_form.is_valid():
-            # ... (copia e incolla TUTTA la logica di filtraggio qui) ...
-            anagrafica = filter_form.cleaned_data.get('anagrafica')
-            if anagrafica: scadenze_qs = scadenze_qs.filter(anagrafica=anagrafica)
-            data_da = filter_form.cleaned_data.get('data_da')
-            if data_da: scadenze_qs = scadenze_qs.filter(data_scadenza__gte=data_da)
-            data_a = filter_form.cleaned_data.get('data_a')
-            if data_a: scadenze_qs = scadenze_qs.filter(data_scadenza__lte=data_a)
-            tipo = filter_form.cleaned_data.get('tipo')
-            if tipo: scadenze_qs = scadenze_qs.filter(tipo_scadenza=tipo)
-            stato = filter_form.cleaned_data.get('stato')
-            if stato == 'scadute': scadenze_qs = scadenze_qs.filter(data_scadenza__lt=today)
-            elif stato == 'a_scadere': scadenze_qs = scadenze_qs.filter(data_scadenza__gte=today)
-        
-        # 2. Crea una risposta HTTP di tipo Excel
+        # 2. PREPARAZIONE DELLA RISPOSTA HTTP
+        # Creiamo una risposta di tipo 'spreadsheet' (foglio di calcolo).
+        # Il browser interpreterà questa risposta come un file da scaricare.
         response = HttpResponse(
             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         )
-        response['Content-Disposition'] = 'attachment; filename="scadenziario_aperto.xlsx"'
+        # Impostiamo l'header 'Content-Disposition' per suggerire al browser
+        # il nome del file da scaricare.
+        response['Content-Disposition'] = f'attachment; filename="scadenziario_aperto_{today.strftime("%Y%m%d")}.xlsx"'
 
-        # 3. Crea il file Excel in memoria
+        # 3. CREAZIONE DEL FILE EXCEL IN MEMORIA
         workbook = Workbook()
         worksheet = workbook.active
         worksheet.title = 'Scadenziario Aperto'
 
-        # 4. Scrivi le intestazioni
+        # 4. DEFINIZIONE DEGLI STILI (per un report più professionale)
+        title_font = Font(name='Calibri', size=16, bold=True)
+        header_font = Font(name='Calibri', size=12, bold=True)
+        currency_format = '"€" #,##0.00'
+        date_format = 'DD/MM/YYYY'
+
+        # 5. SCRITTURA DELL'INTESTAZIONE DEL REPORT
+        # Uniamo le celle per i titoli per un aspetto più pulito
+        worksheet.merge_cells('A1:G1')
+        worksheet.merge_cells('A2:G2')
+        worksheet.merge_cells('A4:G4')
+        worksheet.merge_cells('A5:G5')
+
+        worksheet['A1'] = request.session.get('active_tenant_name', 'GestionaleDjango')
+        worksheet['A1'].font = title_font
+        worksheet['A1'].alignment = Alignment(horizontal='center')
+        
+        worksheet['A2'] = 'Report Scadenziario Aperto'
+        worksheet['A2'].alignment = Alignment(horizontal='center')
+
+        # Costruiamo la stringa dei filtri applicati
+        filtri_attivi = []
+        if filter_form.is_valid():
+            for name, value in filter_form.cleaned_data.items():
+                if value:
+                    display_value = value
+                    # Se il campo è un ChoiceField o ModelChoiceField, otteniamo l'etichetta leggibile
+                    if hasattr(filter_form.fields[name], 'choices'):
+                         display_value = dict(filter_form.fields[name].choices).get(value)
+                    # Per le date, formattiamole
+                    if isinstance(value, date):
+                        display_value = value.strftime('%d/%m/%Y')
+                    filtri_attivi.append(f"{filter_form.fields[name].label}: {display_value}")
+        filtri_str = " | ".join(filtri_attivi) if filtri_attivi else "Nessun filtro"
+        worksheet['A4'] = f"Filtri Applicati: {filtri_str}"
+        
+        worksheet['A5'] = f"Generato il: {timezone.now().strftime('%d/%m/%Y %H:%M:%S')}"
+        
+        # 6. SCRITTURA DEI KPI
+        # Calcoliamo i valori finali dai dati aggregati
+        incassi_aperti = kpi_data['incassi_totali_rate'] - kpi_data['incassi_pagati']
+        pagamenti_aperti = kpi_data['pagamenti_totali_rate'] - kpi_data['pagamenti_pagati']
+        saldo_circolante = incassi_aperti - pagamenti_aperti
+
+        worksheet['B7'] = 'Incassi Aperti'; worksheet['C7'] = incassi_aperti
+        worksheet['B8'] = 'Pagamenti Aperti'; worksheet['C8'] = pagamenti_aperti
+        worksheet['B9'] = 'Saldo Circolante'; worksheet['C9'] = saldo_circolante
+        
+        for row in range(7, 10):
+            worksheet[f'B{row}'].font = header_font
+            worksheet[f'C{row}'].number_format = currency_format
+
+        # 7. SCRITTURA DELLA TABELLA DATI
+        # Intestazioni della tabella (a partire dalla riga 11 per lasciare spazio)
         headers = [
             "Data Scad.", "Tipo", "Cliente/Fornitore", "Rif. Doc.", 
             "Importo Rata", "Residuo", "Stato Rata"
         ]
+        worksheet.append([]) # Aggiunge una riga vuota per spaziatura
         worksheet.append(headers)
         
-        # Applica uno stile in grassetto alle intestazioni
-        for cell in worksheet[1]:
-            cell.font = Font(bold=True)
+        # Applica lo stile in grassetto all'ultima riga scritta (le intestazioni)
+        for cell in worksheet[worksheet.max_row]:
+            cell.font = header_font
+            cell.alignment = Alignment(horizontal='center')
 
-        # 5. Scrivi i dati
+        # Eseguiamo l'annotate per calcolare il 'pagato' su tutto il queryset filtrato
         scadenze_con_pagato = scadenze_qs.annotate(
             pagato=Coalesce(Sum('pagamenti__importo'), Value(0), output_field=models.DecimalField())
         )
+        
+        # Scriviamo le righe di dati nel foglio
         for scadenza in scadenze_con_pagato:
             residuo = scadenza.importo_rata - scadenza.pagato
-            row = [
+            row_data = [
                 scadenza.data_scadenza,
                 scadenza.get_tipo_scadenza_display(),
                 scadenza.anagrafica.nome_cognome_ragione_sociale,
@@ -840,27 +883,41 @@ class ScadenzarioExportExcelView(ScadenzarioListView):
                 residuo,
                 scadenza.get_stato_display()
             ]
-            worksheet.append(row)
+            worksheet.append(row_data)
             
-            # Formatta le celle data e valuta
-            worksheet.cell(row=worksheet.max_row, column=1).number_format = 'DD/MM/YYYY'
-            worksheet.cell(row=worksheet.max_row, column=5).number_format = '"€" #,##0.00'
-            worksheet.cell(row=worksheet.max_row, column=6).number_format = '"€" #,##0.00'
+            # Applichiamo la formattazione specifica per data e valuta
+            current_row = worksheet.max_row
+            worksheet.cell(row=current_row, column=1).number_format = date_format
+            worksheet.cell(row=current_row, column=5).number_format = currency_format
+            worksheet.cell(row=current_row, column=6).number_format = currency_format
+        
+        # 8. ADATTAMENTO FINALE E SALVATAGGIO
+        # Adatta automaticamente la larghezza delle colonne al contenuto
+        
+        # === INIZIO BLOCCO CORRETTO ===
+        from openpyxl.utils import get_column_letter
 
-        # Adatta la larghezza delle colonne
-        for col_idx, column_cells in enumerate(worksheet.columns, 1):
+        for col_idx in range(1, worksheet.max_column + 1):
+            column_letter = get_column_letter(col_idx)
             max_length = 0
-            column = openpyxl.utils.get_column_letter(col_idx)
-            for cell in column_cells:
+            # Cicliamo sulle celle della colonna
+            for cell in worksheet[column_letter]:
+                # Saltiamo le celle unite per evitare errori
+                if isinstance(cell, openpyxl.cell.cell.MergedCell):
+                    continue
                 try:
-                    if len(str(cell.value)) > max_length:
-                        max_length = len(str(cell.value))
+                    # Troviamo la lunghezza massima del contenuto nella colonna
+                    if len(str(cell.value or "")) > max_length:
+                        max_length = len(str(cell.value or ""))
                 except:
                     pass
+            # Aggiungiamo un po' di padding alla larghezza
             adjusted_width = (max_length + 2)
-            worksheet.column_dimensions[column].width = adjusted_width
+            worksheet.column_dimensions[column_letter].width = adjusted_width
+        # === FINE BLOCCO CORRETTO ===
 
-        # 6. Salva il file nella risposta HTTP
+        # Salva il workbook nella risposta HTTP
         workbook.save(response)
+        
         return response
     
