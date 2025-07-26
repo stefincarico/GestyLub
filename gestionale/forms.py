@@ -473,4 +473,18 @@ class PrimaNotaForm(forms.ModelForm):
         self.fields['anagrafica'].queryset = Anagrafica.objects.filter(attivo=True)
         self.fields['cantiere'].queryset = Cantiere.objects.filter(stato=Cantiere.Stato.APERTO)
 
-        
+class PartitarioFilterForm(forms.Form):
+    """
+    Form per i filtri di data del Partitario Anagrafica.
+    """
+    data_da = forms.DateField(
+        required=False,
+        label="Dal",
+        widget=forms.DateInput(attrs={'class': 'form-control', 'type': 'date'})
+    )
+    data_a = forms.DateField(
+        required=False,
+        label="Al",
+        widget=forms.DateInput(attrs={'class': 'form-control', 'type': 'date'})
+    )
+

@@ -10,7 +10,28 @@
         <a href="{% url 'anagrafica_list' %}" class="btn btn-secondary ms-2">Torna alla Lista</a>
     </div>
 </div>
-
+    <!-- ======================= BLOCCO FILTRI ======================= -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" action="">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-4">
+                        <label for="{{ filter_form.data_da.id_for_label }}" class="form-label">{{ filter_form.data_da.label }}</label>
+                        {{ filter_form.data_da }}
+                    </div>
+                    <div class="col-md-4">
+                        <label for="{{ filter_form.data_a.id_for_label }}" class="form-label">{{ filter_form.data_a.label }}</label>
+                        {{ filter_form.data_a }}
+                    </div>
+                    <div class="col-md-4 d-flex">
+                        <button type="submit" class="btn btn-primary w-100 me-2">Filtra</button>
+                        <a href="{% url 'anagrafica_detail' anagrafica.pk %}" class="btn btn-secondary w-100">Reset</a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    <!-- ===================== FINE BLOCCO FILTRI ===================== -->
 <!-- Riepilogo Contabile -->
 <div class="card mb-4">
     <div class="card-header">Riepilogo Contabile</div>

@@ -603,73 +603,79 @@ class AnagraficaDetailView(TenantRequiredMixin, DetailView):
     template_name = 'gestionale/anagrafica_detail.html'
     context_object_name = 'anagrafica'
 
-    def _get_partitario_data(self):
+    def _get_partitario_data(self, request, anagrafica):
         """
-        Metodo helper per recuperare tutti i dati del partitario.
+        Metodo helper aggiornato per recuperare e filtrare tutti i dati del partitario.
+        Ora accetta la request per poter accedere ai filtri GET.
         """
-        anagrafica = self.get_object()
+        filter_form = PartitarioFilterForm(request.GET or None)
+        
+        # Queryset di base
+        documenti = DocumentoTestata.objects.filter(anagrafica=anagrafica, stato=DocumentoTestata.Stato.CONFERMATO)
+        scadenze_aperte = Scadenza.objects.filter(anagrafica=anagrafica, stato__in=[Scadenza.Stato.APERTA, Scadenza.Stato.PARZIALE])
+        movimenti = PrimaNota.objects.filter(anagrafica=anagrafica)
 
-        documenti = DocumentoTestata.objects.filter(
-            anagrafica=anagrafica, 
-            stato=DocumentoTestata.Stato.CONFERMATO
-        ).order_by('data_documento')
+        # Applica i filtri di data se il form è valido
+        if filter_form.is_valid():
+            data_da = filter_form.cleaned_data.get('data_da')
+            if data_da:
+                documenti = documenti.filter(data_documento__gte=data_da)
+                scadenze_aperte = scadenze_aperte.filter(data_scadenza__gte=data_da)
+                movimenti = movimenti.filter(data_registrazione__gte=data_da)
 
-        scadenze_aperte = Scadenza.objects.filter(
-            anagrafica=anagrafica,
-            stato__in=[Scadenza.Stato.APERTA, Scadenza.Stato.PARZIALE]
-        ).annotate(
+            data_a = filter_form.cleaned_data.get('data_a')
+            if data_a:
+                documenti = documenti.filter(data_documento__lte=data_a)
+                scadenze_aperte = scadenze_aperte.filter(data_scadenza__lte=data_a)
+                movimenti = movimenti.filter(data_registrazione__lte=data_a)
+        
+        # Applica ordinamenti
+        documenti = documenti.order_by('-data_documento')
+        scadenze_aperte = scadenze_aperte.annotate(
             pagato=Coalesce(Sum('pagamenti__importo'), Value(0), output_field=models.DecimalField())
         ).order_by('data_scadenza')
+        movimenti = movimenti.order_by('-data_registrazione')
         
+        # Calcolo KPI e residui (la logica rimane la stessa, ma ora opera sui dati filtrati)
         for s in scadenze_aperte:
             s.residuo = s.importo_rata - s.pagato
-
-        movimenti = PrimaNota.objects.filter(anagrafica=anagrafica).order_by('data_registrazione')
-
-        esposizione_documenti = sum(
-            doc.totale if 'V' in doc.tipo_doc else -doc.totale for doc in documenti
-        )
-        netto_movimenti = sum(
-            mov.importo if mov.tipo_movimento == PrimaNota.TipoMovimento.ENTRATA else -mov.importo for mov in movimenti
-        )
+            
+        esposizione_documenti = sum(doc.totale if 'V' in doc.tipo_doc else -doc.totale for doc in documenti)
+        netto_movimenti = sum(mov.importo if mov.tipo_movimento == PrimaNota.TipoMovimento.ENTRATA else -mov.importo for mov in movimenti)
         saldo_finale = esposizione_documenti - netto_movimenti
         
         return {
-            "anagrafica": anagrafica, "documenti": documenti, "scadenze_aperte": scadenze_aperte,
-            "movimenti": movimenti, "esposizione_documenti": esposizione_documenti,
-            "netto_movimenti": netto_movimenti, "saldo_finale": saldo_finale
+            "filter_form": filter_form,
+            "documenti": documenti,
+            "scadenze_aperte": scadenze_aperte,
+            "movimenti": movimenti,
+            "esposizione_documenti": esposizione_documenti,
+            "netto_movimenti": netto_movimenti,
+            "saldo_finale": saldo_finale
         }
 
     def get_context_data(self, **kwargs):
-        """
-        Prepara tutti i dati aggregati per il partitario, ora con paginazione.
-        """
         context = super().get_context_data(**kwargs)
         
-        # Recuperiamo tutti i dati di base chiamando il nostro helper
-        partitario_data = self._get_partitario_data()
+        # Passiamo la request al nostro helper per leggere i parametri GET
+        partitario_data = self._get_partitario_data(self.request, self.get_object())
         context.update(partitario_data)
 
-            # === INIZIO LOGICA DI PAGINAZIONE (CORRETTA) ===
-        # Paginazione per lo Scadenziario Aperto
+        # Logica di paginazione (invariata)
         paginator_scadenze = Paginator(partitario_data['scadenze_aperte'], 5)
-        # Usiamo .get('...', 1) per fornire '1' come valore di default se il parametro non c'è.
         page_number_scadenze = self.request.GET.get('pagina_scadenze', 1)
         page_obj_scadenze = paginator_scadenze.get_page(page_number_scadenze)
         
-        # Paginazione per i Movimenti
         paginator_movimenti = Paginator(partitario_data['movimenti'], 10)
-        page_number_movimenti = self.request.GET.get('pagina_movimenti', 1) # Default a 1
+        page_number_movimenti = self.request.GET.get('pagina_movimenti', 1)
         page_obj_movimenti = paginator_movimenti.get_page(page_number_movimenti)
         
-        # Sostituiamo le liste complete nel contesto con gli oggetti pagina
         context['scadenze_aperte'] = page_obj_scadenze
         context['movimenti'] = page_obj_movimenti
-        # === FINE LOGICA DI PAGINAZIONE ===
         
         context['pagamento_form'] = PagamentoForm()
         return context
-    
+
 
 class AnagraficaPartitarioExportExcelView(AnagraficaDetailView): # Eredita da DetailView
     """
