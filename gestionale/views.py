@@ -557,7 +557,7 @@ class DocumentoListExportPdfView(DocumentoListView):
         
         return generate_pdf_report(
             request,
-            'gestionale/documento_list_pdf.html', # Template che creeremo ora
+            'gestionale/documento_list_pdf.html', 
             context
         )
 
