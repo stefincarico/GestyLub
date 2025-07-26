@@ -573,7 +573,7 @@ class AnagraficaPartitarioExportExcelView(AnagraficaDetailView): # Eredita da De
 
         # 2. Prepara i dati per l'utility di export
         tenant_name = request.session.get('active_tenant_name', 'GestionaleDjango')
-        report_title = f"Partitario {anagrafica.get_tipo_display}: {anagrafica.nome_cognome_ragione_sociale}"
+        report_title = f"Partitario {anagrafica.get_tipo_display()}: {anagrafica.nome_cognome_ragione_sociale}"
         safe_anag_name = "".join(c if c.isalnum() else "_" for c in anagrafica.nome_cognome_ragione_sociale)
         filename_prefix = f"Partitario_{safe_anag_name}"
         
@@ -603,11 +603,11 @@ class AnagraficaPartitarioExportExcelView(AnagraficaDetailView): # Eredita da De
         return generate_excel_report(
             tenant_name, 
             report_title, 
-            "Dati al " + timezone.now().strftime('%d/%m/%Y'), # Filtri
+            "Dati al " + timezone.now().strftime('%d/%m/%Y'), 
             kpi_report, 
             headers, 
             data_rows,
-            filename_prefix=filename_prefix # Passiamo il nuovo prefisso
+            filename_prefix=filename_prefix
         )
     
 class AnagraficaPartitarioExportPdfView(AnagraficaDetailView):
