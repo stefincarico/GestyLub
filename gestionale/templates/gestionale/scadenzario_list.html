@@ -9,37 +9,37 @@
         <a href="#" class="btn" style="background-color: #FF9900; color: white;">Esporta PDF</a>
     </div>
 </div>
-
 <!-- KPI Cards -->
-<div class="row mb-4">
-    <div class="col-md-4">
-        <div class="card">
-            <div class="card-body text-center">
-                <h6 class="card-title text-muted">Incassi Aperti</h6>
-                <h3 class="text-success">€ {{ kpi.incassi_aperti|floatformat:2 }}</h3>
-                <small class="text-muted">(di cui scaduti: € 0,00)</small>
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h6 class="card-title text-muted">Incassi Aperti</h6>
+                    <h3 class="text-success">€ {{ kpi.incassi_aperti|floatformat:2 }}</h3>
+                    <small class="text-muted">(di cui scaduti: € {{ kpi.incassi_scaduti|floatformat:2 }})</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h6 class="card-title text-muted">Pagamenti Aperti</h6>
+                    <h3 class="text-danger">€ {{ kpi.pagamenti_aperti|floatformat:2 }}</h3>
+                    <small class="text-muted">(di cui scaduti: € {{ kpi.pagamenti_scaduti|floatformat:2 }})</small>
+                </div>
+            </div>
+        </div>
+        <!-- Card Saldo Circolante (invariata) -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h6 class="card-title text-muted">Saldo Circolante</h6>
+                    <h3>€ {{ kpi.saldo_circolante|floatformat:2 }}</h3>
+                    <small class="text-muted">(Incassi - Pagamenti)</small>
+                </div>
             </div>
         </div>
     </div>
-    <div class="col-md-4">
-        <div class="card">
-            <div class="card-body text-center">
-                <h6 class="card-title text-muted">Pagamenti Aperti</h6>
-                <h3 class="text-danger">€ {{ kpi.pagamenti_aperti|floatformat:2 }}</h3>
-                <small class="text-muted">(di cui scaduti: € 0,00)</small>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card">
-            <div class="card-body text-center">
-                <h6 class="card-title text-muted">Saldo Circolante</h6>
-                <h3>€ {{ kpi.saldo_circolante|floatformat:2 }}</h3>
-                <small class="text-muted">(Incassi - Pagamenti)</small>
-            </div>
-        </div>
-    </div>
-</div>
 <!-- ======================= INIZIO BLOCCO FILTRI  ======================= -->
     <div class="card mb-4">
         <div class="card-body">

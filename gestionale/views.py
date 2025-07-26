@@ -683,18 +683,38 @@ class ScadenzarioListView(TenantRequiredMixin, View):
             elif stato == 'a_scadere':
                 scadenze_qs = scadenze_qs.filter(data_scadenza__gte=today)
         
-        # Calcolo KPI (invariato)
-        # ... (tutta la logica KPI rimane qui)
+        # Calcolo KPI
+
+        # Calcolo dei KPI (sull'intero queryset filtrato)
         kpi_qs = scadenze_qs.aggregate(
-            incassi_totali=Coalesce(Sum('importo_rata', filter=models.Q(tipo_scadenza=Scadenza.Tipo.INCASSO)), Value(0), output_field=models.DecimalField()),
-            pagamenti_totali=Coalesce(Sum('importo_rata', filter=models.Q(tipo_scadenza=Scadenza.Tipo.PAGAMENTO)), Value(0), output_field=models.DecimalField()),
+            # Somma totale delle rate
+            incassi_totali_rate=Coalesce(Sum('importo_rata', filter=models.Q(tipo_scadenza=Scadenza.Tipo.INCASSO)), Value(0), output_field=models.DecimalField()),
+            pagamenti_totali_rate=Coalesce(Sum('importo_rata', filter=models.Q(tipo_scadenza=Scadenza.Tipo.PAGAMENTO)), Value(0), output_field=models.DecimalField()),
+            
+            # Somma totale dei pagamenti ricevuti/effettuati
             incassi_pagati=Coalesce(Sum('pagamenti__importo', filter=models.Q(tipo_scadenza=Scadenza.Tipo.INCASSO)), Value(0), output_field=models.DecimalField()),
-            pagamenti_pagati=Coalesce(Sum('pagamenti__importo', filter=models.Q(tipo_scadenza=Scadenza.Tipo.PAGAMENTO)), Value(0), output_field=models.DecimalField())
+            pagamenti_pagati=Coalesce(Sum('pagamenti__importo', filter=models.Q(tipo_scadenza=Scadenza.Tipo.PAGAMENTO)), Value(0), output_field=models.DecimalField()),
+            
+            # === NUOVI CALCOLI PER GLI SCADUTI ===
+            # Somma delle rate scadute
+            incassi_scaduti_rate=Coalesce(Sum('importo_rata', filter=models.Q(tipo_scadenza=Scadenza.Tipo.INCASSO, data_scadenza__lt=today)), Value(0), output_field=models.DecimalField()),
+            pagamenti_scaduti_rate=Coalesce(Sum('importo_rata', filter=models.Q(tipo_scadenza=Scadenza.Tipo.PAGAMENTO, data_scadenza__lt=today)), Value(0), output_field=models.DecimalField()),
+            
+            # Somma dei pagamenti ricevuti/effettuati SU rate scadute
+            incassi_scaduti_pagati=Coalesce(Sum('pagamenti__importo', filter=models.Q(tipo_scadenza=Scadenza.Tipo.INCASSO, data_scadenza__lt=today)), Value(0), output_field=models.DecimalField()),
+            pagamenti_scaduti_pagati=Coalesce(Sum('pagamenti__importo', filter=models.Q(tipo_scadenza=Scadenza.Tipo.PAGAMENTO, data_scadenza__lt=today)), Value(0), output_field=models.DecimalField())
         )
-        incassi_aperti = kpi_qs['incassi_totali'] - kpi_qs['incassi_pagati']
-        pagamenti_aperti = kpi_qs['pagamenti_totali'] - kpi_qs['pagamenti_pagati']
+
+
+
+        # Calcoliamo i residui
+        incassi_aperti = kpi_qs['incassi_totali_rate'] - kpi_qs['incassi_pagati']
+        pagamenti_aperti = kpi_qs['pagamenti_totali_rate'] - kpi_qs['pagamenti_pagati']
+        incassi_scaduti = kpi_qs['incassi_scaduti_rate'] - kpi_qs['incassi_scaduti_pagati']
+        pagamenti_scaduti = kpi_qs['pagamenti_scaduti_rate'] - kpi_qs['pagamenti_scaduti_pagati']
+        # === FINE NUOVI CALCOLI ===
         
-        # Paginazione (invariata)
+        # Paginazione
         paginator = Paginator(scadenze_qs, self.paginate_by)
         page_number = request.GET.get('page')
         page_obj = paginator.get_page(page_number)
@@ -715,11 +735,13 @@ class ScadenzarioListView(TenantRequiredMixin, View):
             'is_paginated': page_obj.has_other_pages(),
             'pagamento_form': PagamentoForm(),
             'today': today,
-            'filter_form': filter_form, # <-- DEVE ESSERE QUI
+            'filter_form': filter_form, 
             'kpi': {
                 'incassi_aperti': incassi_aperti,
                 'pagamenti_aperti': pagamenti_aperti,
                 'saldo_circolante': incassi_aperti - pagamenti_aperti,
+                'incassi_scaduti': incassi_scaduti,  
+                'pagamenti_scaduti': pagamenti_scaduti, 
             }
         }
         return render(request, self.template_name, context)
