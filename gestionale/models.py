@@ -131,6 +131,35 @@ class Anagrafica(models.Model):
 
     def __str__(self):
         return f"{self.nome_cognome_ragione_sociale} ({self.codice})"
+    
+    # === NUOVO METODO SAVE  ===
+    def save(self, *args, **kwargs):
+        """
+        Sovrascrive il metodo save per generare il codice anagrafica
+        automaticamente al primo salvataggio.
+        """
+        # La logica di generazione del codice deve essere eseguita solo
+        # se l'oggetto è nuovo (non ha ancora un 'pk') E non ha già un codice.
+        if not self.pk or not self.codice:
+            tipo = self.tipo
+            prefisso = {
+                self.Tipo.CLIENTE: 'CL',
+                self.Tipo.FORNITORE: 'FO',
+                self.Tipo.DIPENDENTE: 'DI'
+            }.get(tipo, 'XX')
+
+            last_anagrafica = Anagrafica.objects.filter(tipo=tipo).order_by('codice').last()
+            
+            if last_anagrafica and last_anagrafica.codice:
+                last_number = int(last_anagrafica.codice[2:])
+                new_number = last_number + 1
+            else:
+                new_number = 1
+            
+            self.codice = f"{prefisso}{new_number:06d}"
+            
+        # Chiama il metodo save() originale per eseguire il salvataggio effettivo
+        super().save(*args, **kwargs)
 
     class Meta:
         verbose_name = "Anagrafica"

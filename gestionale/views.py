@@ -68,21 +68,24 @@ class AnagraficaCreateView(TenantRequiredMixin, CreateView):
             return reverse('anagrafica_list')
 
     def form_valid(self, form):
-        with transaction.atomic():
-            anagrafica = form.save(commit=False)
-            anagrafica.created_by = self.request.user
-            anagrafica.updated_by = self.request.user
-            tipo = anagrafica.tipo
-            prefisso = {'Cliente': 'CL', 'Fornitore': 'FO', 'Dipendente': 'DI'}.get(tipo, 'XX')
-            last_anagrafica = Anagrafica.objects.filter(tipo=tipo).order_by('codice').last()
-            if last_anagrafica and last_anagrafica.codice:
-                last_number = int(last_anagrafica.codice[2:])
-                new_number = last_number + 1
-            else:
-                new_number = 1
-            anagrafica.codice = f"{prefisso}{new_number:06d}"
-            anagrafica.save()
+        """
+        Ora questo metodo deve solo impostare i campi utente e lasciare
+        che il modello si occupi del resto.
+        """
+        # Otteniamo l'oggetto senza salvarlo
+        anagrafica = form.save(commit=False)
+        
+        # Impostiamo l'utente
+        anagrafica.created_by = self.request.user
+        anagrafica.updated_by = self.request.user
+        
+        # Salviamo. Il metodo save() personalizzato del modello Anagrafica
+        # verrà chiamato automaticamente e genererà il codice.
+        anagrafica.save()
+        
+        # Assegniamo l'oggetto alla vista per il reindirizzamento
         self.object = anagrafica
+        
         return HttpResponseRedirect(self.get_success_url())
 
 class AnagraficaUpdateView(TenantRequiredMixin, UpdateView):
