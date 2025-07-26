@@ -1,0 +1,101 @@
+{% extends "gestionale/base.html" %}
+{% block title %}Partitario: {{ anagrafica.nome_cognome_ragione_sociale }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h2">Partitario {{ anagrafica.get_tipo_display }}: {{ anagrafica.nome_cognome_ragione_sociale }}</h1>
+    <a href="{% url 'anagrafica_list' %}" class="btn btn-secondary">Torna alla Lista</a>
+</div>
+
+<!-- Riepilogo Contabile -->
+<div class="card mb-4">
+    <div class="card-header">Riepilogo Contabile</div>
+    <div class="card-body">
+        <div class="row text-center">
+            <div class="col-md-4">
+                <h6 class="text-muted">Esposizione Documenti</h6>
+                <h4>€ {{ esposizione_documenti|floatformat:2 }}</h4>
+            </div>
+            <div class="col-md-4">
+                <h6 class="text-muted">Netto Incassato/Pagato</h6>
+                <h4>€ {{ netto_movimenti|floatformat:2 }}</h4>
+            </div>
+            <div class="col-md-4">
+                <h6 class="text-muted">Saldo Aperto Finale</h6>
+                <h4 class="{% if saldo_finale > 0 %}text-danger{% elif saldo_finale < 0 %}text-success{% endif %}">
+                    € {{ saldo_finale|floatformat:2 }}
+                </h4>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Storico Documenti -->
+<div class="card mb-4">
+    <div class="card-header">Storico Documenti (Confermati)</div>
+    <div class="card-body p-0">
+        <table class="table table-striped mb-0">
+            <thead><tr><th>Data</th><th>Tipo</th><th>Numero</th><th class="text-end">Totale</th></tr></thead>
+            <tbody>
+                {% for doc in documenti %}
+                <tr>
+                    <td>{{ doc.data_documento|date:"d/m/Y" }}</td>
+                    <td>{{ doc.get_tipo_doc_display }}</td>
+                    <td><a href="{{ doc.get_absolute_url }}">{{ doc.numero_documento }}</a></td>
+                    <td class="text-end">€ {{ doc.totale|floatformat:2 }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="text-center">Nessun documento trovato.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Scadenziario Aperto -->
+<div class="card mb-4">
+    <div class="card-header">Scadenziario Aperto</div>
+    <div class="card-body p-0">
+        <table class="table table-striped mb-0">
+            <thead><tr><th>Data Scad.</th><th>Rif. Doc.</th><th>Tipo</th><th class="text-end">Importo Rata</th><th class="text-end">Residuo</th><th>Azioni</th></tr></thead>
+            <tbody>
+                {% for scadenza in scadenze_aperte %}
+                <tr>
+                    <td>{{ scadenza.data_scadenza|date:"d/m/Y" }}</td>
+                    <td><a href="{{ scadenza.documento.get_absolute_url }}">{{ scadenza.documento.numero_documento }}</a></td>
+                    <td>{{ scadenza.get_tipo_scadenza_display }}</td>
+                    <td class="text-end">€ {{ scadenza.importo_rata|floatformat:2 }}</td>
+                    <td class="text-end">€ {{ scadenza.residuo|floatformat:2 }}</td>
+                    <td><a href="#" class="btn btn-sm btn-primary">Paga/Incassa</a></td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="text-center">Nessuna scadenza aperta.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Cronologia Movimenti -->
+<div class="card">
+    <div class="card-header">Cronologia Movimenti</div>
+    <div class="card-body p-0">
+        <table class="table table-striped mb-0">
+            <thead><tr><th>Data</th><th>Descrizione</th><th class="text-end">Importo</th><th>Conto</th></tr></thead>
+            <tbody>
+                {% for movimento in movimenti %}
+                <tr>
+                    <td>{{ movimento.data_registrazione|date:"d/m/Y" }}</td>
+                    <td>{{ movimento.descrizione }}</td>
+                    <td class="text-end {% if movimento.tipo_movimento == 'E' %}text-success{% else %}text-danger{% endif %}">
+                        € {{ movimento.importo|floatformat:2 }}
+                    </td>
+                    <td>{{ movimento.conto_finanziario.nome_conto }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="text-center">Nessun movimento trovato.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

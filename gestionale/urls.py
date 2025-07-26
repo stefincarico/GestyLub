@@ -2,7 +2,7 @@
 from django.urls import path
 from .views import (
     DashboardView, AnagraficaListView, AnagraficaCreateView, 
-    DipendenteDettaglioCreateView, AnagraficaUpdateView,
+    DipendenteDettaglioCreateView, AnagraficaUpdateView, AnagraficaDetailView,
     AnagraficaToggleAttivoView, DocumentoListView, DocumentoDetailView
 )
 from .views import documento_create_step1_testata, documento_create_step2_righe, documento_create_step3_scadenze, get_anagrafiche_by_tipo
@@ -20,4 +20,5 @@ urlpatterns = [
     path('documenti/nuovo/step2/', documento_create_step2_righe, name='documento_create_step2_righe'),
     path('documenti/nuovo/step3/', documento_create_step3_scadenze, name='documento_create_step3_scadenze'),
     path('api/get-anagrafiche/', get_anagrafiche_by_tipo, name='api_get_anagrafiche'),
+    path('anagrafiche/<int:pk>/', AnagraficaDetailView.as_view(), name='anagrafica_detail'),
 ]

@@ -23,7 +23,7 @@ from django.contrib import messages
 from django.http import HttpResponseRedirect, JsonResponse
 
 # Importazioni delle app locali
-from .models import AliquotaIVA, Anagrafica, Cantiere, DipendenteDettaglio, DocumentoRiga, DocumentoTestata, ModalitaPagamento, Scadenza
+from .models import AliquotaIVA, Anagrafica, Cantiere, DipendenteDettaglio, DocumentoRiga, DocumentoTestata, ModalitaPagamento, Scadenza,PrimaNota
 from .forms import AnagraficaForm, DipendenteDettaglioForm, DocumentoRigaForm, DocumentoTestataForm, ScadenzaWizardForm
 
 
@@ -482,3 +482,66 @@ def get_anagrafiche_by_tipo(request):
     data = [{'id': anag.pk, 'text': str(anag)} for anag in anagrafiche_qs]
     return JsonResponse({'results': data})
 
+# ==============================================================================
+# === VISTE ANAGRAFICHE (Dettaglio/Partitario)                              ===
+# ==============================================================================
+
+class AnagraficaDetailView(TenantRequiredMixin, DetailView):
+    """
+    Mostra il partitario completo di un'anagrafica (Cliente o Fornitore).
+    """
+    model = Anagrafica
+    template_name = 'gestionale/anagrafica_detail.html'
+    context_object_name = 'anagrafica'
+
+    def get_context_data(self, **kwargs):
+        """
+        Prepara tutti i dati aggregati per il partitario.
+        """
+        context = super().get_context_data(**kwargs)
+        anagrafica = self.get_object()
+
+        # 1. Recupera tutti i documenti confermati
+        documenti = DocumentoTestata.objects.filter(
+            anagrafica=anagrafica, 
+            stato=DocumentoTestata.Stato.CONFERMATO
+        ).order_by('-data_documento')
+
+        # 2. Recupera lo scadenziario aperto
+        scadenze_aperte = Scadenza.objects.filter(
+            anagrafica=anagrafica,
+            stato__in=[Scadenza.Stato.APERTA, Scadenza.Stato.PARZIALE]
+        ).annotate(
+            pagato=Coalesce(Sum('pagamenti__importo'), Value(0), output_field=models.DecimalField())
+        ).order_by('data_scadenza')
+        
+        # Aggiungiamo il residuo calcolato a ogni scadenza
+        for s in scadenze_aperte:
+            s.residuo = s.importo_rata - s.pagato
+
+        # 3. Recupera la cronologia di tutti i movimenti di Prima Nota
+        movimenti = PrimaNota.objects.filter(anagrafica=anagrafica).order_by('-data_registrazione')
+
+        # 4. Calcola i totali per il riepilogo contabile
+        esposizione_documenti = sum(
+            doc.totale if 'V' in doc.tipo_doc else -doc.totale 
+            for doc in documenti
+        )
+        
+        netto_movimenti = sum(
+            mov.importo if mov.tipo_movimento == PrimaNota.TipoMovimento.ENTRATA else -mov.importo 
+            for mov in movimenti
+        )
+        
+        saldo_finale = esposizione_documenti - netto_movimenti
+
+        # 5. Aggiungi tutto al contesto
+        context['documenti'] = documenti
+        context['scadenze_aperte'] = scadenze_aperte
+        context['movimenti'] = movimenti
+        context['esposizione_documenti'] = esposizione_documenti
+        context['netto_movimenti'] = netto_movimenti
+        context['saldo_finale'] = saldo_finale
+
+        return context
+    

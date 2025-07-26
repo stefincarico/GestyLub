@@ -36,8 +36,7 @@
                     <tr>
                         <td>{{ anagrafica.codice }}</td>
                         <td>
-                            <!-- TODO: Questo link porterà al partitario -->
-                            <a href="#">{{ anagrafica.nome_cognome_ragione_sociale }}</a>
+                            <a href="{% url 'anagrafica_detail' anagrafica.pk %}">{{ anagrafica.nome_cognome_ragione_sociale }}</a>
                         </td>
                         <td>{{ anagrafica.get_tipo_display }}</td>
                         <td>{{ anagrafica.p_iva|default:"-" }}</td>
