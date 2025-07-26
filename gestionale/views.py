@@ -25,6 +25,11 @@ from django.views.generic.edit import CreateView, UpdateView
 # Django Auth
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.decorators import login_required
+from django.http import HttpResponse
+
+from openpyxl import Workbook
+import openpyxl
+from openpyxl.styles import Font, Alignment
 
 # Importazioni delle app locali
 # Models
@@ -745,3 +750,117 @@ class ScadenzarioListView(TenantRequiredMixin, View):
             }
         }
         return render(request, self.template_name, context)
+    
+
+class ScadenzarioExportExcelView(ScadenzarioListView):
+    """
+    Vista per esportare i dati dello scadenziario (filtrati) in un file Excel.
+    Eredita da ScadenzarioListView per riutilizzare la logica di recupero e filtro.
+    """
+    def get(self, request, *args, **kwargs):
+        # 1. Eseguiamo la logica della vista genitore per ottenere il queryset filtrato
+        #    e i KPI. Non ci serve il risultato di render(), quindi lo ignoriamo.
+        #    Per farlo, dobbiamo chiamare la logica che abbiamo nel nostro `get`
+        #    ma senza la parte di paginazione e rendering.
+        #    Refactoring: Spostiamo la logica del queryset in un metodo separato.
+        
+        # Questa chiamata esegue il metodo get() della classe da cui ereditiamo
+        # ma noi vogliamo solo i dati, non l'intera risposta HTML.
+        # Dobbiamo fare un piccolo refactoring...
+        
+        # *** TORNA ALLA CLASSE ScadenzarioListView E APPORTA QUESTA MODIFICA ***
+        # Spostiamo la logica di recupero dei dati in un metodo riutilizzabile.
+        
+        # In ScadenzarioListView, aggiungi un nuovo metodo:
+        # def get_queryset_e_kpi(self, request):
+        #     ... (tutto il codice per ottenere scadenze_qs e i kpi) ...
+        #     return scadenze_qs, kpi
+        
+        # E modifica il suo metodo get():
+        # def get(self, request, *args, **kwargs):
+        #     scadenze_qs, kpi = self.get_queryset_e_kpi(request)
+        #     ... (logica di paginazione e context) ...
+
+        # Per ora, per semplicità, duplichiamo la logica. La ottimizzeremo dopo.
+        from datetime import date
+        today = date.today()
+        filter_form = ScadenzarioFilterForm(request.GET or None)
+        scadenze_qs = Scadenza.objects.filter(
+            stato__in=[Scadenza.Stato.APERTA, Scadenza.Stato.PARZIALE]
+        ).select_related('anagrafica', 'documento').order_by('data_scadenza')
+
+        if filter_form.is_valid():
+            # ... (copia e incolla TUTTA la logica di filtraggio qui) ...
+            anagrafica = filter_form.cleaned_data.get('anagrafica')
+            if anagrafica: scadenze_qs = scadenze_qs.filter(anagrafica=anagrafica)
+            data_da = filter_form.cleaned_data.get('data_da')
+            if data_da: scadenze_qs = scadenze_qs.filter(data_scadenza__gte=data_da)
+            data_a = filter_form.cleaned_data.get('data_a')
+            if data_a: scadenze_qs = scadenze_qs.filter(data_scadenza__lte=data_a)
+            tipo = filter_form.cleaned_data.get('tipo')
+            if tipo: scadenze_qs = scadenze_qs.filter(tipo_scadenza=tipo)
+            stato = filter_form.cleaned_data.get('stato')
+            if stato == 'scadute': scadenze_qs = scadenze_qs.filter(data_scadenza__lt=today)
+            elif stato == 'a_scadere': scadenze_qs = scadenze_qs.filter(data_scadenza__gte=today)
+        
+        # 2. Crea una risposta HTTP di tipo Excel
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+        response['Content-Disposition'] = 'attachment; filename="scadenziario_aperto.xlsx"'
+
+        # 3. Crea il file Excel in memoria
+        workbook = Workbook()
+        worksheet = workbook.active
+        worksheet.title = 'Scadenziario Aperto'
+
+        # 4. Scrivi le intestazioni
+        headers = [
+            "Data Scad.", "Tipo", "Cliente/Fornitore", "Rif. Doc.", 
+            "Importo Rata", "Residuo", "Stato Rata"
+        ]
+        worksheet.append(headers)
+        
+        # Applica uno stile in grassetto alle intestazioni
+        for cell in worksheet[1]:
+            cell.font = Font(bold=True)
+
+        # 5. Scrivi i dati
+        scadenze_con_pagato = scadenze_qs.annotate(
+            pagato=Coalesce(Sum('pagamenti__importo'), Value(0), output_field=models.DecimalField())
+        )
+        for scadenza in scadenze_con_pagato:
+            residuo = scadenza.importo_rata - scadenza.pagato
+            row = [
+                scadenza.data_scadenza,
+                scadenza.get_tipo_scadenza_display(),
+                scadenza.anagrafica.nome_cognome_ragione_sociale,
+                scadenza.documento.numero_documento,
+                scadenza.importo_rata,
+                residuo,
+                scadenza.get_stato_display()
+            ]
+            worksheet.append(row)
+            
+            # Formatta le celle data e valuta
+            worksheet.cell(row=worksheet.max_row, column=1).number_format = 'DD/MM/YYYY'
+            worksheet.cell(row=worksheet.max_row, column=5).number_format = '"€" #,##0.00'
+            worksheet.cell(row=worksheet.max_row, column=6).number_format = '"€" #,##0.00'
+
+        # Adatta la larghezza delle colonne
+        for col_idx, column_cells in enumerate(worksheet.columns, 1):
+            max_length = 0
+            column = openpyxl.utils.get_column_letter(col_idx)
+            for cell in column_cells:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = (max_length + 2)
+            worksheet.column_dimensions[column].width = adjusted_width
+
+        # 6. Salva il file nella risposta HTTP
+        workbook.save(response)
+        return response
+    

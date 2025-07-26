@@ -5,7 +5,7 @@
     <h1 class="h2">Scadenziario Aperto</h1>
     <div>
         <!-- TODO: Pulsanti Export -->
-        <a href="#" class="btn" style="background-color: #185C37; color: white;">Esporta Excel</a>
+        <a href="{% url 'scadenzario_export_excel' %}?{{ request.GET.urlencode }}" class="btn" style="background-color: #185C37; color: white;">Esporta Excel</a>
         <a href="#" class="btn" style="background-color: #FF9900; color: white;">Esporta PDF</a>
     </div>
 </div>
