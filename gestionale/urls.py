@@ -5,7 +5,7 @@ from .views import (
     DipendenteDettaglioCreateView, AnagraficaUpdateView,
     AnagraficaToggleAttivoView, DocumentoListView, DocumentoDetailView
 )
-from .views import documento_create_step1_testata, documento_create_step2_righe, documento_create_step3_scadenze
+from .views import documento_create_step1_testata, documento_create_step2_righe, documento_create_step3_scadenze, get_anagrafiche_by_tipo
 
 urlpatterns = [
     path('', DashboardView.as_view(), name='dashboard'),
@@ -19,4 +19,5 @@ urlpatterns = [
     path('documenti/nuovo/step1/', documento_create_step1_testata, name='documento_create_step1_testata'),
     path('documenti/nuovo/step2/', documento_create_step2_righe, name='documento_create_step2_righe'),
     path('documenti/nuovo/step3/', documento_create_step3_scadenze, name='documento_create_step3_scadenze'),
+    path('api/get-anagrafiche/', get_anagrafiche_by_tipo, name='api_get_anagrafiche'),
 ]

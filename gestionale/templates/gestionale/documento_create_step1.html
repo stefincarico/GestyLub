@@ -1,5 +1,7 @@
 {% extends "gestionale/base.html" %}
+
 {% block title %}Nuovo Documento (Passo 1 di 3){% endblock %}
+
 {% block content %}
 <h1 class="h2 mb-4">Nuovo Documento (Passo 1 di 3: Testata)</h1>
 <div class="card">
@@ -15,4 +17,59 @@
         </form>
     </div>
 </div>
+{% endblock %}
+
+
+<!-- NUOVO BLOCCO SCRIPT -->
+{% block scripts %}
+<script>
+    // Attendiamo che il documento HTML sia completamente caricato
+    document.addEventListener('DOMContentLoaded', function() {
+        
+        // Selezioniamo i due menu a tendina dal DOM usando i loro ID
+        const tipoDocSelect = document.getElementById('id_tipo_doc');
+        const anagraficaSelect = document.getElementById('id_anagrafica');
+        
+        // Aggiungiamo un "ascoltatore di eventi" al menu del tipo documento.
+        // Questa funzione verrà eseguita ogni volta che l'utente cambia la selezione.
+        tipoDocSelect.addEventListener('change', function() {
+            const tipoDoc = this.value; // Otteniamo il valore selezionato (es. 'FTV')
+            
+            // Se non è stato selezionato nulla, svuotiamo e disabilitiamo il secondo menu
+            if (!tipoDoc) {
+                anagraficaSelect.innerHTML = '<option value="">---------</option>';
+                anagraficaSelect.disabled = true;
+                return;
+            }
+            
+            // Prepariamo l'URL per la nostra chiamata API, aggiungendo il tipo_doc come parametro
+            const url = `{% url 'api_get_anagrafiche' %}?tipo_doc=${tipoDoc}`;
+            
+            // Usiamo 'fetch', il modo moderno per fare chiamate AJAX in JavaScript
+            fetch(url)
+                .then(response => response.json()) // Convertiamo la risposta in JSON
+                .then(data => {
+                    // Svuotiamo il menu delle anagrafiche
+                    anagraficaSelect.innerHTML = '<option value="">---------</option>';
+                    
+                    // Cicliamo sui risultati ricevuti da Django
+                    data.results.forEach(anagrafica => {
+                        // Creiamo una nuova opzione per ogni anagrafica
+                        const option = document.createElement('option');
+                        option.value = anagrafica.id;
+                        option.textContent = anagrafica.text;
+                        // Aggiungiamo l'opzione al menu a tendina
+                        anagraficaSelect.appendChild(option);
+                    });
+                    
+                    // Riattiviamo il menu
+                    anagraficaSelect.disabled = false;
+                });
+        });
+        
+        // All'avvio della pagina, "triggeriamo" manualmente l'evento 'change'
+        // per caricare le anagrafiche corrette se un valore è già selezionato (es. in modifica).
+        tipoDocSelect.dispatchEvent(new Event('change'));
+    });
+</script>
 {% endblock %}

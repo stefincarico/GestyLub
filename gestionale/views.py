@@ -19,6 +19,7 @@ from django.contrib.auth.decorators import login_required
 from decimal import Decimal
 from datetime import date, timedelta
 from django.contrib import messages
+from django.http import HttpResponseRedirect, JsonResponse
 
 # Importazioni delle app locali
 from .models import AliquotaIVA, Anagrafica, Cantiere, DipendenteDettaglio, DocumentoRiga, DocumentoTestata, ModalitaPagamento, Scadenza
@@ -439,4 +440,30 @@ def get_scadenza_initial_data(testata_data, scadenze_data, residuo_da_scadenzare
         'importo_rata': residuo_da_scadenzare,
         'data_scadenza': data_proposta.strftime('%Y-%m-%d')
     }
+
+
+# ==============================================================================
+# === VISTE API (per richieste AJAX)                                        ===
+# ==============================================================================
+
+@login_required
+def get_anagrafiche_by_tipo(request):
+    """
+    Una vista API che restituisce un elenco di anagrafiche in formato JSON,
+    filtrate per tipo (Cliente o Fornitore).
+    """
+    tipo_documento = request.GET.get('tipo_doc')
+    anagrafiche_qs = Anagrafica.objects.none() # Queryset vuoto di default
+
+    if tipo_documento in [DocumentoTestata.TipoDoc.FATTURA_VENDITA, DocumentoTestata.TipoDoc.NOTA_CREDITO_VENDITA]:
+        anagrafiche_qs = Anagrafica.objects.filter(tipo=Anagrafica.Tipo.CLIENTE, attivo=True)
+    # TODO: Aggiungere la logica per i documenti di acquisto quando li implementeremo
+    # elif tipo_documento in [ ... tipi acquisto ... ]:
+    #     anagrafiche_qs = Anagrafica.objects.filter(tipo=Anagrafica.Tipo.FORNITORE, attivo=True)
+
+    # Trasformiamo il queryset in una lista di dizionari
+    data = [{'id': anag.pk, 'text': str(anag)} for anag in anagrafiche_qs]
+    
+    # Restituiamo i dati in formato JSON
+    return JsonResponse({'results': data})
 
