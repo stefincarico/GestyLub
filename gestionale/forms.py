@@ -1,8 +1,8 @@
 # gestionale/forms.py
 
 from django import forms
-from .models import (Anagrafica, Cantiere, 
-        DipendenteDettaglio, DocumentoRiga, DocumentoTestata, AliquotaIVA,
+from .models import (Anagrafica, Cantiere, Causale, ContoOperativo, 
+        DipendenteDettaglio, DocumentoRiga, DocumentoTestata, AliquotaIVA, PrimaNota,
         Scadenza, ContoFinanziario, DiarioAttivita, MezzoAziendale)
 
 class AnagraficaForm(forms.ModelForm):
@@ -409,3 +409,68 @@ class DocumentoFilterForm(forms.Form):
         widget=forms.DateInput(attrs={'class': 'form-control', 'type': 'date'})
     )
 
+class PrimaNotaFilterForm(forms.Form):
+    """
+    Form per i filtri della lista di Prima Nota.
+    """
+    descrizione = forms.CharField(
+        required=False,
+        label="Cerca Descrizione",
+        widget=forms.TextInput(attrs={'class': 'form-control'})
+    )
+    conto_finanziario = forms.ModelChoiceField(
+        queryset=ContoFinanziario.objects.filter(attivo=True),
+        required=False,
+        label="Conto Finanziario",
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+    causale = forms.ModelChoiceField(
+        queryset=Causale.objects.filter(attivo=True),
+        required=False,
+        label="Causale",
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+    data_da = forms.DateField(
+        required=False, 
+        label="Dal",
+        widget=forms.DateInput(attrs={'class': 'form-control', 'type': 'date'})
+    )
+    data_a = forms.DateField(
+        required=False, 
+        label="Al",
+        widget=forms.DateInput(attrs={'class': 'form-control', 'type': 'date'})
+    )
+
+class PrimaNotaForm(forms.ModelForm):
+    """
+    Form per la creazione e modifica di un movimento di Prima Nota.
+    """
+    class Meta:
+        model = PrimaNota
+        fields = [
+            'data_registrazione', 'descrizione', 'importo', 'tipo_movimento',
+            'conto_finanziario', 'conto_operativo', 'causale', 
+            'anagrafica', 'cantiere'
+        ]
+        widgets = {
+            'data_registrazione': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'descrizione': forms.TextInput(attrs={'class': 'form-control'}),
+            'importo': forms.NumberInput(attrs={'class': 'form-control'}),
+            'tipo_movimento': forms.Select(attrs={'class': 'form-select'}),
+            'conto_finanziario': forms.Select(attrs={'class': 'form-select'}),
+            'conto_operativo': forms.Select(attrs={'class': 'form-select'}),
+            'causale': forms.Select(attrs={'class': 'form-select'}),
+            'anagrafica': forms.Select(attrs={'class': 'form-select'}),
+            'cantiere': forms.Select(attrs={'class': 'form-select'}),
+        }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Ottimizziamo i queryset per i menu a tendina
+        self.fields['conto_finanziario'].queryset = ContoFinanziario.objects.filter(attivo=True)
+        self.fields['conto_operativo'].queryset = ContoOperativo.objects.filter(attivo=True)
+        self.fields['causale'].queryset = Causale.objects.filter(attivo=True)
+        self.fields['anagrafica'].queryset = Anagrafica.objects.filter(attivo=True)
+        self.fields['cantiere'].queryset = Cantiere.objects.filter(stato=Cantiere.Stato.APERTO)
+
+        

@@ -3,7 +3,7 @@ from django.urls import path
 from .views import (
     AnagraficaListExportExcelView, AnagraficaListExportPdfView, AnagraficaPartitarioExportPdfView, DashboardView, AnagraficaListView, AnagraficaCreateView, 
     DipendenteDettaglioCreateView, AnagraficaUpdateView, AnagraficaDetailView,
-    AnagraficaToggleAttivoView, DocumentoListExportExcelView, DocumentoListExportPdfView, DocumentoListView, DocumentoDetailView,RegistraPagamentoView, SalvaAttivitaDiarioView, ScadenzarioExportPdfView,
+    AnagraficaToggleAttivoView, DocumentoListExportExcelView, DocumentoListExportPdfView, DocumentoListView, DocumentoDetailView, PrimaNotaListView,RegistraPagamentoView, SalvaAttivitaDiarioView, ScadenzarioExportPdfView,
     ScadenzarioListView, ScadenzarioExportExcelView, AnagraficaPartitarioExportExcelView,
     DashboardHRView
 )
@@ -35,5 +35,6 @@ urlpatterns = [
     path('anagrafiche/export/excel/', AnagraficaListExportExcelView.as_view(), name='anagrafica_list_export_excel'),
     path('anagrafiche/export/pdf/', AnagraficaListExportPdfView.as_view(), name='anagrafica_list_export_pdf'),
     path('documenti/export/excel/', DocumentoListExportExcelView.as_view(), name='documento_list_export_excel'),
-    path('documenti/export/pdf/', DocumentoListExportPdfView.as_view(), name='documento_list_export_pdf')
+    path('documenti/export/pdf/', DocumentoListExportPdfView.as_view(), name='documento_list_export_pdf'),
+    path('primanota/', PrimaNotaListView.as_view(), name='primanota_list'),
 ]

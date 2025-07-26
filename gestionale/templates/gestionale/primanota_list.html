@@ -1,0 +1,80 @@
+{% extends "gestionale/base.html" %}
+{% load currency_filters %}
+{% block title %}Prima Nota{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h2">Prima Nota</h1>
+    <div>
+        <!-- TODO: Aggiungere URL per Nuovo Movimento e Export -->
+        <a href="#" class="btn btn-primary">+ Nuovo Movimento</a>
+    </div>
+</div>
+
+<!-- Filtri -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" action="">
+            <div class="row g-3 align-items-end">
+                <div class="col-lg-3">{{ filter_form.descrizione.label_tag }}{{ filter_form.descrizione }}</div>
+                <div class="col-lg-2">{{ filter_form.conto_finanziario.label_tag }}{{ filter_form.conto_finanziario }}</div>
+                <div class="col-lg-2">{{ filter_form.causale.label_tag }}{{ filter_form.causale }}</div>
+                <div class="col-lg-2">{{ filter_form.data_da.label_tag }}{{ filter_form.data_da }}</div>
+                <div class="col-lg-2">{{ filter_form.data_a.label_tag }}{{ filter_form.data_a }}</div>
+                <div class="col-lg-1 d-flex">
+                    <button type="submit" class="btn btn-primary w-100 me-2">Filtra</button>
+                    <a href="{% url 'primanota_list' %}" class="btn btn-secondary w-100">Reset</a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Tabella Prima Nota -->
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Data</th>
+                        <th>Descrizione</th>
+                        <th>Conto Finanziario</th>
+                        <th class="text-end">Entrata (€)</th>
+                        <th class="text-end">Uscita (€)</th>
+                        <th>Azioni</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for movimento in movimenti %}
+                    <tr>
+                        <td>{{ movimento.data_registrazione|date:"d/m/Y" }}</td>
+                        <td>{{ movimento.descrizione }}</td>
+                        <td>{{ movimento.conto_finanziario.nome_conto }}</td>
+                        <td class="text-end text-success">
+                            {% if movimento.tipo_movimento == 'E' %}
+                                {{ movimento.importo|format_currency }}
+                            {% endif %}
+                        </td>
+                        <td class="text-end text-danger">
+                            {% if movimento.tipo_movimento == 'U' %}
+                                {{ movimento.importo|format_currency }}
+                            {% endif %}
+                        </td>
+                        <td>
+                            <!-- TODO: Aggiungere URL per Modifica ed Elimina -->
+                            <a href="#" class="btn btn-sm btn-outline-primary">Modifica</a>
+                            <a href="#" class="btn btn-sm btn-outline-danger">Elimina</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="text-center">Nessun movimento trovato.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <!-- Paginazione -->
+        {% include "gestionale/partials/_pagination.html" %}
+    </div>
+</div>
+{% endblock %}

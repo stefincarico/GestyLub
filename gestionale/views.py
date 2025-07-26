@@ -47,7 +47,7 @@ from .models import (
 )
 from .forms import (
     AnagraficaForm, DipendenteDettaglioForm, DocumentoRigaForm,
-    DocumentoTestataForm, ScadenzaWizardForm, PagamentoForm, ScadenzarioFilterForm, DiarioAttivitaForm,
+    DocumentoTestataForm, PrimaNotaFilterForm, ScadenzaWizardForm, PagamentoForm, ScadenzarioFilterForm, DiarioAttivitaForm,
     DocumentoFilterForm
 )
 
@@ -1206,4 +1206,46 @@ class SalvaAttivitaDiarioView(TenantRequiredMixin, View):
             messages.error(request, f"Errore nel salvataggio: {error_string}")
         
         return redirect(redirect_url)
+    
+
+
+# ==============================================================================
+# === VISTE PRIMA NOTA                                                      ===
+# ==============================================================================
+
+class PrimaNotaListView(TenantRequiredMixin, View):
+    template_name = 'gestionale/primanota_list.html'
+    paginate_by = 15
+
+    def get(self, request, *args, **kwargs):
+        filter_form = PrimaNotaFilterForm(request.GET or None)
+        
+        movimenti_qs = PrimaNota.objects.select_related(
+            'conto_finanziario', 'causale'
+        ).order_by('-data_registrazione', '-pk')
+
+        if filter_form.is_valid():
+            cleaned_data = filter_form.cleaned_data
+            if cleaned_data.get('descrizione'):
+                movimenti_qs = movimenti_qs.filter(descrizione__icontains=cleaned_data['descrizione'])
+            if cleaned_data.get('conto_finanziario'):
+                movimenti_qs = movimenti_qs.filter(conto_finanziario=cleaned_data['conto_finanziario'])
+            if cleaned_data.get('causale'):
+                movimenti_qs = movimenti_qs.filter(causale=cleaned_data['causale'])
+            if cleaned_data.get('data_da'):
+                movimenti_qs = movimenti_qs.filter(data_registrazione__gte=cleaned_data['data_da'])
+            if cleaned_data.get('data_a'):
+                movimenti_qs = movimenti_qs.filter(data_registrazione__lte=cleaned_data['data_a'])
+
+        paginator = Paginator(movimenti_qs, self.paginate_by)
+        page_number = request.GET.get('page')
+        page_obj = paginator.get_page(page_number)
+        
+        context = {
+            'movimenti': page_obj,
+            'is_paginated': page_obj.has_other_pages(),
+            'page_obj': page_obj,
+            'filter_form': filter_form,
+        }
+        return render(request, self.template_name, context)
     
