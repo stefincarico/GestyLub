@@ -6,6 +6,7 @@
 # Standard Library
 import json
 from datetime import date, timedelta
+today = date.today()
 from decimal import Decimal
 
 # Django Core
@@ -41,7 +42,8 @@ from .report_utils import generate_excel_report, generate_pdf_report
 
 from .models import (
     AliquotaIVA, Anagrafica, Cantiere, DipendenteDettaglio, DocumentoRiga,
-    DocumentoTestata, ModalitaPagamento, Scadenza, PrimaNota, Causale
+    DocumentoTestata, ModalitaPagamento, Scadenza, PrimaNota, Causale,
+    MezzoAziendale,DiarioAttivita
 )
 from .forms import (
     AnagraficaForm, DipendenteDettaglioForm, DocumentoRigaForm,
@@ -957,3 +959,62 @@ class ScadenzarioExportPdfView(ScadenzarioListView):
             'gestionale/scadenzario_pdf_template.html', 
             context
         )
+
+
+# ==============================================================================
+# === VISTE HR (Human Resources)                                            ===
+# ==============================================================================
+
+class DashboardHRView(TenantRequiredMixin, View):
+    """
+    Mostra la dashboard per la pianificazione e consuntivazione giornaliera
+    delle risorse umane.
+    """
+    template_name = 'gestionale/dashboard_hr.html'
+
+    def get(self, request, *args, **kwargs):
+        # 1. Determina la data di riferimento
+        # Leggiamo l'anno, mese e giorno dall'URL. Se non ci sono, usiamo oggi.
+        year = kwargs.get('year', today.year)
+        month = kwargs.get('month', today.month)
+        day = kwargs.get('day', today.day)
+        try:
+            data_riferimento = date(year, month, day)
+        except ValueError:
+            # Se la data nell'URL non è valida, usa oggi
+            data_riferimento = date.today()
+            
+        # 2. Recupera tutti i dipendenti attivi
+        dipendenti_attivi = Anagrafica.objects.filter(
+            tipo=Anagrafica.Tipo.DIPENDENTE,
+            attivo=True
+        ).select_related('dettaglio_dipendente').order_by('nome_cognome_ragione_sociale')
+        
+        # 3. Recupera le attività del diario per la data di riferimento
+        diario_del_giorno = DiarioAttivita.objects.filter(data=data_riferimento).select_related('cantiere_pianificato', 'mezzo_pianificato')
+        
+        # 4. Mappiamo le attività ai dipendenti per un accesso veloce
+        mappa_diario = {d.dipendente_id: d for d in diario_del_giorno}
+        
+        # 5. Combiniamo i dati: per ogni dipendente, determiniamo il suo stato
+        lista_dipendenti_con_stato = []
+        for dip in dipendenti_attivi:
+            attivita_giornaliera = mappa_diario.get(dip.pk)
+            dip.attivita = attivita_giornaliera # Aggiungiamo l'attività all'oggetto dipendente
+            lista_dipendenti_con_stato.append(dip)
+            
+        # TODO: Calcolare i KPI
+
+        context = {
+            'data_riferimento': data_riferimento,
+            'giorno_precedente': data_riferimento - timedelta(days=1),
+            'giorno_successivo': data_riferimento + timedelta(days=1),
+            'dipendenti': lista_dipendenti_con_stato,
+            # Passiamo anche i queryset per i futuri form di pianificazione
+            'cantieri_disponibili': Cantiere.objects.filter(stato=Cantiere.Stato.APERTO),
+            'mezzi_disponibili': MezzoAziendale.objects.filter(attivo=True),
+        }
+        
+        return render(request, self.template_name, context)
+    
+

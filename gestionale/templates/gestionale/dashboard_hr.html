@@ -1,0 +1,78 @@
+{% extends "gestionale/base.html" %}
+{% block title %}Dashboard HR{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h2">Dashboard HR / Planning Giornaliero</h1>
+    <!-- Navigazione Data -->
+    <div class="btn-group" role="group">
+        <a href="{% url 'dashboard_hr_data' year=giorno_precedente.year month=giorno_precedente.month day=giorno_precedente.day %}" class="btn btn-outline-secondary">← Prec.</a>
+        <span class="btn btn-dark">{{ data_riferimento|date:"d M Y" }}</span>
+        <a href="{% url 'dashboard_hr_data' year=giorno_successivo.year month=giorno_successivo.month day=giorno_successivo.day %}" class="btn btn-outline-secondary">Succ. →</a>
+    </div>
+</div>
+
+<!-- TODO: KPI Cards -->
+
+<!-- Tabella Stato Dipendenti -->
+<div class="card">
+    <div class="card-header">
+        Stato Dipendenti per il giorno {{ data_riferimento|date:"d/m/Y" }}
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Dipendente</th>
+                        <th>Mansione</th>
+                        <th>Stato / Assegnazione</th>
+                        <th>Ore Cons.</th>
+                        <th>Note</th>
+                        <th>Azioni</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for dipendente in dipendenti %}
+                    <tr>
+                        <td>{{ dipendente.nome_cognome_ragione_sociale }}</td>
+                        <td>{{ dipendente.dettaglio_dipendente.mansione }}</td>
+                        <td>
+                            {% if dipendente.attivita %}
+                                {% if dipendente.attivita.stato_presenza == 'Presente' %}
+                                    <span class="badge bg-success">PRESENTE</span>
+                                {% elif dipendente.attivita.stato_presenza %}
+                                    <span class="badge bg-danger">ASSENTE</span> 
+                                    <small class="text-muted">({{ dipendente.attivita.tipo_assenza_giustificata }})</small>
+                                {% elif dipendente.attivita.cantiere_pianificato %}
+                                    <span class="badge bg-primary">ASSEGNATO</span>
+                                    @ {{ dipendente.attivita.cantiere_pianificato.codice_cantiere }}
+                                    {% if dipendente.attivita.mezzo_pianificato %}
+                                    <small class="text-muted">(Mezzo: {{ dipendente.attivita.mezzo_pianificato.targa }})</small>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="badge bg-info">PIANIFICATO (Altro)</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="badge bg-secondary">LIBERO</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if dipendente.attivita and dipendente.attivita.stato_presenza == 'Presente' %}
+                                {{ dipendente.attivita.ore_ordinarie|default_if_none:"0.00" }}
+                            {% else %} - {% endif %}
+                        </td>
+                        <td>{{ dipendente.attivita.note_giornaliere|default_if_none:"" }}</td>
+                        <td>
+                            <!-- TODO: Pulsanti di azione -->
+                            <a href="#" class="btn btn-sm btn-outline-primary">Pianifica/Consuntiva</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="text-center">Nessun dipendente attivo trovato.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

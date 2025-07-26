@@ -4,7 +4,8 @@ from .views import (
     AnagraficaPartitarioExportPdfView, DashboardView, AnagraficaListView, AnagraficaCreateView, 
     DipendenteDettaglioCreateView, AnagraficaUpdateView, AnagraficaDetailView,
     AnagraficaToggleAttivoView, DocumentoListView, DocumentoDetailView,RegistraPagamentoView, ScadenzarioExportPdfView,
-      ScadenzarioListView, ScadenzarioExportExcelView, AnagraficaPartitarioExportExcelView
+    ScadenzarioListView, ScadenzarioExportExcelView, AnagraficaPartitarioExportExcelView,
+    DashboardHRView
 )
 from .views import documento_create_step1_testata, documento_create_step2_righe, documento_create_step3_scadenze, get_anagrafiche_by_tipo
 
@@ -28,4 +29,6 @@ urlpatterns = [
     path('scadenzario/export/pdf/', ScadenzarioExportPdfView.as_view(), name='scadenzario_export_pdf'),
     path('anagrafiche/<int:pk>/export/excel/', AnagraficaPartitarioExportExcelView.as_view(), name='anagrafica_partitario_export_excel'),
     path('anagrafiche/<int:pk>/export/pdf/', AnagraficaPartitarioExportPdfView.as_view(), name='anagrafica_partitario_export_pdf'),
+    path('hr/', DashboardHRView.as_view(), name='dashboard_hr'),
+    path('hr/<int:year>/<int:month>/<int:day>/', DashboardHRView.as_view(), name='dashboard_hr_data'),
 ]
