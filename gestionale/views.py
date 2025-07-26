@@ -657,16 +657,29 @@ class AnagraficaDetailView(TenantRequiredMixin, View):
         context['pagamento_form'] = PagamentoForm()
         return render(request, self.template_name, context)
 
+# gestionale/views.py
+
 class AnagraficaPartitarioExportExcelView(AnagraficaDetailView):
+    """
+    Esporta il partitario completo di un'anagrafica in formato Excel,
+    utilizzando la utility centralizzata per report multi-sezione.
+    """
     def get(self, request, *args, **kwargs):
+        # 1. RECUPERO DATI
+        # Chiamiamo il metodo helper della classe base (AnagraficaDetailView)
+        # per ottenere tutti i dati del partitario, già filtrati.
         partitario_data = self._get_partitario_data(request, kwargs['pk'])
         anagrafica = partitario_data['anagrafica']
 
+        # 2. PREPARAZIONE DEI DATI PER IL REPORT
         tenant_name = request.session.get('active_tenant_name', 'GestionaleDjango')
         report_title = f"Partitario {anagrafica.get_tipo_display()}: {anagrafica.nome_cognome_ragione_sociale}"
-        safe_anag_name = "".join(c if c.isalnum() else "_" for c in anagrafica.nome_cognome_ragione_sociale)
+        
+        # Prepariamo un nome di file pulito
+        safe_anag_name = "".join(c for c in anagrafica.nome_cognome_ragione_sociale if c.isalnum() or c in " _-").rstrip()
         filename_prefix = f"Partitario_{safe_anag_name}"
-
+        
+        # Prepariamo la stringa dei filtri applicati
         filter_form = partitario_data['filter_form']
         filtri_attivi = []
         if filter_form.is_valid() and filter_form.cleaned_data:
@@ -677,23 +690,76 @@ class AnagraficaPartitarioExportExcelView(AnagraficaDetailView):
                     filtri_attivi.append(f"{label}: {display_value}")
         filtri_str = " | ".join(filtri_attivi) if filtri_attivi else "Nessun filtro"
 
+        # Prepariamo il dizionario dei KPI
         kpi_report = {
             'Esposizione Documenti': partitario_data['esposizione_documenti'],
             'Netto Incassato/Pagato': partitario_data['netto_movimenti'],
             'Saldo Aperto Finale': partitario_data['saldo_finale']
         }
-        
-        headers = ["Data Scad.", "Rif. Doc.", "Tipo", "Importo Rata", "Residuo"]
-        data_rows = []
-        for scadenza in partitario_data['scadenze_aperte']:
-            data_rows.append([
-                scadenza.data_scadenza, scadenza.documento.numero_documento,
-                scadenza.get_tipo_scadenza_display(), scadenza.importo_rata, scadenza.residuo
+
+        # 3. COSTRUZIONE DELLE SEZIONI DEL REPORT
+        # Creiamo una lista che conterrà i dizionari di ogni sezione.
+        report_sections = []
+
+        # Sezione 1: Storico Documenti
+        doc_headers = ["Data", "Tipo", "Numero", "Totale"]
+        doc_rows = []
+        for doc in partitario_data['documenti']:
+            doc_rows.append([
+                doc.data_documento,
+                doc.get_tipo_doc_display(),
+                doc.numero_documento,
+                doc.totale
             ])
-            
+        report_sections.append({
+            'title': 'Storico Documenti (Confermati)', 
+            'headers': doc_headers, 
+            'rows': doc_rows
+        })
+
+        # Sezione 2: Scadenziario Aperto
+        scad_headers = ["Data Scad.", "Rif. Doc.", "Tipo", "Importo Rata", "Residuo", "Stato Rata"]
+        scad_rows = []
+        for scadenza in partitario_data['scadenze_aperte']:
+            scad_rows.append([
+                scadenza.data_scadenza,
+                scadenza.documento.numero_documento,
+                scadenza.get_tipo_scadenza_display(),
+                scadenza.importo_rata,
+                scadenza.residuo,
+                scadenza.get_stato_display()
+            ])
+        report_sections.append({
+            'title': 'Scadenziario Aperto', 
+            'headers': scad_headers, 
+            'rows': scad_rows
+        })
+
+        # Sezione 3: Cronologia Movimenti
+        mov_headers = ["Data", "Descrizione", "Importo", "Conto"]
+        mov_rows = []
+        for movimento in partitario_data['movimenti']:
+            mov_rows.append([
+                movimento.data_registrazione,
+                movimento.descrizione,
+                # Usiamo un importo con segno per indicare Entrata/Uscita
+                movimento.importo * (1 if movimento.tipo_movimento == 'E' else -1),
+                movimento.conto_finanziario.nome_conto
+            ])
+        report_sections.append({
+            'title': 'Cronologia Movimenti', 
+            'headers': mov_headers, 
+            'rows': mov_rows
+        })
+
+        # 4. CHIAMATA ALLA FUNZIONE DI UTILITY
+        # Passiamo tutti i dati preparati alla nostra funzione centralizzata.
         return generate_excel_report(
-            tenant_name=tenant_name, report_title=report_title, filters_string=filtri_str,
-            kpi_data=kpi_report, headers=headers, data_rows=data_rows,
+            tenant_name=tenant_name,
+            report_title=report_title,
+            filters_string=filtri_str,
+            kpi_data=kpi_report,
+            report_sections=report_sections, # La nuova lista di sezioni
             filename_prefix=filename_prefix
         )
     
