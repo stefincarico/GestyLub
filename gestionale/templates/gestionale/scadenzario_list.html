@@ -15,9 +15,9 @@
             <div class="card">
                 <div class="card-body text-center">
                     <h6 class="card-title text-muted">Incassi Aperti</h6>
-                    {% load humanize %} <!-- Carichiamo i tag di humanize -->
-                    <h3 class="text-success">€ {{ kpi.incassi_aperti|floatformat:2|intcomma }}</h3>
-                    <small class="text-muted"><strong>(di cui scaduti: € {{ kpi.incassi_scaduti|floatformat:2|intcomma }})</strong></small>
+                    {% load currency_filters %} <!-- Carichiamo il NOSTRO file di filtri -->
+                    <h3 class="text-success">€ {{ kpi.incassi_aperti|format_currency }}</h3>
+                    <small class="text-muted"><strong>(di cui scaduti: € {{ kpi.incassi_scaduti|format_currency }})</strong></small>
                 </div>
             </div>
         </div>
@@ -25,9 +25,9 @@
             <div class="card">
                 <div class="card-body text-center">
                     <h6 class="card-title text-muted">Pagamenti Aperti</h6>
-                    {% load humanize %}
-                    <h3 class="text-danger">€ {{ kpi.pagamenti_aperti|floatformat:2|intcomma }}</h3>
-                    <small class="text-muted"><strong>(di cui scaduti: € {{ kpi.pagamenti_scaduti|floatformat:2|intcomma }})</strong></small>
+                    {% load currency_filters %}
+                    <h3 class="text-danger">€ {{ kpi.pagamenti_aperti|format_currency }}</h3>
+                    <small class="text-muted"><strong>(di cui scaduti: € {{ kpi.pagamenti_scaduti|format_currency }})</strong></small>
                 </div>
             </div>
         </div>
