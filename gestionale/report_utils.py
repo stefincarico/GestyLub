@@ -13,103 +13,99 @@ from weasyprint import HTML
 # === UTILITY PER EXPORT EXCEL                                              ===
 # ==============================================================================
 
+# gestionale/report_utils.py
+
 def generate_excel_report(tenant_name, report_title, filters_string, kpi_data, report_sections, filename_prefix='report'):
     """
-    Funzione generica AVANZATA per creare un report Excel strutturato.
-    Ora supporta sezioni multiple, ognuna con la sua tabella.
-
-    Args:
-        tenant_name (str): Nome dell'azienda attiva.
-        report_title (str): Titolo principale del report.
-        filters_string (str): Stringa che riassume i filtri applicati.
-        kpi_data (dict): Dizionario con i KPI da mostrare.
-        report_sections (list of dicts): Lista di sezioni. Ogni sezione è un dizionario
-                                          con chiavi 'title', 'headers', 'rows'.
-        filename_prefix (str, optional): Prefisso per il nome del file.
+    Funzione generica DEFINITIVA per creare un report Excel strutturato.
+    Usa un contatore di riga manuale per un controllo totale sul layout e la spaziatura.
     """
-    # 1. PREPARAZIONE DELLA RISPOSTA HTTP
+    # 1. PREPARAZIONE (invariato)
     response = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     )
-    timestamp = timezone.now().strftime('%Y%m%d-%H%M')
+    local_time = timezone.localtime(timezone.now())
+    timestamp = local_time.strftime('%Y%m%d-%H%M')
     filename = f"{timestamp}-{filename_prefix}.xlsx"
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
 
-    # 2. CREAZIONE DEL FILE EXCEL
     workbook = Workbook()
     worksheet = workbook.active
-    
-    # Sanificazione del titolo del foglio
     safe_sheet_title = report_title.replace(":", "-").replace("/", "-").replace("\\", "-").replace("?", "").replace("*", "").replace("[", "").replace("]", "")
     worksheet.title = safe_sheet_title[:31]
     
-    # 3. DEFINIZIONE DEGLI STILI
+    # STILI (invariato)
     title_font = Font(name='Calibri', size=16, bold=True)
     header_font = Font(name='Calibri', size=12, bold=True)
     section_title_font = Font(name='Calibri', size=13, bold=True, italic=True)
     currency_format = '€ #,##0.00'
-    date_format = 'DD/MM/YYYY'
     
-    # 4. SCRITTURA DELL'INTESTAZIONE DEL REPORT
+    # ==========================================================================
+    # === INIZIO LOGICA DI SCRITTURA ESPLICITA                               ===
+    # ==========================================================================
+    
+    # Usiamo un contatore di riga manuale. Partiamo dalla riga 1.
     current_row = 1
-    # Uniamo le celle basandoci sul numero massimo di colonne che useremo
-    max_cols = 1
-    if report_sections:
-        max_cols = max(len(s.get('headers', [])) for s in report_sections)
+    max_cols = max(len(s.get('headers', [1])) for s in report_sections) if report_sections else 1
 
+    # 2. SCRITTURA INTESTAZIONE
+    worksheet.cell(row=current_row, column=1, value=tenant_name).font = title_font
+    worksheet.cell(row=current_row, column=1).alignment = Alignment(horizontal='center')
     worksheet.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=max_cols)
-    cell = worksheet.cell(row=current_row, column=1, value=tenant_name)
-    cell.font = title_font
-    cell.alignment = Alignment(horizontal='center')
     current_row += 1
     
+    worksheet.cell(row=current_row, column=1, value=report_title).alignment = Alignment(horizontal='center')
     worksheet.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=max_cols)
-    cell = worksheet.cell(row=current_row, column=1, value=report_title)
-    cell.alignment = Alignment(horizontal='center')
-    current_row += 2
+    current_row += 2 # Riga vuota
 
-    worksheet.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=max_cols)
     worksheet.cell(row=current_row, column=1, value=f"Filtri Applicati: {filters_string}")
+    worksheet.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=max_cols)
+    current_row += 1
+    
+    worksheet.cell(row=current_row, column=1, value=f"Generato il: {local_time.strftime('%d/%m/%Y %H:%M:%S')}")
+    worksheet.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=max_cols)
     current_row += 1
 
-    worksheet.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=max_cols)
-    worksheet.cell(row=current_row, column=1, value=f"Generato il: {timezone.now().strftime('%d/%m/%Y %H:%M:%S')}")
-    current_row += 2
-
-    # 5. SCRITTURA DEI KPI
+    # 3. SCRITTURA KPI
     if kpi_data:
+        current_row += 1 # Riga vuota prima dei KPI
         for key, value in kpi_data.items():
             worksheet.cell(row=current_row, column=2, value=key).font = header_font
             cell = worksheet.cell(row=current_row, column=3, value=value)
             cell.number_format = currency_format
             current_row += 1
-        current_row += 1
 
-    # 6. SCRITTURA DELLE SEZIONI MULTIPLE
+    # 4. RIGA VUOTA DOPO LA TESTATA
+    current_row += 1
+    
+    # 5. SCRITTURA DELLE SEZIONI
     for section in report_sections:
-        # Aggiunge una riga vuota tra le sezioni
-        current_row += 1
-        
-        # Titolo della sezione
+        # 5.1 TITOLO SEZIONE
+        worksheet.cell(row=current_row, column=1, value=section.get('title', '')).font = section_title_font
         worksheet.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=max_cols)
-        cell = worksheet.cell(row=current_row, column=1, value=section.get('title', ''))
-        cell.font = section_title_font
         current_row += 1
-
-        # Intestazioni della tabella
+        
+        # 5.2 RIGA VUOTA DOPO IL TITOLO
+        current_row += 1
+        
+        # 5.3 INTESTAZIONI DELLA TABELLA
         headers = section.get('headers', [])
-        worksheet.append(headers)
-        for cell in worksheet[current_row]:
-            cell.font = header_font
-        current_row += 1
-        
-        # Righe di dati
+        if headers:
+            for col_idx, header_title in enumerate(headers, 1):
+                cell = worksheet.cell(row=current_row, column=col_idx, value=header_title)
+                cell.font = header_font
+            current_row += 1
+            
+        # 5.4 RIGHE DI DATI
         for row_data in section.get('rows', []):
-            worksheet.append(row_data)
-        
-        current_row = worksheet.max_row # Ci posizioniamo alla fine per la prossima sezione
+            for col_idx, cell_value in enumerate(row_data, 1):
+                worksheet.cell(row=current_row, column=col_idx, value=cell_value)
+            current_row += 1
+            
+        # 5.5 RIGA VUOTA DOPO LA FINE DELLE RIGHE DELLA SEZIONE
+        current_row += 1
 
-    # 7. ADATTAMENTO COLONNE
+    # 6. ADATTAMENTO COLONNE (invariato)
     for col_idx in range(1, max_cols + 1):
         column_letter = get_column_letter(col_idx)
         max_length = 0
@@ -122,10 +118,12 @@ def generate_excel_report(tenant_name, report_title, filters_string, kpi_data, r
             except: pass
         adjusted_width = (max_length + 2)
         worksheet.column_dimensions[column_letter].width = adjusted_width
-
-    # 8. SALVATAGGIO E RESTITUZIONE
+        
+    # 7. SALVATAGGIO E RESTITUZIONE
     workbook.save(response)
     return response
+
+
 
 # ==============================================================================
 # === UTILITY PER EXPORT PDF                                              ===
