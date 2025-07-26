@@ -1,7 +1,8 @@
 # gestionale/models.py
 
 from django.db import models
-from django.conf import settings # Per riferirci al nostro User model personalizzato
+from django.conf import settings
+from django.urls import reverse # Per riferirci al nostro User model personalizzato
 
 # ==============================================================================
 # === MODELLI DI CONFIGURAZIONE (Tabelle di supporto)                       ===
@@ -212,11 +213,15 @@ class DocumentoTestata(models.Model):
 
     def __str__(self):
         return f"{self.get_tipo_doc_display()} N. {self.numero_documento} del {self.data_documento}"
-    
+
+    def get_absolute_url(self):
+        """
+        Restituisce l'URL canonico per un'istanza di questo modello.
+        """
+        return reverse('documento_detail', kwargs={'pk': self.pk})
     class Meta:
         verbose_name = "Documento (Testata)"
         verbose_name_plural = "Documenti (Testate)"
-        # Un'anagrafica non può avere due documenti dello stesso tipo con lo stesso numero
         unique_together = ('anagrafica', 'tipo_doc', 'numero_documento')
         ordering = ['-data_documento', '-numero_documento']
 

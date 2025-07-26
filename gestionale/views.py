@@ -17,10 +17,12 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpResponseRedirect
 from django.contrib.auth.decorators import login_required
 from decimal import Decimal
+from datetime import date, timedelta
+from django.contrib import messages
 
 # Importazioni delle app locali
-from .models import AliquotaIVA, Anagrafica, DipendenteDettaglio, DocumentoTestata, Scadenza
-from .forms import AnagraficaForm, DipendenteDettaglioForm, DocumentoRigaForm, DocumentoTestataForm
+from .models import AliquotaIVA, Anagrafica, Cantiere, DipendenteDettaglio, DocumentoRiga, DocumentoTestata, ModalitaPagamento, Scadenza
+from .forms import AnagraficaForm, DipendenteDettaglioForm, DocumentoRigaForm, DocumentoTestataForm, ScadenzaWizardForm
 
 
 # ==============================================================================
@@ -271,4 +273,167 @@ def documento_create_step2_righe(request):
         'totale_documento': totale_imponibile + totale_iva
     }
     return render(request, 'gestionale/documento_create_step2.html', context)
+
+@login_required
+def documento_create_step3_scadenze(request):
+    """
+    Step 3 del wizard: inserimento scadenze e finalizzazione.
+    """
+    testata_data = request.session.get('doc_testata_data')
+    righe_data = request.session.get('doc_righe_data')
+    scadenze_data = request.session.get('doc_scadenze_data', [])
+
+    if not testata_data or not righe_data:
+        return redirect(reverse('documento_create_step1_testata'))
+
+    totale_documento = sum(Decimal(r['imponibile_riga']) + Decimal(r['iva_riga']) for r in righe_data)
+    totale_scadenze = sum(Decimal(s['importo_rata']) for s in scadenze_data)
+    residuo_da_scadenzare = totale_documento - totale_scadenze
+
+    if request.method == 'POST':
+        # Creiamo un'istanza del form per aggiunta scadenza, che potrebbe servirci
+        form = ScadenzaWizardForm(request.POST)
+
+        if 'finalizza_documento' in request.POST:
+            if residuo_da_scadenzare != 0:
+                messages.error(request, "L'importo delle scadenze non corrisponde al totale del documento.")
+                # Non facciamo return qui, lasciamo che la vista prosegua e mostri
+                # la pagina con il messaggio di errore e il form vuoto pre-compilato.
+                # Per farlo, dobbiamo ricreare il form con i valori di default.
+                form = ScadenzaWizardForm(initial=get_scadenza_initial_data(testata_data, scadenze_data, residuo_da_scadenzare))
+
+            else:
+                # ... LA LOGICA DI SALVATAGGIO FINALE ... (la copio qui sotto per completezza)
+                with transaction.atomic():
+                    anagrafica = Anagrafica.objects.get(pk=testata_data['anagrafica_id'])
+                    modalita_pagamento = ModalitaPagamento.objects.get(pk=testata_data['modalita_pagamento_id'])
+                    cantiere = Cantiere.objects.get(pk=testata_data['cantiere_id']) if testata_data['cantiere_id'] else None
+
+                    # === INIZIO LOGICA DI NUMERAZIONE AUTOMATICA ===
+                    tipo_doc = testata_data['tipo_doc']
+                    numero_doc_finale = "" # Inizializziamo la variabile
+
+                    # Definiamo i prefissi per i documenti di vendita
+                    prefissi_vendita = {
+                        DocumentoTestata.TipoDoc.FATTURA_VENDITA: 'FT',
+                        DocumentoTestata.TipoDoc.NOTA_CREDITO_VENDITA: 'NC',
+                    }
+
+                    if tipo_doc in prefissi_vendita:
+                        prefisso = prefissi_vendita[tipo_doc]
+                        anno_corrente = date.today().year
+                        
+                        # Troviamo l'ultimo documento dello stesso tipo e dello stesso anno
+                        ultimo_documento = DocumentoTestata.objects.filter(
+                            tipo_doc=tipo_doc,
+                            data_documento__year=anno_corrente
+                        ).order_by('numero_documento').last()
+
+                        if ultimo_documento and ultimo_documento.numero_documento:
+                            # Estraiamo il numero progressivo dall'ultimo numero documento
+                            try:
+                                ultimo_progressivo = int(ultimo_documento.numero_documento.split('-')[-1])
+                                nuovo_progressivo = ultimo_progressivo + 1
+                            except (IndexError, ValueError):
+                                # Fallback se il formato non è quello atteso
+                                nuovo_progressivo = 1
+                        else:
+                            nuovo_progressivo = 1
+                        
+                        # Componiamo il numero finale
+                        numero_doc_finale = f"{prefisso}-{anno_corrente}-{nuovo_progressivo:06d}"
+                    else:
+                        # Per i documenti di acquisto, il numero dovrebbe arrivare dal form.
+                        # Per ora, non abbiamo questo campo nel wizard, quindi dobbiamo gestirlo.
+                        # Aggiungeremo il campo per i documenti passivi in un secondo momento.
+                        # Per ora, usiamo un placeholder per evitare l'errore.
+                        # Questo è un debito tecnico che salderemo.
+                        numero_doc_finale = "DA_COMPILARE_MANUALMENTE"
+
+                    # === FINE LOGICA DI NUMERAZIONE AUTOMATICA ===
+
+
+
+                    nuova_testata = DocumentoTestata.objects.create(
+                        tipo_doc=tipo_doc,
+                        anagrafica=anagrafica,
+                        data_documento=date.fromisoformat(testata_data['data_documento']),
+                        numero_documento=numero_doc_finale, # <-- USIAMO IL NUMERO GENERATO
+                        modalita_pagamento=modalita_pagamento,
+                        cantiere=cantiere,
+                        note=testata_data['note'],
+                        imponibile=sum(Decimal(r['imponibile_riga']) for r in righe_data),
+                        iva=sum(Decimal(r['iva_riga']) for r in righe_data),
+                        totale=totale_documento,
+                        stato=DocumentoTestata.Stato.CONFERMATO,
+                        created_by=request.user,
+                        updated_by=request.user
+                    )
+                    
+                    for riga in righe_data:
+                        DocumentoRiga.objects.create(
+                            testata=nuova_testata, descrizione=riga['descrizione'], quantita=riga['quantita'],
+                            prezzo_unitario=riga['prezzo_unitario'], aliquota_iva_id=riga['aliquota_iva_id'],
+                            imponibile_riga=riga['imponibile_riga'], iva_riga=riga['iva_riga']
+                        )
+                    
+                    for scadenza in scadenze_data:
+                        Scadenza.objects.create(
+                            documento=nuova_testata, anagrafica=anagrafica,
+                            data_scadenza=date.fromisoformat(scadenza['data_scadenza']),
+                            importo_rata=scadenza['importo_rata'],
+                            tipo_scadenza=Scadenza.Tipo.INCASSO if 'V' in nuova_testata.tipo_doc else Scadenza.Tipo.PAGAMENTO
+                        )
+                    
+                    clear_doc_wizard_session(request.session)
+                    messages.success(request, f"Documento {nuova_testata} creato con successo!")
+                    return redirect(nuova_testata.get_absolute_url())
+
+        elif form.is_valid():
+            nuova_scadenza = form.cleaned_data
+            scadenze_data.append({
+                'importo_rata': float(nuova_scadenza['importo_rata']),
+                'data_scadenza': nuova_scadenza['data_scadenza'].isoformat(),
+            })
+            request.session['doc_scadenze_data'] = scadenze_data
+            return redirect(reverse('documento_create_step3_scadenze'))
+    else: # GET
+        form = ScadenzaWizardForm(initial=get_scadenza_initial_data(testata_data, scadenze_data, residuo_da_scadenzare))
+
+    context = {
+        'form': form, 'totale_documento': totale_documento,
+        'scadenze_inserite': scadenze_data, 'totale_scadenze': totale_scadenze,
+        'residuo_da_scadenzare': residuo_da_scadenzare
+    }
+    return render(request, 'gestionale/documento_create_step3.html', context)
+
+# === NUOVA FUNZIONE HELPER ===
+# Per non ripetere il codice, ho estratto la logica di calcolo dei dati iniziali.
+def get_scadenza_initial_data(testata_data, scadenze_data, residuo_da_scadenzare):
+    data_proposta = None
+    if scadenze_data:
+        ultima_data = date.fromisoformat(scadenze_data[-1]['data_scadenza'])
+        nuovo_mese, nuovo_anno = (ultima_data.month + 1, ultima_data.year)
+        if nuovo_mese > 12:
+            nuovo_mese, nuovo_anno = (1, nuovo_anno + 1)
+        try:
+            data_proposta = ultima_data.replace(year=nuovo_anno, month=nuovo_mese)
+        except ValueError:
+            data_proposta = ultima_data.replace(year=nuovo_anno, month=nuovo_mese, day=28)
+    else:
+        giorni_scadenza = 30
+        try:
+            mp_id = testata_data.get('modalita_pagamento_id')
+            if mp_id:
+                mp = ModalitaPagamento.objects.get(pk=mp_id)
+                giorni_scadenza = mp.giorni_scadenza
+        except ModalitaPagamento.DoesNotExist:
+            pass
+        data_documento = date.fromisoformat(testata_data['data_documento'])
+        data_proposta = data_documento + timedelta(days=giorni_scadenza)
+
+    return {
+        'importo_rata': residuo_da_scadenzare,
+        'data_scadenza': data_proposta.strftime('%Y-%m-%d')
+    }
 

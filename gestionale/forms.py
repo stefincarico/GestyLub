@@ -1,7 +1,7 @@
 # gestionale/forms.py
 
 from django import forms
-from .models import Anagrafica, Cantiere, DipendenteDettaglio, DocumentoRiga, DocumentoTestata, AliquotaIVA
+from .models import Anagrafica, Cantiere, DipendenteDettaglio, DocumentoRiga, DocumentoTestata, AliquotaIVA,Scadenza
 
 class AnagraficaForm(forms.ModelForm):
     """
@@ -207,3 +207,17 @@ class DocumentoRigaForm(forms.ModelForm):
         # Filtriamo per mostrare solo le aliquote IVA attive.
         self.fields['aliquota_iva'].queryset = AliquotaIVA.objects.filter(attivo=True)
 
+    def clean_descrizione(self):
+        data = self.cleaned_data.get('descrizione')
+        if data:
+            return data.upper()
+        return data
+
+class ScadenzaWizardForm(forms.ModelForm):
+    class Meta:
+        model = Scadenza
+        fields = ['importo_rata', 'data_scadenza']
+        widgets = {
+            'importo_rata': forms.NumberInput(attrs={'class': 'form-control'}),
+            'data_scadenza': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+        }

@@ -1,0 +1,67 @@
+{% extends "gestionale/base.html" %}
+{% block title %}Nuovo Documento (Passo 3 di 3){% endblock %}
+{% block content %}
+<h1 class="h2 mb-4">Gestione Documento (Passo 3 di 3: Scadenze)</h1>
+
+<!-- Riepilogo Totali -->
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="row text-center">
+            <div class="col-4"><h4>Totale Documento</h4><h3>€ {{ totale_documento|floatformat:2 }}</h3></div>
+            <div class="col-4"><h4>Totale Scadenze</h4><h3>€ {{ totale_scadenze|floatformat:2 }}</h3></div>
+            <div class="col-4 text-danger"><h4>Residuo</h4><h3>€ {{ residuo_da_scadenzare|floatformat:2 }}</h3></div>
+        </div>
+    </div>
+</div>
+
+<!-- Scadenze Inserite e Form di Aggiunta -->
+<div class="row">
+    <div class="col-md-7">
+        <div class="card">
+            <div class="card-header">Scadenze Inserite</div>
+            <div class="card-body p-0">
+                <table class="table mb-0">
+                    <thead><tr><th>Data</th><th class="text-end">Importo</th><th>Azioni</th></tr></thead>
+                    <tbody>
+                        {% for scadenza in scadenze_inserite %}
+                        <tr>
+                            <td>{{ scadenza.data_scadenza }}</td>
+                            <td class="text-end">€ {{ scadenza.importo_rata|floatformat:2 }}</td>
+                            <td><a href="#" class="btn btn-sm btn-danger">Elimina</a></td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="3" class="text-center">Nessuna scadenza inserita.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-5">
+        <div class="card">
+            <div class="card-header">Aggiungi Nuova Scadenza</div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    {{ form.as_p }}
+                    <button type="submit" class="btn btn-success w-100 mt-2">+ Aggiungi Scadenza</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Pulsanti di Navigazione e Finalizzazione -->
+<div class="d-flex justify-content-between mt-4">
+    <a href="{% url 'documento_create_step2_righe' %}" class="btn btn-secondary">← Torna alle Righe</a>
+    <form method="post">
+        {% csrf_token %}
+        {% if residuo_da_scadenzare == 0 and scadenze_inserite %}
+            <button type="submit" name="finalizza_documento" class="btn btn-primary btn-lg">Conferma e Finalizza Documento</button>
+        {% else %}
+            <button type="submit" name="finalizza_documento" class="btn btn-primary btn-lg" disabled>Conferma e Finalizza Documento</button>
+            <small class="d-block text-muted mt-1">Il pulsante si attiverà quando il residuo sarà zero.</small>
+        {% endif %}
+    </form>
+</div>
+{% endblock %}
