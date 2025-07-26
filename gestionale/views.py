@@ -37,6 +37,8 @@ from openpyxl.styles import Font, Alignment
 from weasyprint import HTML
 
 # Importazioni delle app locali
+from .report_utils import generate_excel_report
+
 from .models import (
     AliquotaIVA, Anagrafica, Cantiere, DipendenteDettaglio, DocumentoRiga,
     DocumentoTestata, ModalitaPagamento, Scadenza, PrimaNota, Causale
@@ -758,174 +760,72 @@ class ScadenzarioListView(TenantRequiredMixin, View):
         # 6. Renderizza il template con il contesto.
         return render(request, self.template_name, context)
 
-
 class ScadenzarioExportExcelView(ScadenzarioListView):
     """
-    Gestisce l'export in formato Excel (.xlsx) dello scadenziario.
-    
-    Eredita da ScadenzarioListView per poter riutilizzare il metodo
-    _get_filtered_data, garantendo che i dati esportati siano
-    esattamente quelli visualizzati e filtrati dall'utente.
+    Esporta i dati dello scadenziario in Excel, usando la utility centralizzata.
     """
-    
     def get(self, request, *args, **kwargs):
-        # 1. RECUPERO DATI
-        # Chiamiamo il nostro metodo helper centralizzato per ottenere
-        # il queryset già filtrato e i dati aggregati per i KPI.
+        # 1. Recupera i dati filtrati e i KPI.
         scadenze_qs, kpi_data, filter_form, today = self._get_filtered_data(request)
 
-        # 2. PREPARAZIONE DELLA RISPOSTA HTTP
-        # Creiamo una risposta di tipo 'spreadsheet' (foglio di calcolo).
-        # Il browser interpreterà questa risposta come un file da scaricare.
-        response = HttpResponse(
-            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        )
-        # Impostiamo l'header 'Content-Disposition' per suggerire al browser
-        # il nome del file da scaricare.
-        response['Content-Disposition'] = f'attachment; filename="scadenziario_aperto_{today.strftime("%Y%m%d")}.xlsx"'
-
-        # 3. CREAZIONE DEL FILE EXCEL IN MEMORIA
-        workbook = Workbook()
-        worksheet = workbook.active
-        worksheet.title = 'Scadenziario Aperto'
-
-        # 4. DEFINIZIONE DEGLI STILI (per un report più professionale)
-        title_font = Font(name='Calibri', size=16, bold=True)
-        header_font = Font(name='Calibri', size=12, bold=True)
-        currency_format = '"€" #,##0.00'
-        date_format = 'DD/MM/YYYY'
-
-        # 5. SCRITTURA DELL'INTESTAZIONE DEL REPORT
-        # Uniamo le celle per i titoli per un aspetto più pulito
-        worksheet.merge_cells('A1:G1')
-        worksheet.merge_cells('A2:G2')
-        worksheet.merge_cells('A4:G4')
-        worksheet.merge_cells('A5:G5')
-
-        worksheet['A1'] = request.session.get('active_tenant_name', 'GestionaleDjango')
-        worksheet['A1'].font = title_font
-        worksheet['A1'].alignment = Alignment(horizontal='center')
+        # 2. Prepara i dati per la funzione di utility.
+        tenant_name = request.session.get('active_tenant_name', 'GestionaleDjango')
+        report_title = 'Report Scadenziario Aperto'
         
-        worksheet['A2'] = 'Report Scadenziario Aperto'
-        worksheet['A2'].alignment = Alignment(horizontal='center')
-
-        # Costruiamo la stringa dei filtri applicati
+        # Costruisci la stringa dei filtri (logica che abbiamo già)
         filtri_attivi = []
         if filter_form.is_valid():
             for name, value in filter_form.cleaned_data.items():
                 if value:
-                    # Recuperiamo il campo dal form per accedere alle sue proprietà
                     field = filter_form.fields.get(name)
-                    if not field: continue # Salta se per qualche motivo il campo non esiste
-
-                    # Otteniamo l'etichetta del campo, con un fallback sul nome del campo
+                    if not field: continue
                     label = field.label or name.replace('_', ' ').title()
-                    
-                    # Otteniamo il valore leggibile per i campi con scelte
                     display_value = value
                     if hasattr(field, 'choices'):
-                         display_value = dict(field.choices).get(value, value)
-                    
-                    # Formattiamo le date
+                        display_value = dict(field.choices).get(value, value)
                     if isinstance(value, date):
-                         display_value = value.strftime('%d/%m/%Y')
-                    
-                    # Per i ModelChoiceField (come anagrafica), l'oggetto stesso è il valore
+                        display_value = value.strftime('%d/%m/%Y')
                     if isinstance(field, forms.ModelChoiceField):
                         display_value = str(value)
-                    
                     filtri_attivi.append(f"{label}: {display_value}")
-        
         filtri_str = " | ".join(filtri_attivi) if filtri_attivi else "Tutti"
-
-
-        worksheet['A4'] = f"Filtri Applicati: {filtri_str}"
         
-        worksheet['A5'] = f"Generato il: {timezone.now().strftime('%d/%m/%Y %H:%M:%S')}"
-        
-        # 6. SCRITTURA DEI KPI
-        # Calcoliamo i valori finali dai dati aggregati
+        # Prepara i KPI nel formato desiderato
         incassi_aperti = kpi_data['incassi_totali_rate'] - kpi_data['incassi_pagati']
         pagamenti_aperti = kpi_data['pagamenti_totali_rate'] - kpi_data['pagamenti_pagati']
-        saldo_circolante = incassi_aperti - pagamenti_aperti
+        kpi_report = {
+            'Incassi Aperti': incassi_aperti,
+            'Pagamenti Aperti': pagamenti_aperti,
+            'Saldo Circolante': incassi_aperti - pagamenti_aperti
+        }
 
-        worksheet['B7'] = 'Incassi Aperti'; worksheet['C7'] = incassi_aperti
-        worksheet['B8'] = 'Pagamenti Aperti'; worksheet['C8'] = pagamenti_aperti
-        worksheet['B9'] = 'Saldo Circolante'; worksheet['C9'] = saldo_circolante
-        
-        for row in range(7, 10):
-            worksheet[f'B{row}'].font = header_font
-            worksheet[f'C{row}'].number_format = currency_format
-
-        # 7. SCRITTURA DELLA TABELLA DATI
-        # Intestazioni della tabella (a partire dalla riga 11 per lasciare spazio)
+        # Definisci le intestazioni della tabella
         headers = [
             "Data Scad.", "Tipo", "Cliente/Fornitore", "Rif. Doc.", 
             "Importo Rata", "Residuo", "Stato Rata"
         ]
-        worksheet.append([]) # Aggiunge una riga vuota per spaziatura
-        worksheet.append(headers)
         
-        # Applica lo stile in grassetto all'ultima riga scritta (le intestazioni)
-        for cell in worksheet[worksheet.max_row]:
-            cell.font = header_font
-            cell.alignment = Alignment(horizontal='center')
-
-        # Eseguiamo l'annotate per calcolare il 'pagato' su tutto il queryset filtrato
+        # Prepara le righe di dati
+        data_rows = []
         scadenze_con_pagato = scadenze_qs.annotate(
             pagato=Coalesce(Sum('pagamenti__importo'), Value(0), output_field=models.DecimalField())
         )
-        
-        # Scriviamo le righe di dati nel foglio
         for scadenza in scadenze_con_pagato:
-            residuo = scadenza.importo_rata - scadenza.pagato
-            row_data = [
+            data_rows.append([
                 scadenza.data_scadenza,
                 scadenza.get_tipo_scadenza_display(),
                 scadenza.anagrafica.nome_cognome_ragione_sociale,
                 scadenza.documento.numero_documento,
                 scadenza.importo_rata,
-                residuo,
+                scadenza.importo_rata - scadenza.pagato,
                 scadenza.get_stato_display()
-            ]
-            worksheet.append(row_data)
+            ])
             
-            # Applichiamo la formattazione specifica per data e valuta
-            current_row = worksheet.max_row
-            worksheet.cell(row=current_row, column=1).number_format = date_format
-            worksheet.cell(row=current_row, column=5).number_format = currency_format
-            worksheet.cell(row=current_row, column=6).number_format = currency_format
-        
-        # 8. ADATTAMENTO FINALE E SALVATAGGIO
-        # Adatta automaticamente la larghezza delle colonne al contenuto
-        
-        # === INIZIO BLOCCO CORRETTO ===
-        from openpyxl.utils import get_column_letter
+        # 3. Chiama la funzione di utility e restituisci il risultato.
+        return generate_excel_report(
+            tenant_name, report_title, filtri_str, kpi_report, headers, data_rows
+        )
 
-        for col_idx in range(1, worksheet.max_column + 1):
-            column_letter = get_column_letter(col_idx)
-            max_length = 0
-            # Cicliamo sulle celle della colonna
-            for cell in worksheet[column_letter]:
-                # Saltiamo le celle unite per evitare errori
-                if isinstance(cell, openpyxl.cell.cell.MergedCell):
-                    continue
-                try:
-                    # Troviamo la lunghezza massima del contenuto nella colonna
-                    if len(str(cell.value or "")) > max_length:
-                        max_length = len(str(cell.value or ""))
-                except:
-                    pass
-            # Aggiungiamo un po' di padding alla larghezza
-            adjusted_width = (max_length + 2)
-            worksheet.column_dimensions[column_letter].width = adjusted_width
-        # === FINE BLOCCO CORRETTO ===
-
-        # Salva il workbook nella risposta HTTP
-        workbook.save(response)
-        
-        return response
-    
 class ScadenzarioExportPdfView(ScadenzarioListView):
     """
     Vista per esportare i dati dello scadenziario (filtrati) in un file PDF.
