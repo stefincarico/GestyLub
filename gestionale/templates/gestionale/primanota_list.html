@@ -88,9 +88,13 @@
                             {% endif %}
                         </td>
                         <td>
-                            <!-- TODO: Aggiungere URL per Modifica ed Elimina -->
-                            <a href="#" class="btn btn-sm btn-outline-primary">Modifica</a>
-                            <a href="#" class="btn btn-sm btn-outline-danger">Elimina</a>
+                            <!-- Pulsanti visibili solo se non è un pagamento di una scadenza (non modificabile da qui) -->
+                            {% if not movimento.scadenza_collegata %}
+                                <a href="{% url 'primanota_update' movimento.pk %}" class="btn btn-sm btn-outline-primary">Modifica</a>
+                                <a href="{% url 'primanota_delete' movimento.pk %}" class="btn btn-sm btn-outline-danger">Elimina</a>
+                            {% else %}
+                                <span class="text-muted fst-italic">Da Scadenza</span>
+                            {% endif %}
                         </td>
                     </tr>
                     {% empty %}

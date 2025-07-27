@@ -537,3 +537,14 @@ class PartitarioFilterForm(forms.Form):
         widget=forms.DateInput(attrs={'class': 'form-control', 'type': 'date'})
     )
 
+class PrimaNotaUpdateForm(PrimaNotaForm): # Eredita dal form di creazione
+    """
+    Form specifico per la MODIFICA di un movimento di Prima Nota.
+    Gestisce la formattazione corretta della data.
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Se stiamo modificando un'istanza esistente e la data c'è...
+        if self.instance and self.instance.data_registrazione:
+            # ...formattiamo la data nel formato che il widget HTML si aspetta.
+            self.initial['data_registrazione'] = self.instance.data_registrazione.strftime('%Y-%m-%d')

@@ -1,7 +1,7 @@
 # gestionale/views.py
 
 # ==============================================================================
-# === IMPORTAZIONI                                                          ===
+# === IMPORTAZIONI ORGANIZZATE                                              ===
 # ==============================================================================
 # Standard Library
 import json
@@ -11,56 +11,59 @@ from decimal import Decimal
 
 # Django Core
 from django import forms
-from django.db import models, transaction
-from django.db.models import Sum, Value, Q
-from django.db.models.functions import Coalesce
-from django.shortcuts import get_object_or_404, render, redirect
-from django.urls import reverse, reverse_lazy
-from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from django.contrib import messages
-from django.core.paginator import Paginator
-from django.template.loader import render_to_string
-from django.utils import timezone
-
-# Django Views
-from django.views import View
-from django.views.generic import ListView, DetailView
-from django.views.generic.edit import CreateView, UpdateView
-
-# Django Auth
-from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.paginator import Paginator
+from django.db import models, transaction
+from django.db.models import Q, Sum, Value
+from django.db.models.functions import Coalesce
+from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
+from django.urls import reverse, reverse_lazy
+from django.utils import timezone
+from django.views import View
+from django.views.generic import DetailView, ListView
+from django.views.generic.edit import CreateView, UpdateView,DeleteView
 
 # Librerie di terze parti
 import openpyxl
 from openpyxl import Workbook
-from openpyxl.styles import Font, Alignment
+from openpyxl.styles import Alignment, Font
 from weasyprint import HTML
 
 # Importazioni delle app locali
-from .report_utils import generate_excel_report, generate_pdf_report
-
-from .models import (
-    AliquotaIVA, Anagrafica, Cantiere, DipendenteDettaglio, DocumentoRiga,
-    DocumentoTestata, ModalitaPagamento, Scadenza, PrimaNota, Causale,
-    MezzoAziendale,DiarioAttivita
-)
 from .forms import (
-    AnagraficaForm, DipendenteDettaglioForm, DocumentoRigaForm,
-    DocumentoTestataForm, PartitarioFilterForm, PrimaNotaFilterForm, PrimaNotaForm, ScadenzaWizardForm, PagamentoForm, ScadenzarioFilterForm, DiarioAttivitaForm,
-    DocumentoFilterForm
+    AnagraficaForm, DiarioAttivitaForm, DipendenteDettaglioForm,
+    DocumentoFilterForm, DocumentoRigaForm, DocumentoTestataForm,
+    PagamentoForm, PartitarioFilterForm, PrimaNotaFilterForm, PrimaNotaForm,
+    ScadenzarioFilterForm, ScadenzaWizardForm,PrimaNotaUpdateForm
 )
+from .models import (
+    AliquotaIVA, Anagrafica, Cantiere, Causale, ContoFinanziario,
+    ContoOperativo, DiarioAttivita, DipendenteDettaglio, DocumentoRiga,
+    DocumentoTestata, MezzoAziendale, ModalitaPagamento, PrimaNota, Scadenza
+)
+from .report_utils import generate_excel_report, generate_pdf_report
 
 
 # ==============================================================================
-# === MIXINS                                                                ===
+# === MIXINS E FUNZIONI HELPER GLOBALI                                      ===
 # ==============================================================================
 
 class TenantRequiredMixin(LoginRequiredMixin, View):
+    """Mixin per assicurare che un tenant sia attivo in sessione."""
     def dispatch(self, request, *args, **kwargs):
         if not request.session.get('active_tenant_id'):
             return redirect(reverse('tenant_selection'))
         return super().dispatch(request, *args, **kwargs)
+
+def clear_doc_wizard_session(session):
+    """Pulisce i dati del wizard dalla sessione."""
+    session.pop('doc_testata_data', None)
+    session.pop('doc_righe_data', None)
+    session.pop('doc_scadenze_data', None)
 
 
 # ==============================================================================
@@ -158,11 +161,6 @@ class DipendenteDettaglioCreateView(TenantRequiredMixin, CreateView):
 # ==============================================================================
 # === VISTE WIZARD CREAZIONE DOCUMENTO                                      ===
 # ==============================================================================
-def clear_doc_wizard_session(session):
-    session.pop('doc_testata_data', None)
-    session.pop('doc_righe_data', None)
-    session.pop('doc_scadenze_data', None)
-
 
 @login_required
 def documento_create_step1_testata(request):
@@ -599,38 +597,46 @@ class DocumentoListExportPdfView(DocumentoListView):
 # ==============================================================================
 
 class AnagraficaDetailView(TenantRequiredMixin, View):
+    """
+    Gestisce la visualizzazione del partitario e contiene la logica
+    di recupero dati riutilizzata dagli export.
+    """
     template_name = 'gestionale/anagrafica_detail.html'
     
     def _get_partitario_data(self, request, anagrafica_pk):
+        """
+        Metodo helper che recupera e filtra TUTTI i dati per il partitario.
+        Questa è la fonte di verità per la vista HTML e per gli export.
+        """
         anagrafica = get_object_or_404(Anagrafica, pk=anagrafica_pk)
         filter_form = PartitarioFilterForm(request.GET or None)
         
-        # Inizializza i queryset di base
-        documenti = DocumentoTestata.objects.filter(anagrafica=anagrafica, stato=DocumentoTestata.Stato.CONFERMATO)
-        scadenze_aperte = Scadenza.objects.filter(anagrafica=anagrafica, stato__in=[Scadenza.Stato.APERTA, Scadenza.Stato.PARZIALE])
-        movimenti = PrimaNota.objects.filter(anagrafica=anagrafica)
+        # Queryset di base
+        documenti_qs = DocumentoTestata.objects.filter(anagrafica=anagrafica, stato=DocumentoTestata.Stato.CONFERMATO)
+        scadenze_qs = Scadenza.objects.filter(anagrafica=anagrafica, stato__in=[Scadenza.Stato.APERTA, Scadenza.Stato.PARZIALE])
+        movimenti_qs = PrimaNota.objects.filter(anagrafica=anagrafica)
 
-        # Applica i filtri
+        # Applica filtri
         if filter_form.is_valid():
             data_da = filter_form.cleaned_data.get('data_da')
             if data_da:
-                documenti = documenti.filter(data_documento__gte=data_da)
-                scadenze_aperte = scadenze_aperte.filter(data_scadenza__gte=data_da)
-                movimenti = movimenti.filter(data_registrazione__gte=data_da)
+                documenti_qs = documenti_qs.filter(data_documento__gte=data_da)
+                scadenze_qs = scadenze_qs.filter(data_scadenza__gte=data_da)
+                movimenti_qs = movimenti_qs.filter(data_registrazione__gte=data_da)
             data_a = filter_form.cleaned_data.get('data_a')
             if data_a:
-                documenti = documenti.filter(data_documento__lte=data_a)
-                scadenze_aperte = scadenze_aperte.filter(data_scadenza__lte=data_a)
-                movimenti = movimenti.filter(data_registrazione__lte=data_a)
+                documenti_qs = documenti_qs.filter(data_documento__lte=data_a)
+                scadenze_qs = scadenze_qs.filter(data_scadenza__lte=data_a)
+                movimenti_qs = movimenti_qs.filter(data_registrazione__lte=data_a)
         
         # Applica ordinamenti e annotazioni
-        documenti = documenti.order_by('-data_documento')
-        scadenze_aperte = scadenze_aperte.annotate(
+        documenti = documenti_qs.order_by('-data_documento')
+        scadenze_aperte = scadenze_qs.annotate(
             pagato=Coalesce(Sum('pagamenti__importo'), Value(0), output_field=models.DecimalField())
         ).order_by('data_scadenza')
-        movimenti = movimenti.order_by('-data_registrazione')
+        movimenti = movimenti_qs.order_by('-data_registrazione')
         
-        # Calcola i KPI
+        # Calcola KPI e residui
         for s in scadenze_aperte:
             s.residuo = s.importo_rata - s.pagato
         esposizione_documenti = sum(doc.totale if 'V' in doc.tipo_doc else -doc.totale for doc in documenti)
@@ -645,6 +651,7 @@ class AnagraficaDetailView(TenantRequiredMixin, View):
         }
 
     def get(self, request, *args, **kwargs):
+        """Metodo per la visualizzazione della pagina HTML."""
         partitario_data = self._get_partitario_data(request, kwargs['pk'])
         context = {}
         context.update(partitario_data)
@@ -656,8 +663,6 @@ class AnagraficaDetailView(TenantRequiredMixin, View):
         context['movimenti'] = paginator_movimenti.get_page(page_number_movimenti)
         context['pagamento_form'] = PagamentoForm()
         return render(request, self.template_name, context)
-
-# gestionale/views.py
 
 class AnagraficaPartitarioExportExcelView(AnagraficaDetailView):
     """
@@ -1273,8 +1278,6 @@ class SalvaAttivitaDiarioView(TenantRequiredMixin, View):
         
         return redirect(redirect_url)
     
-
-
 # ==============================================================================
 # === VISTE PRIMA NOTA                                                      ===
 # ==============================================================================
@@ -1384,4 +1387,75 @@ class PrimaNotaCreateView(TenantRequiredMixin, CreateView):
             # Assegniamo l'oggetto salvato a self.object prima di procedere.
             self.object = movimento
         
+        return super().form_valid(form)
+
+class PrimaNotaUpdateView(TenantRequiredMixin, UpdateView):
+    """
+    Gestisce la modifica di un movimento di Prima Nota.
+    """
+    model = PrimaNota
+    form_class = PrimaNotaUpdateForm
+    template_name = 'gestionale/primanota_form.html'
+    success_url = reverse_lazy('primanota_list')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = f"Modifica Movimento N. {self.object.pk}"
+        
+        # Passiamo l'ID della causale "Giroconto" per lo script JS
+        try:
+            context['giroconto_causale_id'] = Causale.objects.get(descrizione__iexact="GIROCONTO").pk
+        except Causale.DoesNotExist:
+            context['giroconto_causale_id'] = None
+            
+        # Se stiamo modificando un giroconto, popoliamo il campo 'conto_destinazione'
+        if self.object.movimento_collegato:
+            form = context['form']
+            # Se è un'uscita, il conto di destinazione è quello dell'entrata
+            if self.object.tipo_movimento == PrimaNota.TipoMovimento.USCITA:
+                form.initial['conto_destinazione'] = self.object.movimento_collegato.conto_finanziario
+            # Se è un'entrata, il conto di destinazione è quello dell'uscita
+            else:
+                form.initial['conto_destinazione'] = self.object.movimento_collegato.conto_finanziario
+
+        return context
+    
+    def form_valid(self, form):
+        """
+        La vista ora è molto più semplice. La logica complessa
+        è stata spostata tutta nel modello.
+        """
+        movimento = form.save(commit=False)
+        movimento.updated_by = self.request.user
+        # Quando chiamiamo save(), il nostro metodo personalizzato nel modello
+        # si occuperà di tutto, inclusa la sincronizzazione.
+        movimento.save() 
+        messages.success(self.request, f"Movimento N. {self.object.pk} aggiornato con successo.")
+        # Non chiamiamo più super().form_valid() per evitare doppi salvataggi
+        return HttpResponseRedirect(self.get_success_url())
+
+    def get_form_kwargs(self):
+        """
+        Passa l'istanza del modello al form.
+        """
+        kwargs = super().get_form_kwargs()
+        # Questo è necessario per la logica di validazione del form in modalità modifica
+        kwargs['instance'] = self.object
+        return kwargs
+    
+class PrimaNotaDeleteView(TenantRequiredMixin, DeleteView):
+    """
+    Gestisce l'eliminazione di un movimento di Prima Nota,
+    mostrando un avviso speciale per i giroconti.
+    """
+    model = PrimaNota
+    template_name = 'gestionale/primanota_confirm_delete.html'
+    success_url = reverse_lazy('primanota_list')
+
+    def form_valid(self, form):
+        """
+        Aggiunge un messaggio di successo dopo l'eliminazione.
+        La logica di cancellazione del movimento collegato è nel modello.
+        """
+        messages.success(self.request, f"Movimento N. {self.object.pk} eliminato con successo.")
         return super().form_valid(form)

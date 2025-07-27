@@ -6,7 +6,7 @@ from .views import (
     AnagraficaToggleAttivoView, DocumentoListExportExcelView, DocumentoListExportPdfView, 
     DocumentoListView, DocumentoDetailView, PrimaNotaCreateView, PrimaNotaListView,RegistraPagamentoView, SalvaAttivitaDiarioView, ScadenzarioExportPdfView,
     ScadenzarioListView, ScadenzarioExportExcelView, AnagraficaPartitarioExportExcelView,
-    DashboardHRView
+    DashboardHRView, PrimaNotaCreateView, PrimaNotaUpdateView, PrimaNotaDeleteView
 )
 from .views import documento_create_step1_testata, documento_create_step2_righe, documento_create_step3_scadenze, get_anagrafiche_by_tipo
 
@@ -39,4 +39,6 @@ urlpatterns = [
     path('documenti/export/pdf/', DocumentoListExportPdfView.as_view(), name='documento_list_export_pdf'),
     path('primanota/', PrimaNotaListView.as_view(), name='primanota_list'),
     path('primanota/nuovo/', PrimaNotaCreateView.as_view(), name='primanota_create'),
+    path('primanota/<int:pk>/modifica/', PrimaNotaUpdateView.as_view(), name='primanota_update'),
+    path('primanota/<int:pk>/elimina/', PrimaNotaDeleteView.as_view(), name='primanota_delete'),
 ]

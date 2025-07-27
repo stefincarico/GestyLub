@@ -1,6 +1,6 @@
 # gestionale/models.py
 
-from django.db import models
+from django.db import models, transaction
 from django.conf import settings
 from django.urls import reverse # Per riferirci al nostro User model personalizzato
 
@@ -323,21 +323,99 @@ class PrimaNota(models.Model):
     causale = models.ForeignKey(Causale, on_delete=models.PROTECT, related_name='movimenti', verbose_name="Causale")
     anagrafica = models.ForeignKey(Anagrafica, on_delete=models.PROTECT, null=True, blank=True, related_name='movimenti_primanota')
     cantiere = models.ForeignKey(Cantiere, on_delete=models.SET_NULL, null=True, blank=True, related_name='movimenti_primanota')
-    
-    # Collega il movimento di PN a una specifica scadenza (per pagamenti/incassi)
     scadenza_collegata = models.ForeignKey(Scadenza, on_delete=models.SET_NULL, null=True, blank=True, related_name='pagamenti')
+
+    # Collega due movimenti di Prima Nota tra loro (usato per i giroconti).
+    # La relazione è a 'self', cioè a un altro record della stessa tabella.
+    movimento_collegato = models.ForeignKey(
+        'self', 
+        on_delete=models.SET_NULL, # Se cancello un movimento, l'altro non viene cancellato ma il legame si spezza.
+        null=True, 
+        blank=True,
+        related_name='movimento_speculare'
+    )
+    # === FINE CAMPO AGGIUNTO ===
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='primanota_create', on_delete=models.SET_NULL, null=True, blank=True)
     
+    _skip_signal = False
+
     def __str__(self):
         return f"{self.data_registrazione} - {self.descrizione} - €{self.importo}"
+
+    def save(self, *args, **kwargs):
+        """
+        Sovrascrive il metodo save per sincronizzare i giroconti.
+        """
+        # Se il flag _skip_signal è attivo, esegui un salvataggio normale e esci.
+        if hasattr(self, '_skip_signal') and self._skip_signal:
+            super().save(*args, **kwargs)
+            return
+
+        with transaction.atomic():
+            # Esegui il salvataggio dell'oggetto principale per primo
+            # così abbiamo un pk a cui fare riferimento.
+            super().save(*args, **kwargs)
+
+            # Controlliamo se è un giroconto e se ha un movimento collegato
+            is_giroconto = self.causale and self.causale.descrizione.upper() == 'GIROCONTO'
+            
+            if is_giroconto and self.movimento_collegato:
+                collegato = self.movimento_collegato
+                
+                # Sincronizza i campi, ma solo se sono cambiati per evitare loop
+                changed = False
+                if collegato.data_registrazione != self.data_registrazione:
+                    collegato.data_registrazione = self.data_registrazione
+                    changed = True
+                if collegato.importo != self.importo:
+                    collegato.importo = self.importo
+                    changed = True
+                
+                # Aggiorna la descrizione in modo speculare
+                descrizione_uscita = f"GIROCONTO -> {collegato.conto_finanziario.nome_conto}"
+                descrizione_entrata = f"GIROCONTO <- {self.conto_finanziario.nome_conto}"
+                
+                if self.tipo_movimento == self.TipoMovimento.USCITA and collegato.descrizione != descrizione_entrata:
+                    collegato.descrizione = descrizione_entrata
+                    changed = True
+                elif self.tipo_movimento == self.TipoMovimento.ENTRATA and collegato.descrizione != descrizione_uscita:
+                    collegato.descrizione = descrizione_uscita
+                    changed = True
+
+                if changed:
+                    collegato._skip_signal = True # Imposta il flag per evitare loop
+                    collegato.save()
+
+    def delete(self, *args, **kwargs):
+        """
+        Sovrascrive il metodo delete per eliminare anche il movimento
+        di giroconto collegato.
+        """
+        # Anche qui, usiamo un flag per evitare che la cancellazione a catena
+        # richiami questo metodo all'infinito.
+        if self._skip_signal:
+            super().delete(*args, **kwargs)
+            return
+            
+        with transaction.atomic():
+            is_giroconto = self.causale and self.causale.descrizione.upper() == 'GIROCONTO'
+            
+            if is_giroconto and self.movimento_collegato:
+                collegato = self.movimento_collegato
+                collegato._skip_signal = True # Imposta il flag
+                collegato.delete() # Cancella il movimento collegato
+
+            # Esegui la cancellazione dell'oggetto originale
+            super().delete(*args, **kwargs)
+
 
     class Meta:
         verbose_name = "Prima Nota"
         verbose_name_plural = "Prima Nota"
-        ordering = ['-data_registrazione']
+        ordering = ['data_registrazione', 'pk'] # Aggiunto '-pk' per coerenza
 
 
 class DipendenteDettaglio(models.Model):

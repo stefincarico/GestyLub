@@ -1,0 +1,32 @@
+{% extends "gestionale/base.html" %}
+{% block title %}Conferma Eliminazione{% endblock %}
+
+{% block content %}
+<h1 class="h2 mb-4">Conferma Eliminazione</h1>
+<div class="card">
+    <div class="card-body">
+        <p>Sei sicuro di voler eliminare il seguente movimento?</p>
+        
+        <div class.alert alert-light>
+            <strong>Data:</strong> {{ object.data_registrazione|date:"d/m/Y" }}<br>
+            <strong>Descrizione:</strong> {{ object.descrizione }}<br>
+            <strong>Importo:</strong> € {{ object.importo }}
+        </div>
+
+        {% if object.movimento_collegato %}
+            <div class="alert alert-danger mt-3">
+                <strong>ATTENZIONE:</strong> Questo è un movimento di giroconto.
+                Eliminando questo record, verrà eliminato automaticamente anche
+                il movimento collegato (N. {{ object.movimento_collegato.pk }}).
+                L'azione è irreversibile.
+            </div>
+        {% endif %}
+
+        <form method="post" class="mt-4">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">Sì, elimina</button>
+            <a href="{% url 'primanota_list' %}" class="btn btn-secondary">Annulla</a>
+        </form>
+    </div>
+</div>
+{% endblock %}
