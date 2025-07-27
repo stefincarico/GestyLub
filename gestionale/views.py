@@ -47,7 +47,7 @@ from .models import (
 )
 from .forms import (
     AnagraficaForm, DipendenteDettaglioForm, DocumentoRigaForm,
-    DocumentoTestataForm, PartitarioFilterForm, PrimaNotaFilterForm, ScadenzaWizardForm, PagamentoForm, ScadenzarioFilterForm, DiarioAttivitaForm,
+    DocumentoTestataForm, PartitarioFilterForm, PrimaNotaFilterForm, PrimaNotaForm, ScadenzaWizardForm, PagamentoForm, ScadenzarioFilterForm, DiarioAttivitaForm,
     DocumentoFilterForm
 )
 
@@ -1315,3 +1315,27 @@ class PrimaNotaListView(TenantRequiredMixin, View):
         }
         return render(request, self.template_name, context)
     
+class PrimaNotaCreateView(TenantRequiredMixin, CreateView):
+    """
+    Gestisce la creazione di un nuovo movimento di Prima Nota.
+    """
+    model = PrimaNota
+    form_class = PrimaNotaForm
+    template_name = 'gestionale/primanota_form.html'
+    success_url = reverse_lazy('primanota_list')
+
+    def get_context_data(self, **kwargs):
+        """
+        Aggiunge un titolo personalizzato al contesto.
+        """
+        context = super().get_context_data(**kwargs)
+        context['title'] = 'Nuovo Movimento di Prima Nota'
+        return context
+
+    def form_valid(self, form):
+        """
+        Imposta l'utente che ha creato il record prima del salvataggio.
+        """
+        form.instance.created_by = self.request.user
+        messages.success(self.request, "Movimento di prima nota creato con successo.")
+        return super().form_valid(form)

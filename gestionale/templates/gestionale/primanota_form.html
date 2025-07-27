@@ -1,0 +1,57 @@
+{% extends "gestionale/base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<h1 class="h2 mb-4">{{ title }}</h1>
+
+<div class="card">
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+
+            <!-- Usiamo il nostro partial per renderizzare i campi in modo pulito -->
+            {% include "gestionale/partials/_form_field.html" with field=form.data_registrazione %}
+            {% include "gestionale/partials/_form_field.html" with field=form.descrizione %}
+            
+            <div class="row">
+                <div class="col-md-6">
+                    {% include "gestionale/partials/_form_field.html" with field=form.tipo_movimento %}
+                </div>
+                <div class="col-md-6">
+                    {% include "gestionale/partials/_form_field.html" with field=form.importo %}
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    {% include "gestionale/partials/_form_field.html" with field=form.causale %}
+                </div>
+                <div class="col-md-6">
+                    {% include "gestionale/partials/_form_field.html" with field=form.conto_finanziario %}
+                </div>
+            </div>
+            
+            <hr>
+            <p class="text-muted">Dati Opzionali</p>
+            
+            <div class="row">
+                <div class="col-md-4">
+                    {% include "gestionale/partials/_form_field.html" with field=form.conto_operativo %}
+                </div>
+                <div class="col-md-4">
+                    {% include "gestionale/partials/_form_field.html" with field=form.anagrafica %}
+                </div>
+                <div class="col-md-4">
+                    {% include "gestionale/partials/_form_field.html" with field=form.cantiere %}
+                </div>
+            </div>
+
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary">Salva Movimento</button>
+                <a href="{% url 'primanota_list' %}" class="btn btn-secondary">Annulla</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,9 @@
+Per attivare il venv
+.\venv\Scripts\Activate.ps1
+
+Su Mac
+source venv/bin/activate
+
+Per avviare il server:
+python manage.py runserver
+
