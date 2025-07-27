@@ -1365,11 +1365,11 @@ class PrimaNotaCreateView(TenantRequiredMixin, CreateView):
                     causale=causale,
                     conto_finanziario=conto_destinazione,
                     created_by=self.request.user,
-                    id_movimento_collegato=uscita.pk # Collega i due movimenti
+                    movimento_collegato=uscita 
                 )
                 
                 # 3. Aggiorna il movimento di uscita per collegarlo a quello di entrata
-                uscita.id_movimento_collegato = entrata.pk
+                uscita.movimento_collegato = entrata
                 uscita.save()
 
             messages.success(self.request, "Giroconto registrato con successo.")

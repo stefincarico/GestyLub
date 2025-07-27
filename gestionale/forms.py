@@ -469,92 +469,57 @@ class PrimaNotaForm(forms.ModelForm):
         }
     
     def __init__(self, *args, **kwargs):
-        """
-        Inizializzazione personalizzata del form.
-        - Popola i queryset dei campi ModelChoiceField.
-        - Gestisce dinamicamente i campi obbligatori per il caso 'Giroconto'.
-        """
         super().__init__(*args, **kwargs)
-        
-        # 1. Popola i queryset dei menu a tendina con le opzioni valide e attive.
+        # Ottimizziamo i queryset per i menu a tendina
         self.fields['conto_finanziario'].queryset = ContoFinanziario.objects.filter(attivo=True)
+        self.fields['conto_destinazione'].queryset = ContoFinanziario.objects.filter(attivo=True)
         self.fields['conto_operativo'].queryset = ContoOperativo.objects.filter(attivo=True)
         self.fields['causale'].queryset = Causale.objects.filter(attivo=True)
         self.fields['anagrafica'].queryset = Anagrafica.objects.filter(attivo=True)
         self.fields['cantiere'].queryset = Cantiere.objects.filter(stato=Cantiere.Stato.APERTO)
-        self.fields['conto_destinazione'].queryset = ContoFinanziario.objects.filter(attivo=True)
         
-        # Aggiunge un'opzione vuota al menu 'tipo_movimento'
-        existing_choices = list(self.fields['tipo_movimento'].choices)
-        self.fields['tipo_movimento'].choices = [('', '---------')] + existing_choices
-
-        # 2. Logica per rendere i campi non obbligatori se la causale è 'Giroconto'.
-        # Questa logica è fondamentale per far passare la validazione quando
-        # i campi vengono nascosti e disabilitati da JavaScript.
-        is_giroconto = False
+        # Rendiamo il tipo_movimento non obbligatorio a livello di form.
+        # La sua obbligatorietà verrà gestita nella logica del metodo clean().
+        self.fields['tipo_movimento'].required = False
         
-        # Recupera l'ID della causale "GIROCONTO" una sola volta per efficienza.
-        try:
-            causale_giroconto_id = str(Causale.objects.get(descrizione__iexact="GIROCONTO").pk)
-        except Causale.DoesNotExist:
-            causale_giroconto_id = None
-        
-        # Caso A: Il form viene inviato con dati (richiesta POST).
-        # self.data contiene i dati "grezzi" inviati dal browser.
-        if self.data and causale_giroconto_id:
-            if self.data.get('causale') == causale_giroconto_id:
-                is_giroconto = True
-        
-        # Caso B: Il form viene inizializzato con un'istanza esistente (modalità modifica).
-        # self.instance è l'oggetto del database che stiamo modificando.
-        elif self.instance.pk and self.instance.causale and causale_giroconto_id:
-            if str(self.instance.causale.pk) == causale_giroconto_id:
-                is_giroconto = True
-
-        # Se abbiamo determinato che è un giroconto, modifichiamo i campi.
-        if is_giroconto:
-            self.fields['tipo_movimento'].required = False
-            self.fields['conto_operativo'].required = False
-            self.fields['anagrafica'].required = False
-            self.fields['cantiere'].required = False
+        # Aggiungiamo un'opzione vuota per permettere la selezione iniziale
+        # e per evitare che il browser pre-selezioni un valore.
+        self.fields['tipo_movimento'].choices = [('', '---------')] + list(self.fields['tipo_movimento'].choices)
 
 
     def clean(self):
+        """
+        Validazione incrociata per il giroconto e i movimenti standard.
+        """
         cleaned_data = super().clean()
         causale = cleaned_data.get('causale')
-        
+        tipo_movimento = cleaned_data.get('tipo_movimento')
+
         try:
             causale_giroconto = Causale.objects.get(descrizione__iexact="GIROCONTO")
         except Causale.DoesNotExist:
             causale_giroconto = None
 
-        # --- INIZIO LOGICA DI VALIDAZIONE CORRETTA ---
+        # CASO 1: È un giroconto
         if causale and causale == causale_giroconto:
-            # Siamo in un giroconto
             conto_finanziario = cleaned_data.get('conto_finanziario')
             conto_destinazione = cleaned_data.get('conto_destinazione')
             
             if not conto_destinazione:
                 self.add_error('conto_destinazione', 'Questo campo è obbligatorio per un giroconto.')
-            if conto_finanziario == conto_destinazione:
+            
+            if conto_finanziario and conto_destinazione and conto_finanziario == conto_destinazione:
                 self.add_error('conto_destinazione', 'Il conto di destinazione non può essere uguale a quello di origine.')
             
-            # Rimuoviamo gli errori dai campi che abbiamo disabilitato con JS.
-            # Se un errore è presente per 'tipo_movimento', lo togliamo.
-            if 'tipo_movimento' in self.errors:
-                del self.errors['tipo_movimento']
-            
-            # Per i giroconti, non vogliamo salvare questi campi. Li impostiamo a None.
-            cleaned_data['tipo_movimento'] = None
-            cleaned_data['conto_operativo'] = None
-            cleaned_data['anagrafica'] = None
-            cleaned_data['cantiere'] = None
+            # Per un giroconto, il tipo_movimento non è richiesto dal form,
+            # quindi non lo validiamo qui. Verrà impostato nella vista.
+
+        # CASO 2: NON è un giroconto
         else:
-            # NON siamo in un giroconto, quindi 'conto_destinazione' non deve essere presente.
-            # Se per qualche motivo è nei dati, lo rimuoviamo.
-            cleaned_data.pop('conto_destinazione', None)
-        # --- FINE LOGICA DI VALIDAZIONE CORRETTA ---
-            
+            # Per tutti gli altri movimenti, il tipo_movimento è obbligatorio.
+            if not tipo_movimento:
+                self.add_error('tipo_movimento', 'Questo campo è obbligatorio.')
+                
         return cleaned_data
 
 class PartitarioFilterForm(forms.Form):
