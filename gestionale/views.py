@@ -1282,165 +1282,79 @@ class SalvaAttivitaDiarioView(TenantRequiredMixin, View):
 # === VISTE PRIMA NOTA                                                      ===
 # ==============================================================================
 
+# gestionale/views.py
+
 class PrimaNotaListView(TenantRequiredMixin, View):
+    """
+    Mostra l'elenco paginato e filtrabile di tutti i movimenti di Prima Nota.
+    Eredita da 'View' per avere il massimo controllo sulla logica di recupero
+    dei dati e sulla gestione dei filtri.
+    """
     template_name = 'gestionale/primanota_list.html'
-    paginate_by = 15
+    paginate_by = 15 # Numero di movimenti da visualizzare per pagina
 
     def get(self, request, *args, **kwargs):
+        """
+        Gestisce le richieste GET. Recupera i dati, applica i filtri,
+        gestisce la paginazione e renderizza il template.
+        """
+        # 1. INIZIALIZZA IL FORM DEI FILTRI
+        # Crea un'istanza del form, popolandola con i dati presenti nell'URL
+        # (request.GET). 'or None' è una sicurezza per quando non ci sono parametri.
         filter_form = PrimaNotaFilterForm(request.GET or None)
         
+        # 2. QUERYSET DI BASE
+        # Selezioniamo tutti i movimenti di Prima Nota.
+        # - select_related('conto_finanziario', 'causale'): Ottimizzazione fondamentale.
+        #   Dice a Django di recuperare i dati dei modelli collegati con una sola
+        #   query, evitando il problema delle "N+1 query".
+        # - order_by('-data_registrazione', '-pk'): Ordina i movimenti dal più
+        #   recente al più vecchio. A parità di data, ordina per ID decrescente,
+        #   garantendo che i movimenti creati per ultimi appaiano per primi.
         movimenti_qs = PrimaNota.objects.select_related(
             'conto_finanziario', 'causale'
         ).order_by('-data_registrazione', '-pk')
 
+        # 3. APPLICAZIONE DEI FILTRI
+        # Controlliamo se il form è stato inviato con dati validi.
         if filter_form.is_valid():
             cleaned_data = filter_form.cleaned_data
+            
             if cleaned_data.get('descrizione'):
+                # __icontains: filtro testuale non sensibile a maiuscole/minuscole.
                 movimenti_qs = movimenti_qs.filter(descrizione__icontains=cleaned_data['descrizione'])
+            
             if cleaned_data.get('conto_finanziario'):
                 movimenti_qs = movimenti_qs.filter(conto_finanziario=cleaned_data['conto_finanziario'])
+            
             if cleaned_data.get('causale'):
                 movimenti_qs = movimenti_qs.filter(causale=cleaned_data['causale'])
+            
             if cleaned_data.get('data_da'):
+                # __gte: 'greater than or equal to' (maggiore o uguale a).
                 movimenti_qs = movimenti_qs.filter(data_registrazione__gte=cleaned_data['data_da'])
+            
             if cleaned_data.get('data_a'):
+                # __lte: 'less than or equal to' (minore o uguale a).
                 movimenti_qs = movimenti_qs.filter(data_registrazione__lte=cleaned_data['data_a'])
 
+        # 4. GESTIONE DELLA PAGINAZIONE
+        # Applichiamo la paginazione al queryset, che sia quello originale o quello filtrato.
         paginator = Paginator(movimenti_qs, self.paginate_by)
         page_number = request.GET.get('page')
         page_obj = paginator.get_page(page_number)
         
+        # 5. PREPARAZIONE DEL CONTESTO PER IL TEMPLATE
         context = {
-            'movimenti': page_obj,
-            'is_paginated': page_obj.has_other_pages(),
-            'page_obj': page_obj,
-            'filter_form': filter_form,
+            'movimenti': page_obj, # L'oggetto pagina contiene gli elementi della pagina corrente
+            'is_paginated': page_obj.has_other_pages(), # Utile per mostrare la paginazione solo se serve
+            'page_obj': page_obj, # Passiamo l'oggetto pagina anche per il partial di paginazione
+            'filter_form': filter_form, # Passiamo il form per renderizzare i filtri
         }
+        
+        # 6. RENDERIZZA LA PAGINA
         return render(request, self.template_name, context)
-    
-class PrimaNotaCreateView(TenantRequiredMixin, CreateView):
-    model = PrimaNota
-    form_class = PrimaNotaForm
-    template_name = 'gestionale/primanota_form.html'
-    success_url = reverse_lazy('primanota_list')
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['title'] = 'Nuovo Movimento di Prima Nota'
-        # Passiamo l'ID della causale "Giroconto" al template per usarlo in JavaScript.
-        try:
-            context['giroconto_causale_id'] = Causale.objects.get(descrizione__iexact="GIROCONTO").pk
-        except Causale.DoesNotExist:
-            context['giroconto_causale_id'] = None
-        return context
-
-    def form_valid(self, form):
-        """
-        Logica di salvataggio personalizzata per gestire i giroconti.
-        """
-        causale = form.cleaned_data.get('causale')
-        
-        try:
-            causale_giroconto = Causale.objects.get(descrizione__iexact="GIROCONTO")
-        except Causale.DoesNotExist:
-            causale_giroconto = None
-
-        # --- CASO SPECIALE: GIROCONTO ---
-        if causale == causale_giroconto:
-            with transaction.atomic(): # Garantisce che entrambe le operazioni abbiano successo o falliscano
-                conto_origine = form.cleaned_data['conto_finanziario']
-                conto_destinazione = form.cleaned_data['conto_destinazione']
-                importo = form.cleaned_data['importo']
-                
-                # 1. Crea il movimento di USCITA
-                uscita = form.save(commit=False)
-                uscita.created_by = self.request.user
-                uscita.tipo_movimento = PrimaNota.TipoMovimento.USCITA
-                uscita.descrizione = f"GIROCONTO -> {conto_destinazione.nome_conto}"
-                uscita.save()
-
-                # 2. Crea il movimento di ENTRATA speculare
-                entrata = PrimaNota.objects.create(
-                    data_registrazione=uscita.data_registrazione,
-                    descrizione=f"GIROCONTO <- {conto_origine.nome_conto}",
-                    importo=importo,
-                    tipo_movimento=PrimaNota.TipoMovimento.ENTRATA,
-                    causale=causale,
-                    conto_finanziario=conto_destinazione,
-                    created_by=self.request.user,
-                    movimento_collegato=uscita 
-                )
-                
-                # 3. Aggiorna il movimento di uscita per collegarlo a quello di entrata
-                uscita.movimento_collegato = entrata
-                uscita.save()
-
-            messages.success(self.request, "Giroconto registrato con successo.")
-            self.object = uscita
-
-        # --- CASO NORMALE: MOVIMENTO STANDARD ---
-        else:
-            movimento = form.save(commit=False)
-            movimento.created_by = self.request.user
-            movimento.save()
-            messages.success(self.request, "Movimento di prima nota creato con successo.")
-            # Assegniamo l'oggetto salvato a self.object prima di procedere.
-            self.object = movimento
-        
-        return super().form_valid(form)
-
-class PrimaNotaUpdateView(TenantRequiredMixin, UpdateView):
-    model = PrimaNota
-    form_class = PrimaNotaUpdateForm
-    template_name = 'gestionale/primanota_form.html'
-    success_url = reverse_lazy('primanota_list')
-
-    def get_context_data(self, **kwargs):
-        # Questa parte è corretta e rimane invariata.
-        context = super().get_context_data(**kwargs)
-        context['title'] = f"Modifica Movimento N. {self.object.pk}"
-        try:
-            context['giroconto_causale_id'] = Causale.objects.get(descrizione__iexact="GIROCONTO").pk
-        except Causale.DoesNotExist:
-            context['giroconto_causale_id'] = None
-            
-        if self.object.movimento_collegato:
-            form = context['form']
-            if self.object.tipo_movimento == PrimaNota.TipoMovimento.USCITA:
-                form.initial['conto_destinazione'] = self.object.movimento_collegato.conto_finanziario
-            else:
-                form.initial['conto_destinazione'] = self.object.movimento_collegato.conto_finanziario
-        return context
-    
-    def form_valid(self, form):
-        """
-        Gestisce il salvataggio con una logica robusta per preservare i dati.
-        """
-        
-        # Recuperiamo la causale dai dati puliti del form
-        causale = form.cleaned_data.get('causale')
-        is_giroconto = causale and causale.descrizione.upper() == 'GIROCONTO'
-
-        # Se è un giroconto, il campo 'tipo_movimento' non è stato inviato.
-        # Dobbiamo prenderlo dall'istanza originale PRIMA di salvare.
-        if is_giroconto:
-            # Sovrascriviamo il valore mancante in form.cleaned_data
-            form.cleaned_data['tipo_movimento'] = self.object.tipo_movimento
-        
-        # Ora possiamo salvare l'istanza in memoria.
-        # form.save() userà i dati in cleaned_data, che ora sono completi.
-        movimento = form.save(commit=False)
-        movimento.updated_by = self.request.user
-        
-        # Quando chiamiamo save(), il metodo personalizzato nel modello
-        # riceverà un oggetto con tutti i dati corretti e sincronizzerà
-        # il movimento collegato.
-        movimento.save() 
-        
-        messages.success(self.request, f"Movimento N. {self.object.pk} aggiornato con successo.")
-        return HttpResponseRedirect(self.get_success_url())
-
-    
 class PrimaNotaDeleteView(TenantRequiredMixin, DeleteView):
     """
     Gestisce l'eliminazione di un movimento di Prima Nota,
@@ -1457,3 +1371,188 @@ class PrimaNotaDeleteView(TenantRequiredMixin, DeleteView):
         """
         messages.success(self.request, f"Movimento N. {self.object.pk} eliminato con successo.")
         return super().form_valid(form)
+
+
+class PrimaNotaUpdateView(TenantRequiredMixin, UpdateView):
+    """
+    Gestisce la modifica di un movimento di Prima Nota.
+    Contiene la logica speciale per sincronizzare i due movimenti
+    quando si modifica un giroconto.
+    """
+    model = PrimaNota
+    form_class = PrimaNotaUpdateForm # Usa il form specifico per la modifica (per la data)
+    template_name = 'gestionale/primanota_form.html'
+    
+    def get_success_url(self):
+        """
+        Restituisce l'URL a cui reindirizzare dopo un salvataggio riuscito.
+        """
+        return reverse_lazy('primanota_list')
+
+    def get_context_data(self, **kwargs):
+        """
+        Prepara il contesto per il template, popolando i campi extra se necessario.
+        """
+        context = super().get_context_data(**kwargs)
+        context['title'] = f"Modifica Movimento N. {self.object.pk}"
+        
+        # Passa l'ID della causale "Giroconto" per lo script JS.
+        try:
+            context['giroconto_causale_id'] = Causale.objects.get(descrizione__iexact="GIROCONTO").pk
+        except Causale.DoesNotExist:
+            context['giroconto_causale_id'] = None
+            
+        # Se stiamo modificando un giroconto, dobbiamo pre-popolare il campo
+        # 'conto_destinazione' nel form, che non fa parte del modello.
+        if self.object.movimento_collegato:
+            form = context['form']
+            # Il conto di "destinazione" è sempre il conto finanziario dell'altro movimento.
+            form.initial['conto_destinazione'] = self.object.movimento_collegato.conto_finanziario
+
+        return context
+    
+    def form_valid(self, form):
+        """
+        Questo metodo viene eseguito quando i dati inviati nel form sono validi.
+        Contiene la logica di business per orchestrare il salvataggio.
+        """
+        # Recupera l'oggetto originale dal database, prima di qualsiasi modifica.
+        movimento_originale = self.get_object()
+        
+        causale = form.cleaned_data.get('causale')
+        is_giroconto = causale and causale.descrizione.upper() == 'GIROCONTO'
+
+        # Eseguiamo sempre le modifiche in una transazione atomica per sicurezza.
+        with transaction.atomic():
+            # Ottieni l'oggetto aggiornato con i dati del form, ma non salvarlo ancora.
+            movimento_aggiornato = form.save(commit=False)
+            movimento_aggiornato.updated_by = self.request.user
+            
+            # --- CASO SPECIALE: GIROCONTO ---
+            if is_giroconto:
+                # Recupera il movimento collegato dal database.
+                movimento_collegato = movimento_originale.movimento_collegato
+                
+                # Preserva il tipo_movimento del record principale, perché non arriva dal form.
+                movimento_aggiornato.tipo_movimento = movimento_originale.tipo_movimento
+                
+                # Salva le modifiche al movimento principale.
+                movimento_aggiornato.save()
+                
+                # Ora, se esiste un movimento collegato, sincronizzalo.
+                if movimento_collegato:
+                    # Recupera i conti dal form per aggiornare le descrizioni.
+                    conto_origine = form.cleaned_data['conto_finanziario']
+                    conto_destinazione = form.cleaned_data['conto_destinazione']
+
+                    # Aggiorna i campi del movimento collegato con i nuovi valori.
+                    movimento_collegato.data_registrazione = form.cleaned_data['data_registrazione']
+                    movimento_collegato.importo = form.cleaned_data['importo']
+                    movimento_collegato.updated_by = self.request.user
+
+                    # Aggiorna la descrizione in modo speculare.
+                    if movimento_collegato.tipo_movimento == PrimaNota.TipoMovimento.USCITA:
+                        movimento_collegato.descrizione = f"GIROCONTO -> {conto_origine.nome_conto}"
+                    else: # È un'entrata
+                        movimento_collegato.descrizione = f"GIROCONTO <- {conto_destinazione.nome_conto}"
+                    
+                    movimento_collegato.save()
+            
+            # --- CASO NORMALE: MOVIMENTO STANDARD ---
+            else:
+                # Se non è un giroconto, salva semplicemente le modifiche.
+                movimento_aggiornato.save()
+        
+        messages.success(self.request, f"Movimento N. {movimento_originale.pk} aggiornato con successo.")
+        return HttpResponseRedirect(self.get_success_url())    
+
+class PrimaNotaCreateView(TenantRequiredMixin, CreateView):
+    """
+    Gestisce la creazione di un nuovo movimento di Prima Nota.
+    Contiene la logica speciale per creare due movimenti atomici
+    quando la causale selezionata è "GIROCONTO".
+    """
+    model = PrimaNota
+    form_class = PrimaNotaForm # Usa il form che gestisce dinamicamente i campi
+    template_name = 'gestionale/primanota_form.html'
+    
+    def get_success_url(self):
+        """
+        Restituisce l'URL a cui reindirizzare dopo un salvataggio riuscito.
+        """
+        return reverse_lazy('primanota_list')
+
+    def get_context_data(self, **kwargs):
+        """
+        Aggiunge dati extra al contesto del template.
+        """
+        context = super().get_context_data(**kwargs)
+        context['title'] = 'Nuovo Movimento di Prima Nota'
+        
+        # Passiamo l'ID della causale "Giroconto" al template.
+        # Questo ID verrà usato dallo script JavaScript per mostrare/nascondere
+        # i campi del form in modo dinamico.
+        try:
+            context['giroconto_causale_id'] = Causale.objects.get(descrizione__iexact="GIROCONTO").pk
+        except Causale.DoesNotExist:
+            context['giroconto_causale_id'] = None
+            
+        return context
+
+    def form_valid(self, form):
+        """
+        Questo metodo viene eseguito quando i dati inviati nel form sono validi.
+        Contiene la logica di business per orchestrare il salvataggio.
+        """
+        causale = form.cleaned_data.get('causale')
+        is_giroconto = causale and causale.descrizione.upper() == 'GIROCONTO'
+        
+        # --- CASO SPECIALE: GIROCONTO ---
+        if is_giroconto:
+            # Usiamo una transazione atomica per garantire l'integrità dei dati.
+            # Se una delle operazioni di salvataggio fallisce, tutte le modifiche
+            # al database vengono annullate.
+            with transaction.atomic():
+                conto_origine = form.cleaned_data['conto_finanziario']
+                conto_destinazione = form.cleaned_data['conto_destinazione']
+                importo = form.cleaned_data['importo']
+                data_registrazione = form.cleaned_data['data_registrazione']
+                
+                # 1. Crea il movimento di USCITA
+                # usiamo form.save(commit=False) per non salvare subito e poter
+                # modificare i campi gestiti dal sistema.
+                uscita = form.save(commit=False)
+                uscita.created_by = self.request.user
+                uscita.updated_by = self.request.user
+                uscita.tipo_movimento = PrimaNota.TipoMovimento.USCITA
+                uscita.descrizione = f"GIROCONTO -> {conto_destinazione.nome_conto}"
+                uscita.save() # Primo salvataggio per ottenere un pk
+
+                # 2. Crea il movimento di ENTRATA speculare
+                entrata = PrimaNota.objects.create(
+                    data_registrazione=data_registrazione,
+                    descrizione=f"GIROCONTO <- {conto_origine.nome_conto}",
+                    importo=importo,
+                    tipo_movimento=PrimaNota.TipoMovimento.ENTRATA,
+                    causale=causale,
+                    conto_finanziario=conto_destinazione,
+                    created_by=self.request.user,
+                    movimento_collegato=uscita
+                )
+                
+                # 3. Aggiorna il movimento di uscita per creare il legame bidirezionale
+                uscita.movimento_collegato = entrata
+                uscita.save()
+
+            messages.success(self.request, "Giroconto registrato con successo.")
+
+        # --- CASO NORMALE: MOVIMENTO STANDARD ---
+        else:
+            movimento = form.save(commit=False)
+            movimento.created_by = self.request.user
+            movimento.updated_by = self.request.user # Aggiungiamo anche updated_by per coerenza
+            movimento.save()
+            messages.success(self.request, "Movimento di prima nota creato con successo.")
+            
+        # Reindirizza alla pagina di successo in entrambi i casi.
+        return HttpResponseRedirect(self.get_success_url())
