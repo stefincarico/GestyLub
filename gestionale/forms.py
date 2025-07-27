@@ -442,71 +442,118 @@ class PrimaNotaFilterForm(forms.Form):
     )
 
 class PrimaNotaForm(forms.ModelForm):
-    """
-    Form per la creazione e modifica di un movimento di Prima Nota.
-    """
     conto_destinazione = forms.ModelChoiceField(
         queryset=ContoFinanziario.objects.filter(attivo=True),
-        required=False, # Sarà reso obbligatorio da JS
+        required=False,
         label="Conto Finanziario di Destinazione",
         widget=forms.Select(attrs={'class': 'form-select'})
     )
-
+    
     class Meta:
         model = PrimaNota
         fields = [
             'data_registrazione', 'descrizione', 'importo', 'tipo_movimento',
-            'conto_finanziario','conto_destinazione', 'conto_operativo', 'causale', 
-            'anagrafica', 'cantiere'
+            'causale', 'conto_finanziario', 'conto_destinazione',
+            'conto_operativo', 'anagrafica', 'cantiere'
         ]
         widgets = {
             'data_registrazione': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'descrizione': forms.TextInput(attrs={'class': 'form-control'}),
             'importo': forms.NumberInput(attrs={'class': 'form-control'}),
             'tipo_movimento': forms.Select(attrs={'class': 'form-select'}),
+            'causale': forms.Select(attrs={'class': 'form-select'}),
             'conto_finanziario': forms.Select(attrs={'class': 'form-select'}),
             'conto_operativo': forms.Select(attrs={'class': 'form-select'}),
-            'causale': forms.Select(attrs={'class': 'form-select'}),
             'anagrafica': forms.Select(attrs={'class': 'form-select'}),
             'cantiere': forms.Select(attrs={'class': 'form-select'}),
         }
     
     def __init__(self, *args, **kwargs):
+        """
+        Inizializzazione personalizzata del form.
+        - Popola i queryset dei campi ModelChoiceField.
+        - Gestisce dinamicamente i campi obbligatori per il caso 'Giroconto'.
+        """
         super().__init__(*args, **kwargs)
-        # Ottimizziamo i queryset per i menu a tendina
+        
+        # 1. Popola i queryset dei menu a tendina con le opzioni valide e attive.
         self.fields['conto_finanziario'].queryset = ContoFinanziario.objects.filter(attivo=True)
-        self.fields['conto_destinazione'].queryset = ContoFinanziario.objects.filter(attivo=True)
         self.fields['conto_operativo'].queryset = ContoOperativo.objects.filter(attivo=True)
         self.fields['causale'].queryset = Causale.objects.filter(attivo=True)
         self.fields['anagrafica'].queryset = Anagrafica.objects.filter(attivo=True)
         self.fields['cantiere'].queryset = Cantiere.objects.filter(stato=Cantiere.Stato.APERTO)
-        existing_choices = list(self.fields['tipo_movimento'].choices)
-        blank_choice = [('', '---------')]
-        self.fields['tipo_movimento'].choices = blank_choice + existing_choices
+        self.fields['conto_destinazione'].queryset = ContoFinanziario.objects.filter(attivo=True)
         
+        # Aggiunge un'opzione vuota al menu 'tipo_movimento'
+        existing_choices = list(self.fields['tipo_movimento'].choices)
+        self.fields['tipo_movimento'].choices = [('', '---------')] + existing_choices
+
+        # 2. Logica per rendere i campi non obbligatori se la causale è 'Giroconto'.
+        # Questa logica è fondamentale per far passare la validazione quando
+        # i campi vengono nascosti e disabilitati da JavaScript.
+        is_giroconto = False
+        
+        # Recupera l'ID della causale "GIROCONTO" una sola volta per efficienza.
+        try:
+            causale_giroconto_id = str(Causale.objects.get(descrizione__iexact="GIROCONTO").pk)
+        except Causale.DoesNotExist:
+            causale_giroconto_id = None
+        
+        # Caso A: Il form viene inviato con dati (richiesta POST).
+        # self.data contiene i dati "grezzi" inviati dal browser.
+        if self.data and causale_giroconto_id:
+            if self.data.get('causale') == causale_giroconto_id:
+                is_giroconto = True
+        
+        # Caso B: Il form viene inizializzato con un'istanza esistente (modalità modifica).
+        # self.instance è l'oggetto del database che stiamo modificando.
+        elif self.instance.pk and self.instance.causale and causale_giroconto_id:
+            if str(self.instance.causale.pk) == causale_giroconto_id:
+                is_giroconto = True
+
+        # Se abbiamo determinato che è un giroconto, modifichiamo i campi.
+        if is_giroconto:
+            self.fields['tipo_movimento'].required = False
+            self.fields['conto_operativo'].required = False
+            self.fields['anagrafica'].required = False
+            self.fields['cantiere'].required = False
+
 
     def clean(self):
-        """
-        Validazione incrociata per il giroconto.
-        """
         cleaned_data = super().clean()
         causale = cleaned_data.get('causale')
-        conto_finanziario = cleaned_data.get('conto_finanziario')
-        conto_destinazione = cleaned_data.get('conto_destinazione')
         
-        # Assumiamo che la causale 'GIROCONTO' esista.
-        # get_or_create nel pannello di amministrazione garantirà che esista.
         try:
             causale_giroconto = Causale.objects.get(descrizione__iexact="GIROCONTO")
-            if causale == causale_giroconto:
-                if not conto_destinazione:
-                    self.add_error('conto_destinazione', 'Questo campo è obbligatorio per un giroconto.')
-                if conto_finanziario == conto_destinazione:
-                    self.add_error('conto_destinazione', 'Il conto di destinazione non può essere uguale a quello di origine.')
         except Causale.DoesNotExist:
-            # Se la causale 'GIROCONTO' non esiste, non facciamo nulla.
-            # In un sistema di produzione, potremmo voler loggare un avviso.
-            pass
+            causale_giroconto = None
+
+        # --- INIZIO LOGICA DI VALIDAZIONE CORRETTA ---
+        if causale and causale == causale_giroconto:
+            # Siamo in un giroconto
+            conto_finanziario = cleaned_data.get('conto_finanziario')
+            conto_destinazione = cleaned_data.get('conto_destinazione')
+            
+            if not conto_destinazione:
+                self.add_error('conto_destinazione', 'Questo campo è obbligatorio per un giroconto.')
+            if conto_finanziario == conto_destinazione:
+                self.add_error('conto_destinazione', 'Il conto di destinazione non può essere uguale a quello di origine.')
+            
+            # Rimuoviamo gli errori dai campi che abbiamo disabilitato con JS.
+            # Se un errore è presente per 'tipo_movimento', lo togliamo.
+            if 'tipo_movimento' in self.errors:
+                del self.errors['tipo_movimento']
+            
+            # Per i giroconti, non vogliamo salvare questi campi. Li impostiamo a None.
+            cleaned_data['tipo_movimento'] = None
+            cleaned_data['conto_operativo'] = None
+            cleaned_data['anagrafica'] = None
+            cleaned_data['cantiere'] = None
+        else:
+            # NON siamo in un giroconto, quindi 'conto_destinazione' non deve essere presente.
+            # Se per qualche motivo è nei dati, lo rimuoviamo.
+            cleaned_data.pop('conto_destinazione', None)
+        # --- FINE LOGICA DI VALIDAZIONE CORRETTA ---
             
         return cleaned_data
 
