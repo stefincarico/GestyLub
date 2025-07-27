@@ -1316,26 +1316,72 @@ class PrimaNotaListView(TenantRequiredMixin, View):
         return render(request, self.template_name, context)
     
 class PrimaNotaCreateView(TenantRequiredMixin, CreateView):
-    """
-    Gestisce la creazione di un nuovo movimento di Prima Nota.
-    """
     model = PrimaNota
     form_class = PrimaNotaForm
     template_name = 'gestionale/primanota_form.html'
     success_url = reverse_lazy('primanota_list')
 
     def get_context_data(self, **kwargs):
-        """
-        Aggiunge un titolo personalizzato al contesto.
-        """
         context = super().get_context_data(**kwargs)
         context['title'] = 'Nuovo Movimento di Prima Nota'
+        # Passiamo l'ID della causale "Giroconto" al template per usarlo in JavaScript.
+        try:
+            context['giroconto_causale_id'] = Causale.objects.get(descrizione__iexact="GIROCONTO").pk
+        except Causale.DoesNotExist:
+            context['giroconto_causale_id'] = None
         return context
 
     def form_valid(self, form):
         """
-        Imposta l'utente che ha creato il record prima del salvataggio.
+        Logica di salvataggio personalizzata per gestire i giroconti.
         """
-        form.instance.created_by = self.request.user
-        messages.success(self.request, "Movimento di prima nota creato con successo.")
+        causale = form.cleaned_data.get('causale')
+        
+        try:
+            causale_giroconto = Causale.objects.get(descrizione__iexact="GIROCONTO")
+        except Causale.DoesNotExist:
+            causale_giroconto = None
+
+        # --- CASO SPECIALE: GIROCONTO ---
+        if causale == causale_giroconto:
+            with transaction.atomic(): # Garantisce che entrambe le operazioni abbiano successo o falliscano
+                conto_origine = form.cleaned_data['conto_finanziario']
+                conto_destinazione = form.cleaned_data['conto_destinazione']
+                importo = form.cleaned_data['importo']
+                
+                # 1. Crea il movimento di USCITA
+                uscita = form.save(commit=False)
+                uscita.created_by = self.request.user
+                uscita.tipo_movimento = PrimaNota.TipoMovimento.USCITA
+                uscita.descrizione = f"GIROCONTO -> {conto_destinazione.nome_conto}"
+                uscita.save()
+
+                # 2. Crea il movimento di ENTRATA speculare
+                entrata = PrimaNota.objects.create(
+                    data_registrazione=uscita.data_registrazione,
+                    descrizione=f"GIROCONTO <- {conto_origine.nome_conto}",
+                    importo=importo,
+                    tipo_movimento=PrimaNota.TipoMovimento.ENTRATA,
+                    causale=causale,
+                    conto_finanziario=conto_destinazione,
+                    created_by=self.request.user,
+                    id_movimento_collegato=uscita.pk # Collega i due movimenti
+                )
+                
+                # 3. Aggiorna il movimento di uscita per collegarlo a quello di entrata
+                uscita.id_movimento_collegato = entrata.pk
+                uscita.save()
+
+            messages.success(self.request, "Giroconto registrato con successo.")
+            self.object = uscita
+
+        # --- CASO NORMALE: MOVIMENTO STANDARD ---
+        else:
+            movimento = form.save(commit=False)
+            movimento.created_by = self.request.user
+            movimento.save()
+            messages.success(self.request, "Movimento di prima nota creato con successo.")
+            # Assegniamo l'oggetto salvato a self.object prima di procedere.
+            self.object = movimento
+        
         return super().form_valid(form)

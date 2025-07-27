@@ -445,11 +445,18 @@ class PrimaNotaForm(forms.ModelForm):
     """
     Form per la creazione e modifica di un movimento di Prima Nota.
     """
+    conto_destinazione = forms.ModelChoiceField(
+        queryset=ContoFinanziario.objects.filter(attivo=True),
+        required=False, # Sarà reso obbligatorio da JS
+        label="Conto Finanziario di Destinazione",
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+
     class Meta:
         model = PrimaNota
         fields = [
             'data_registrazione', 'descrizione', 'importo', 'tipo_movimento',
-            'conto_finanziario', 'conto_operativo', 'causale', 
+            'conto_finanziario','conto_destinazione', 'conto_operativo', 'causale', 
             'anagrafica', 'cantiere'
         ]
         widgets = {
@@ -468,10 +475,40 @@ class PrimaNotaForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         # Ottimizziamo i queryset per i menu a tendina
         self.fields['conto_finanziario'].queryset = ContoFinanziario.objects.filter(attivo=True)
+        self.fields['conto_destinazione'].queryset = ContoFinanziario.objects.filter(attivo=True)
         self.fields['conto_operativo'].queryset = ContoOperativo.objects.filter(attivo=True)
         self.fields['causale'].queryset = Causale.objects.filter(attivo=True)
         self.fields['anagrafica'].queryset = Anagrafica.objects.filter(attivo=True)
         self.fields['cantiere'].queryset = Cantiere.objects.filter(stato=Cantiere.Stato.APERTO)
+        existing_choices = list(self.fields['tipo_movimento'].choices)
+        blank_choice = [('', '---------')]
+        self.fields['tipo_movimento'].choices = blank_choice + existing_choices
+        
+
+    def clean(self):
+        """
+        Validazione incrociata per il giroconto.
+        """
+        cleaned_data = super().clean()
+        causale = cleaned_data.get('causale')
+        conto_finanziario = cleaned_data.get('conto_finanziario')
+        conto_destinazione = cleaned_data.get('conto_destinazione')
+        
+        # Assumiamo che la causale 'GIROCONTO' esista.
+        # get_or_create nel pannello di amministrazione garantirà che esista.
+        try:
+            causale_giroconto = Causale.objects.get(descrizione__iexact="GIROCONTO")
+            if causale == causale_giroconto:
+                if not conto_destinazione:
+                    self.add_error('conto_destinazione', 'Questo campo è obbligatorio per un giroconto.')
+                if conto_finanziario == conto_destinazione:
+                    self.add_error('conto_destinazione', 'Il conto di destinazione non può essere uguale a quello di origine.')
+        except Causale.DoesNotExist:
+            # Se la causale 'GIROCONTO' non esiste, non facciamo nulla.
+            # In un sistema di produzione, potremmo voler loggare un avviso.
+            pass
+            
+        return cleaned_data
 
 class PartitarioFilterForm(forms.Form):
     """

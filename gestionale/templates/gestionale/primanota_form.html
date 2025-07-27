@@ -1,57 +1,97 @@
 {% extends "gestionale/base.html" %}
-
 {% block title %}{{ title }}{% endblock %}
-
 {% block content %}
 <h1 class="h2 mb-4">{{ title }}</h1>
-
-<div class="card">
-    <div class="card-body">
-        <form method="post">
-            {% csrf_token %}
-
-            <!-- Usiamo il nostro partial per renderizzare i campi in modo pulito -->
-            {% include "gestionale/partials/_form_field.html" with field=form.data_registrazione %}
-            {% include "gestionale/partials/_form_field.html" with field=form.descrizione %}
-            
-            <div class="row">
-                <div class="col-md-6">
-                    {% include "gestionale/partials/_form_field.html" with field=form.tipo_movimento %}
-                </div>
-                <div class="col-md-6">
-                    {% include "gestionale/partials/_form_field.html" with field=form.importo %}
-                </div>
-            </div>
-            
-            <div class="row">
-                <div class="col-md-6">
-                    {% include "gestionale/partials/_form_field.html" with field=form.causale %}
-                </div>
-                <div class="col-md-6">
-                    {% include "gestionale/partials/_form_field.html" with field=form.conto_finanziario %}
-                </div>
-            </div>
-            
-            <hr>
+<div class="card"><div class="card-body">
+    <form method="post">
+        {% csrf_token %}
+        <!-- Usiamo il rendering manuale per controllare la visibilità dei campi -->
+        <div id="container_data">{{ form.data_registrazione.label_tag }}{{ form.data_registrazione }}</div>
+        <div id="container_descrizione" class="mt-3">{{ form.descrizione.label_tag }}{{ form.descrizione }}</div>
+        <div class="row mt-3">
+            <div class="col-md-6" id="container_tipo_movimento">{{ form.tipo_movimento.label_tag }}{{ form.tipo_movimento }}</div>
+            <div class="col-md-6" id="container_importo">{{ form.importo.label_tag }}{{ form.importo }}</div>
+        </div>
+        <div class="row mt-3">
+            <div class="col-md-6">{{ form.causale.label_tag }}{{ form.causale }}</div>
+            <div class="col-md-6" id="container_conto_finanziario">{{ form.conto_finanziario.label_tag }}{{ form.conto_finanziario }}</div>
+        </div>
+        
+        <!-- Campo speciale per il Giroconto, nascosto di default -->
+        <div id="container_conto_destinazione" class="mt-3" style="display: none;">
+            {{ form.conto_destinazione.label_tag }}
+            {{ form.conto_destinazione }}
+        </div>
+        
+        <hr>
+        <div id="container_dati_opzionali">
             <p class="text-muted">Dati Opzionali</p>
-            
             <div class="row">
-                <div class="col-md-4">
-                    {% include "gestionale/partials/_form_field.html" with field=form.conto_operativo %}
-                </div>
-                <div class="col-md-4">
-                    {% include "gestionale/partials/_form_field.html" with field=form.anagrafica %}
-                </div>
-                <div class="col-md-4">
-                    {% include "gestionale/partials/_form_field.html" with field=form.cantiere %}
-                </div>
+                <div class="col-md-4">{{ form.conto_operativo.label_tag }}{{ form.conto_operativo }}</div>
+                <div class="col-md-4">{{ form.anagrafica.label_tag }}{{ form.anagrafica }}</div>
+                <div class="col-md-4">{{ form.cantiere.label_tag }}{{ form.cantiere }}</div>
             </div>
+        </div>
 
-            <div class="mt-4">
-                <button type="submit" class="btn btn-primary">Salva Movimento</button>
-                <a href="{% url 'primanota_list' %}" class="btn btn-secondary">Annulla</a>
-            </div>
-        </form>
-    </div>
-</div>
+        <div class="mt-4">
+            <button type="submit" class="btn btn-primary">Salva Movimento</button>
+            <a href="{% url 'primanota_list' %}" class="btn btn-secondary">Annulla</a>
+        </div>
+    </form>
+</div></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const causaleSelect = document.getElementById('id_causale');
+    const girocontoCausaleId = "{{ giroconto_causale_id }}";
+
+    // Selezioniamo i contenitori e gli input
+    const contoDestinazioneContainer = document.getElementById('container_conto_destinazione');
+    const contoDestinazioneInput = document.getElementById('id_conto_destinazione');
+    
+    const datiOpzionaliContainer = document.getElementById('container_dati_opzionali');
+    
+    const tipoMovimentoContainer = document.getElementById('container_tipo_movimento');
+    const tipoMovimentoInput = document.getElementById('id_tipo_movimento');
+
+    // Selezioniamo anche i campi che nascondiamo in 'dati_opzionali'
+    const contoOperativoInput = document.getElementById('id_conto_operativo');
+    const anagraficaInput = document.getElementById('id_anagrafica');
+    const cantiereInput = document.getElementById('id_cantiere');
+
+    function toggleGirocontoFields() {
+        if (causaleSelect.value === girocontoCausaleId) {
+            // Mostra e rendi obbligatorio il conto di destinazione
+            contoDestinazioneContainer.style.display = 'block';
+            contoDestinazioneInput.required = true;
+            
+            // Nascondi e DISABILITA gli altri campi
+            datiOpzionaliContainer.style.display = 'none';
+            tipoMovimentoContainer.style.display = 'none';
+            tipoMovimentoInput.disabled = true;
+            contoOperativoInput.disabled = true;
+            anagraficaInput.disabled = true;
+            cantiereInput.disabled = true;
+
+        } else {
+            // Nascondi il conto di destinazione
+            contoDestinazioneContainer.style.display = 'none';
+            contoDestinazioneInput.required = false;
+
+            // Mostra e ABILITA gli altri campi
+            datiOpzionaliContainer.style.display = 'block';
+            tipoMovimentoContainer.style.display = 'block';
+            tipoMovimentoInput.disabled = false;
+            contoOperativoInput.disabled = false;
+            anagraficaInput.disabled = false;
+            cantiereInput.disabled = false;
+        }
+    }
+    
+    causaleSelect.addEventListener('change', toggleGirocontoFields);
+    toggleGirocontoFields();
+});
+</script>
 {% endblock %}
