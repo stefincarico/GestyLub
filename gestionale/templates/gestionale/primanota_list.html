@@ -7,7 +7,7 @@
     <h1 class="h2">Prima Nota</h1>
     <div>
         <!-- TODO: Aggiungere URL per Nuovo Movimento e Export -->
-        <a href="#" class="btn btn-primary">+ Nuovo Movimento</a>
+         <a href="{% url 'primanota_create' %}" class="btn btn-primary">+ Nuovo Movimento</a>
     </div>
 </div>
 
@@ -15,17 +15,43 @@
 <div class="card mb-4">
     <div class="card-body">
         <form method="get" action="">
-            <div class="row g-3 align-items-end">
-                <div class="col-lg-3">{{ filter_form.descrizione.label_tag }}{{ filter_form.descrizione }}</div>
-                <div class="col-lg-2">{{ filter_form.conto_finanziario.label_tag }}{{ filter_form.conto_finanziario }}</div>
-                <div class="col-lg-2">{{ filter_form.causale.label_tag }}{{ filter_form.causale }}</div>
-                <div class="col-lg-2">{{ filter_form.data_da.label_tag }}{{ filter_form.data_da }}</div>
-                <div class="col-lg-2">{{ filter_form.data_a.label_tag }}{{ filter_form.data_a }}</div>
-                <div class="col-lg-1 d-flex">
-                    <button type="submit" class="btn btn-primary w-100 me-2">Filtra</button>
-                    <a href="{% url 'primanota_list' %}" class="btn btn-secondary w-100">Reset</a>
+            <form method="get" action="">
+                <!-- Sostituisci il vecchio div.row con questo div.d-flex -->
+                <div class="d-flex flex-wrap align-items-end gap-3">
+                    
+                    <div class="flex-grow-1" style="min-width: 200px;">
+                        {{ filter_form.descrizione.label_tag }}
+                        {{ filter_form.descrizione }}
+                    </div>
+                    
+                    <div style="min-width: 180px;">
+                        {{ filter_form.conto_finanziario.label_tag }}
+                        {{ filter_form.conto_finanziario }}
+                    </div>
+                    
+                    <div style="min-width: 180px;">
+                        {{ filter_form.causale.label_tag }}
+                        {{ filter_form.causale }}
+                    </div>
+                    
+                    <div style="min-width: 150px;">
+                        {{ filter_form.data_da.label_tag }}
+                        {{ filter_form.data_da }}
+                    </div>
+                    
+                    <div style="min-width: 150px;">
+                        {{ filter_form.data_a.label_tag }}
+                        {{ filter_form.data_a }}
+                    </div>
+                    
+                    <!-- Contenitore per i pulsanti -->
+                    <div class="d-flex">
+                        <button type="submit" class="btn btn-primary me-2">Filtra</button>
+                        <a href="{% url 'primanota_list' %}" class="btn btn-secondary">Reset</a>
+                    </div>
+
                 </div>
-            </div>
+            </form>
         </form>
     </div>
 </div>

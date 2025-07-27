@@ -442,24 +442,28 @@ class PrimaNotaFilterForm(forms.Form):
     )
 
 class PrimaNotaForm(forms.ModelForm):
-    """
-    Form per la creazione e modifica di un movimento di Prima Nota.
-    """
+    conto_destinazione = forms.ModelChoiceField(
+        queryset=ContoFinanziario.objects.filter(attivo=True),
+        required=False,
+        label="Conto Finanziario di Destinazione",
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+    
     class Meta:
         model = PrimaNota
         fields = [
             'data_registrazione', 'descrizione', 'importo', 'tipo_movimento',
-            'conto_finanziario', 'conto_operativo', 'causale', 
-            'anagrafica', 'cantiere'
+            'causale', 'conto_finanziario', 'conto_destinazione',
+            'conto_operativo', 'anagrafica', 'cantiere'
         ]
         widgets = {
             'data_registrazione': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'descrizione': forms.TextInput(attrs={'class': 'form-control'}),
             'importo': forms.NumberInput(attrs={'class': 'form-control'}),
             'tipo_movimento': forms.Select(attrs={'class': 'form-select'}),
+            'causale': forms.Select(attrs={'class': 'form-select'}),
             'conto_finanziario': forms.Select(attrs={'class': 'form-select'}),
             'conto_operativo': forms.Select(attrs={'class': 'form-select'}),
-            'causale': forms.Select(attrs={'class': 'form-select'}),
             'anagrafica': forms.Select(attrs={'class': 'form-select'}),
             'cantiere': forms.Select(attrs={'class': 'form-select'}),
         }
@@ -468,10 +472,55 @@ class PrimaNotaForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         # Ottimizziamo i queryset per i menu a tendina
         self.fields['conto_finanziario'].queryset = ContoFinanziario.objects.filter(attivo=True)
+        self.fields['conto_destinazione'].queryset = ContoFinanziario.objects.filter(attivo=True)
         self.fields['conto_operativo'].queryset = ContoOperativo.objects.filter(attivo=True)
         self.fields['causale'].queryset = Causale.objects.filter(attivo=True)
         self.fields['anagrafica'].queryset = Anagrafica.objects.filter(attivo=True)
         self.fields['cantiere'].queryset = Cantiere.objects.filter(stato=Cantiere.Stato.APERTO)
+        
+        # Rendiamo il tipo_movimento non obbligatorio a livello di form.
+        # La sua obbligatorietà verrà gestita nella logica del metodo clean().
+        self.fields['tipo_movimento'].required = False
+        
+        # Aggiungiamo un'opzione vuota per permettere la selezione iniziale
+        # e per evitare che il browser pre-selezioni un valore.
+        self.fields['tipo_movimento'].choices = [('', '---------')] + list(self.fields['tipo_movimento'].choices)
+
+
+    def clean(self):
+        """
+        Validazione incrociata per il giroconto e i movimenti standard.
+        """
+        cleaned_data = super().clean()
+        causale = cleaned_data.get('causale')
+        tipo_movimento = cleaned_data.get('tipo_movimento')
+
+        try:
+            causale_giroconto = Causale.objects.get(descrizione__iexact="GIROCONTO")
+        except Causale.DoesNotExist:
+            causale_giroconto = None
+
+        # CASO 1: È un giroconto
+        if causale and causale == causale_giroconto:
+            conto_finanziario = cleaned_data.get('conto_finanziario')
+            conto_destinazione = cleaned_data.get('conto_destinazione')
+            
+            if not conto_destinazione:
+                self.add_error('conto_destinazione', 'Questo campo è obbligatorio per un giroconto.')
+            
+            if conto_finanziario and conto_destinazione and conto_finanziario == conto_destinazione:
+                self.add_error('conto_destinazione', 'Il conto di destinazione non può essere uguale a quello di origine.')
+            
+            # Per un giroconto, il tipo_movimento non è richiesto dal form,
+            # quindi non lo validiamo qui. Verrà impostato nella vista.
+
+        # CASO 2: NON è un giroconto
+        else:
+            # Per tutti gli altri movimenti, il tipo_movimento è obbligatorio.
+            if not tipo_movimento:
+                self.add_error('tipo_movimento', 'Questo campo è obbligatorio.')
+                
+        return cleaned_data
 
 class PartitarioFilterForm(forms.Form):
     """

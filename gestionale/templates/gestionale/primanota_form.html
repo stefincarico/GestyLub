@@ -1,0 +1,116 @@
+{% extends "gestionale/base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<h1 class="h2 mb-4">{{ title }}</h1>
+
+<div class="card">
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+
+            <!-- Mostra eventuali errori non legati a un campo specifico (es. validazione 'clean') -->
+            {% if form.non_field_errors %}
+                <div class="alert alert-danger">
+                    {% for error in form.non_field_errors %}
+                        {{ error }}
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <!-- Usiamo il nostro partial per renderizzare i campi in modo pulito -->
+            <div id="container_data">{% include "gestionale/partials/_form_field.html" with field=form.data_registrazione %}</div>
+            <div id="container_descrizione">{% include "gestionale/partials/_form_field.html" with field=form.descrizione %}</div>
+            
+            <div class="row">
+                <div class="col-md-6" id="container_tipo_movimento">{% include "gestionale/partials/_form_field.html" with field=form.tipo_movimento %}</div>
+                <div class="col-md-6" id="container_importo">{% include "gestionale/partials/_form_field.html" with field=form.importo %}</div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6">{% include "gestionale/partials/_form_field.html" with field=form.causale %}</div>
+                <div class="col-md-6" id="container_conto_finanziario">{% include "gestionale/partials/_form_field.html" with field=form.conto_finanziario %}</div>
+            </div>
+            
+            <!-- Campo speciale per il Giroconto -->
+            <div id="container_conto_destinazione" style="display: none;">
+                {% include "gestionale/partials/_form_field.html" with field=form.conto_destinazione %}
+            </div>
+            
+            <hr>
+            <div id="container_dati_opzionali">
+                <p class="text-muted">Dati Opzionali</p>
+                <div class="row">
+                    <div class="col-md-4">{% include "gestionale/partials/_form_field.html" with field=form.conto_operativo %}</div>
+                    <div class="col-md-4">{% include "gestionale/partials/_form_field.html" with field=form.anagrafica %}</div>
+                    <div class="col-md-4">{% include "gestionale/partials/_form_field.html" with field=form.cantiere %}</div>
+                </div>
+            </div>
+
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary">Salva Movimento</button>
+                <a href="{% url 'primanota_list' %}" class="btn btn-secondary">Annulla</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const causaleSelect = document.getElementById('id_causale');
+    const girocontoCausaleId = "{{ giroconto_causale_id }}";
+
+    // Selezioniamo i contenitori e gli input
+    const contoDestinazioneContainer = document.getElementById('container_conto_destinazione');
+    const contoDestinazioneInput = document.getElementById('id_conto_destinazione');
+    
+    const datiOpzionaliContainer = document.getElementById('container_dati_opzionali');
+    
+    const tipoMovimentoContainer = document.getElementById('container_tipo_movimento');
+    const tipoMovimentoInput = document.getElementById('id_tipo_movimento');
+
+    // Selezioniamo anche i campi che nascondiamo in 'dati_opzionali'
+    const contoOperativoInput = document.getElementById('id_conto_operativo');
+    const anagraficaInput = document.getElementById('id_anagrafica');
+    const cantiereInput = document.getElementById('id_cantiere');
+
+    function toggleGirocontoFields() {
+        if (causaleSelect.value === girocontoCausaleId) {
+            // Mostra e rendi obbligatorio il conto di destinazione
+            contoDestinazioneContainer.style.display = 'block';
+            contoDestinazioneInput.required = true;
+            
+            // Nascondi e DISABILITA gli altri campi
+            datiOpzionaliContainer.style.display = 'none';
+            tipoMovimentoContainer.style.display = 'none';
+            tipoMovimentoInput.disabled = true;
+            contoOperativoInput.disabled = true;
+            anagraficaInput.disabled = true;
+            cantiereInput.disabled = true;
+
+        } else {
+            // Nascondi il conto di destinazione
+            contoDestinazioneContainer.style.display = 'none';
+            contoDestinazioneInput.required = false;
+
+            // Mostra e ABILITA gli altri campi
+            datiOpzionaliContainer.style.display = 'block';
+            tipoMovimentoContainer.style.display = 'block';
+            tipoMovimentoInput.disabled = false;
+            contoOperativoInput.disabled = false;
+            anagraficaInput.disabled = false;
+            cantiereInput.disabled = false;
+        }
+    }
+    
+    causaleSelect.addEventListener('change', toggleGirocontoFields);
+    const hasError = contoDestinazioneInput.classList.contains('is-invalid');
+    if (hasError) {
+         contoDestinazioneContainer.style.display = 'block';
+        }
+    toggleGirocontoFields();
+});
+</script>
+{% endblock %}

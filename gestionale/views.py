@@ -47,7 +47,7 @@ from .models import (
 )
 from .forms import (
     AnagraficaForm, DipendenteDettaglioForm, DocumentoRigaForm,
-    DocumentoTestataForm, PartitarioFilterForm, PrimaNotaFilterForm, ScadenzaWizardForm, PagamentoForm, ScadenzarioFilterForm, DiarioAttivitaForm,
+    DocumentoTestataForm, PartitarioFilterForm, PrimaNotaFilterForm, PrimaNotaForm, ScadenzaWizardForm, PagamentoForm, ScadenzarioFilterForm, DiarioAttivitaForm,
     DocumentoFilterForm
 )
 
@@ -68,15 +68,15 @@ class TenantRequiredMixin(LoginRequiredMixin, View):
 # ==============================================================================
 
 class DashboardView(TenantRequiredMixin, View):
+    """Mostra la dashboard principale."""
     def get(self, request, *args, **kwargs):
-        # ... (codice invariato) ...
         active_tenant_name = request.session.get('active_tenant_name')
         user_company_role = request.session.get('user_company_role')
         context = {'active_tenant_name': active_tenant_name, 'user_company_role': user_company_role}
         return render(request, 'gestionale/dashboard.html', context)
 
 class AnagraficaListView(TenantRequiredMixin, ListView):
-    # ... (codice invariato) ...
+    """Mostra l'elenco paginato delle anagrafiche."""
     model = Anagrafica
     template_name = 'gestionale/anagrafica_list.html'
     context_object_name = 'anagrafiche'
@@ -595,188 +595,203 @@ class DocumentoListExportPdfView(DocumentoListView):
         )
 
 # ==============================================================================
-# === VISTE ANAGRAFICHE (Dettaglio/Partitario)                              ===
+# === VISTE PARTITARIO ANAGRAFICA (DETAIL + EXPORTS)                        ===
 # ==============================================================================
 
-class AnagraficaDetailView(TenantRequiredMixin, DetailView):
-    model = Anagrafica
+class AnagraficaDetailView(TenantRequiredMixin, View):
     template_name = 'gestionale/anagrafica_detail.html'
-    context_object_name = 'anagrafica'
-
-
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
+    
+    def _get_partitario_data(self, request, anagrafica_pk):
+        anagrafica = get_object_or_404(Anagrafica, pk=anagrafica_pk)
+        filter_form = PartitarioFilterForm(request.GET or None)
         
-        # Passiamo la request al nostro helper per leggere i parametri GET
-        partitario_data = self._get_partitario_data(self.request, self.get_object())
+        # Inizializza i queryset di base
+        documenti = DocumentoTestata.objects.filter(anagrafica=anagrafica, stato=DocumentoTestata.Stato.CONFERMATO)
+        scadenze_aperte = Scadenza.objects.filter(anagrafica=anagrafica, stato__in=[Scadenza.Stato.APERTA, Scadenza.Stato.PARZIALE])
+        movimenti = PrimaNota.objects.filter(anagrafica=anagrafica)
+
+        # Applica i filtri
+        if filter_form.is_valid():
+            data_da = filter_form.cleaned_data.get('data_da')
+            if data_da:
+                documenti = documenti.filter(data_documento__gte=data_da)
+                scadenze_aperte = scadenze_aperte.filter(data_scadenza__gte=data_da)
+                movimenti = movimenti.filter(data_registrazione__gte=data_da)
+            data_a = filter_form.cleaned_data.get('data_a')
+            if data_a:
+                documenti = documenti.filter(data_documento__lte=data_a)
+                scadenze_aperte = scadenze_aperte.filter(data_scadenza__lte=data_a)
+                movimenti = movimenti.filter(data_registrazione__lte=data_a)
+        
+        # Applica ordinamenti e annotazioni
+        documenti = documenti.order_by('-data_documento')
+        scadenze_aperte = scadenze_aperte.annotate(
+            pagato=Coalesce(Sum('pagamenti__importo'), Value(0), output_field=models.DecimalField())
+        ).order_by('data_scadenza')
+        movimenti = movimenti.order_by('-data_registrazione')
+        
+        # Calcola i KPI
+        for s in scadenze_aperte:
+            s.residuo = s.importo_rata - s.pagato
+        esposizione_documenti = sum(doc.totale if 'V' in doc.tipo_doc else -doc.totale for doc in documenti)
+        netto_movimenti = sum(mov.importo if mov.tipo_movimento == PrimaNota.TipoMovimento.ENTRATA else -mov.importo for mov in movimenti)
+        saldo_finale = esposizione_documenti - netto_movimenti
+        
+        return {
+            "anagrafica": anagrafica, "filter_form": filter_form,
+            "documenti": documenti, "scadenze_aperte": scadenze_aperte,
+            "movimenti": movimenti, "esposizione_documenti": esposizione_documenti,
+            "netto_movimenti": netto_movimenti, "saldo_finale": saldo_finale
+        }
+
+    def get(self, request, *args, **kwargs):
+        partitario_data = self._get_partitario_data(request, kwargs['pk'])
+        context = {}
         context.update(partitario_data)
-
-        # Logica di paginazione (invariata)
         paginator_scadenze = Paginator(partitario_data['scadenze_aperte'], 5)
-        page_number_scadenze = self.request.GET.get('pagina_scadenze', 1)
-        page_obj_scadenze = paginator_scadenze.get_page(page_number_scadenze)
-        
+        page_number_scadenze = request.GET.get('pagina_scadenze', 1)
+        context['scadenze_aperte'] = paginator_scadenze.get_page(page_number_scadenze)
         paginator_movimenti = Paginator(partitario_data['movimenti'], 10)
-        page_number_movimenti = self.request.GET.get('pagina_movimenti', 1)
-        page_obj_movimenti = paginator_movimenti.get_page(page_number_movimenti)
-        
-        context['scadenze_aperte'] = page_obj_scadenze
-        context['movimenti'] = page_obj_movimenti
-        
+        page_number_movimenti = request.GET.get('pagina_movimenti', 1)
+        context['movimenti'] = paginator_movimenti.get_page(page_number_movimenti)
         context['pagamento_form'] = PagamentoForm()
-        return context
+        return render(request, self.template_name, context)
 
+# gestionale/views.py
 
-def _get_partitario_data(self, request, anagrafica):
+class AnagraficaPartitarioExportExcelView(AnagraficaDetailView):
     """
-    Metodo helper aggiornato per recuperare e filtrare tutti i dati del partitario.
-    Ora accetta la request per poter accedere ai filtri GET.
-    """
-    filter_form = PartitarioFilterForm(request.GET or None)
-    
-    # Queryset di base
-    documenti = DocumentoTestata.objects.filter(anagrafica=anagrafica, stato=DocumentoTestata.Stato.CONFERMATO)
-    scadenze_aperte = Scadenza.objects.filter(anagrafica=anagrafica, stato__in=[Scadenza.Stato.APERTA, Scadenza.Stato.PARZIALE])
-    movimenti = PrimaNota.objects.filter(anagrafica=anagrafica)
-
-    # Applica i filtri di data se il form è valido
-    if filter_form.is_valid():
-        data_da = filter_form.cleaned_data.get('data_da')
-        if data_da:
-            documenti = documenti.filter(data_documento__gte=data_da)
-            scadenze_aperte = scadenze_aperte.filter(data_scadenza__gte=data_da)
-            movimenti = movimenti.filter(data_registrazione__gte=data_da)
-
-        data_a = filter_form.cleaned_data.get('data_a')
-        if data_a:
-            documenti = documenti.filter(data_documento__lte=data_a)
-            scadenze_aperte = scadenze_aperte.filter(data_scadenza__lte=data_a)
-            movimenti = movimenti.filter(data_registrazione__lte=data_a)
-    
-    # Applica ordinamenti
-    documenti = documenti.order_by('-data_documento')
-    scadenze_aperte = scadenze_aperte.annotate(
-        pagato=Coalesce(Sum('pagamenti__importo'), Value(0), output_field=models.DecimalField())
-    ).order_by('data_scadenza')
-    movimenti = movimenti.order_by('-data_registrazione')
-    
-    # Calcolo KPI e residui (la logica rimane la stessa, ma ora opera sui dati filtrati)
-    for s in scadenze_aperte:
-        s.residuo = s.importo_rata - s.pagato
-        
-    esposizione_documenti = sum(doc.totale if 'V' in doc.tipo_doc else -doc.totale for doc in documenti)
-    netto_movimenti = sum(mov.importo if mov.tipo_movimento == PrimaNota.TipoMovimento.ENTRATA else -mov.importo for mov in movimenti)
-    saldo_finale = esposizione_documenti - netto_movimenti
-    
-    return {
-        "filter_form": filter_form,
-        "documenti": documenti,
-        "scadenze_aperte": scadenze_aperte,
-        "movimenti": movimenti,
-        "esposizione_documenti": esposizione_documenti,
-        "netto_movimenti": netto_movimenti,
-        "saldo_finale": saldo_finale
-    }
-
-class AnagraficaPartitarioExportExcelView(AnagraficaDetailView): # Eredita da DetailView
-    """
-    Esporta il partitario di un'anagrafica in formato Excel.
+    Esporta il partitario completo di un'anagrafica in formato Excel,
+    utilizzando la utility centralizzata per report multi-sezione.
     """
     def get(self, request, *args, **kwargs):
-        # 1. Recupera tutti i dati chiamando il nostro nuovo metodo helper!
-        partitario_data = self._get_partitario_data(request, anagrafica)
-        anagrafica = self.get_object()
+        # 1. RECUPERO DATI
+        # Chiamiamo il metodo helper della classe base (AnagraficaDetailView)
+        # per ottenere tutti i dati del partitario, già filtrati.
+        partitario_data = self._get_partitario_data(request, kwargs['pk'])
+        anagrafica = partitario_data['anagrafica']
 
-        # 2. Prepara i dati per l'utility di export
+        # 2. PREPARAZIONE DEI DATI PER IL REPORT
         tenant_name = request.session.get('active_tenant_name', 'GestionaleDjango')
         report_title = f"Partitario {anagrafica.get_tipo_display()}: {anagrafica.nome_cognome_ragione_sociale}"
-        safe_anag_name = "".join(c if c.isalnum() else "_" for c in anagrafica.nome_cognome_ragione_sociale)
+        
+        # Prepariamo un nome di file pulito
+        safe_anag_name = "".join(c for c in anagrafica.nome_cognome_ragione_sociale if c.isalnum() or c in " _-").rstrip()
         filename_prefix = f"Partitario_{safe_anag_name}"
-
+        
+        # Prepariamo la stringa dei filtri applicati
         filter_form = partitario_data['filter_form']
         filtri_attivi = []
-        if filter_form.is_valid():
-            for name, value in filter_form.cleaned_data.items():
+        if filter_form.is_valid() and filter_form.cleaned_data:
+             for name, value in filter_form.cleaned_data.items():
                 if value:
-                    field = filter_form.fields.get(name)
-                    if not field: continue
-                    label = field.label or name.replace('_', ' ').title()
+                    label = filter_form.fields[name].label or name.title()
                     display_value = value.strftime('%d/%m/%Y') if isinstance(value, date) else str(value)
                     filtri_attivi.append(f"{label}: {display_value}")
         filtri_str = " | ".join(filtri_attivi) if filtri_attivi else "Nessun filtro"
-        
+
+        # Prepariamo il dizionario dei KPI
         kpi_report = {
             'Esposizione Documenti': partitario_data['esposizione_documenti'],
             'Netto Incassato/Pagato': partitario_data['netto_movimenti'],
             'Saldo Aperto Finale': partitario_data['saldo_finale']
         }
 
-        # Il partitario è complesso, quindi lo costruiremo con più tabelle.
-        # La nostra utility attuale non lo supporta. Per ora, esportiamo
-        # solo lo scadenziario aperto per semplicità.
-        # In futuro, potremmo estendere l'utility per gestire report multi-tabella.
-        
-        headers = ["Data Scad.", "Rif. Doc.", "Tipo", "Importo Rata", "Residuo"]
-        data_rows = []
+        # 3. COSTRUZIONE DELLE SEZIONI DEL REPORT
+        # Creiamo una lista che conterrà i dizionari di ogni sezione.
+        report_sections = []
+
+        # Sezione 1: Storico Documenti
+        doc_headers = ["Data", "Tipo", "Numero", "Totale"]
+        doc_rows = []
+        for doc in partitario_data['documenti']:
+            doc_rows.append([
+                doc.data_documento,
+                doc.get_tipo_doc_display(),
+                doc.numero_documento,
+                doc.totale
+            ])
+        report_sections.append({
+            'title': 'Storico Documenti (Confermati)', 
+            'headers': doc_headers, 
+            'rows': doc_rows
+        })
+
+        # Sezione 2: Scadenziario Aperto
+        scad_headers = ["Data Scad.", "Rif. Doc.", "Tipo", "Importo Rata", "Residuo", "Stato Rata"]
+        scad_rows = []
         for scadenza in partitario_data['scadenze_aperte']:
-            data_rows.append([
+            scad_rows.append([
                 scadenza.data_scadenza,
                 scadenza.documento.numero_documento,
                 scadenza.get_tipo_scadenza_display(),
                 scadenza.importo_rata,
-                scadenza.residuo
+                scadenza.residuo,
+                scadenza.get_stato_display()
             ])
+        report_sections.append({
+            'title': 'Scadenziario Aperto', 
+            'headers': scad_headers, 
+            'rows': scad_rows
+        })
 
-        # 3. Chiama l'utility
+        # Sezione 3: Cronologia Movimenti
+        mov_headers = ["Data", "Descrizione", "Importo", "Conto"]
+        mov_rows = []
+        for movimento in partitario_data['movimenti']:
+            mov_rows.append([
+                movimento.data_registrazione,
+                movimento.descrizione,
+                # Usiamo un importo con segno per indicare Entrata/Uscita
+                movimento.importo * (1 if movimento.tipo_movimento == 'E' else -1),
+                movimento.conto_finanziario.nome_conto
+            ])
+        report_sections.append({
+            'title': 'Cronologia Movimenti', 
+            'headers': mov_headers, 
+            'rows': mov_rows
+        })
+
+        # 4. CHIAMATA ALLA FUNZIONE DI UTILITY
+        # Passiamo tutti i dati preparati alla nostra funzione centralizzata.
         return generate_excel_report(
-            tenant_name, 
-            report_title, 
-            filtri_str, 
-            "Dati al " + timezone.now().strftime('%d/%m/%Y'), 
-            kpi_report, 
-            headers, 
-            data_rows,
+            tenant_name=tenant_name,
+            report_title=report_title,
+            filters_string=filtri_str,
+            kpi_data=kpi_report,
+            report_sections=report_sections, # La nuova lista di sezioni
             filename_prefix=filename_prefix
         )
     
 class AnagraficaPartitarioExportPdfView(AnagraficaDetailView):
-    """
-    Esporta il partitario di un'anagrafica in formato PDF.
-    """
     def get(self, request, *args, **kwargs):
-        # 1. Recupera i dati
-        anagrafica = self.get_object()
-        partitario_data = self._get_partitario_data(request, anagrafica)
+        partitario_data = self._get_partitario_data(request, kwargs['pk'])
+        anagrafica = partitario_data['anagrafica']
 
         filter_form = partitario_data['filter_form']
         filtri_attivi = []
-        if filter_form.is_valid():
-            for name, value in filter_form.cleaned_data.items():
+        if filter_form.is_valid() and filter_form.cleaned_data:
+             for name, value in filter_form.cleaned_data.items():
                 if value:
-                    field = filter_form.fields.get(name)
-                    if not field: continue
-                    label = field.label or name.replace('_', ' ').title()
+                    label = filter_form.fields[name].label or name.title()
                     display_value = value.strftime('%d/%m/%Y') if isinstance(value, date) else str(value)
                     filtri_attivi.append(f"{label}: {display_value}")
         filtri_str = " | ".join(filtri_attivi) if filtri_attivi else "Nessun filtro"
-
-        # 2. Prepara il contesto per il template PDF
+        
         context = {
             'tenant_name': request.session.get('active_tenant_name'),
-           'report_title': f"Partitario {anagrafica.get_tipo_display()}",
-            'anagrafica': anagrafica,
+            'report_title': f"Partitario {anagrafica.get_tipo_display()}",
             'timestamp': timezone.now().strftime('%d/%m/%Y %H:%M:%S'),
             'filtri_str': filtri_str,
-            **partitario_data # Aggiunge tutte le chiavi del dizionario al contesto
+            **partitario_data
         }
         
-        # 3. Chiama l'utility
         return generate_pdf_report(
             request,
             'gestionale/partitario_pdf_template.html', 
             context
         )
+
 
 class AnagraficaListExportExcelView(AnagraficaListView):
     """
@@ -828,8 +843,6 @@ class AnagraficaListExportPdfView(AnagraficaListView):
             context
         )
     
-
-
 # ==============================================================================
 # === VISTE PAGAMENTI                                                       ===
 # ==============================================================================
@@ -1302,3 +1315,73 @@ class PrimaNotaListView(TenantRequiredMixin, View):
         }
         return render(request, self.template_name, context)
     
+class PrimaNotaCreateView(TenantRequiredMixin, CreateView):
+    model = PrimaNota
+    form_class = PrimaNotaForm
+    template_name = 'gestionale/primanota_form.html'
+    success_url = reverse_lazy('primanota_list')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = 'Nuovo Movimento di Prima Nota'
+        # Passiamo l'ID della causale "Giroconto" al template per usarlo in JavaScript.
+        try:
+            context['giroconto_causale_id'] = Causale.objects.get(descrizione__iexact="GIROCONTO").pk
+        except Causale.DoesNotExist:
+            context['giroconto_causale_id'] = None
+        return context
+
+    def form_valid(self, form):
+        """
+        Logica di salvataggio personalizzata per gestire i giroconti.
+        """
+        causale = form.cleaned_data.get('causale')
+        
+        try:
+            causale_giroconto = Causale.objects.get(descrizione__iexact="GIROCONTO")
+        except Causale.DoesNotExist:
+            causale_giroconto = None
+
+        # --- CASO SPECIALE: GIROCONTO ---
+        if causale == causale_giroconto:
+            with transaction.atomic(): # Garantisce che entrambe le operazioni abbiano successo o falliscano
+                conto_origine = form.cleaned_data['conto_finanziario']
+                conto_destinazione = form.cleaned_data['conto_destinazione']
+                importo = form.cleaned_data['importo']
+                
+                # 1. Crea il movimento di USCITA
+                uscita = form.save(commit=False)
+                uscita.created_by = self.request.user
+                uscita.tipo_movimento = PrimaNota.TipoMovimento.USCITA
+                uscita.descrizione = f"GIROCONTO -> {conto_destinazione.nome_conto}"
+                uscita.save()
+
+                # 2. Crea il movimento di ENTRATA speculare
+                entrata = PrimaNota.objects.create(
+                    data_registrazione=uscita.data_registrazione,
+                    descrizione=f"GIROCONTO <- {conto_origine.nome_conto}",
+                    importo=importo,
+                    tipo_movimento=PrimaNota.TipoMovimento.ENTRATA,
+                    causale=causale,
+                    conto_finanziario=conto_destinazione,
+                    created_by=self.request.user,
+                    movimento_collegato=uscita 
+                )
+                
+                # 3. Aggiorna il movimento di uscita per collegarlo a quello di entrata
+                uscita.movimento_collegato = entrata
+                uscita.save()
+
+            messages.success(self.request, "Giroconto registrato con successo.")
+            self.object = uscita
+
+        # --- CASO NORMALE: MOVIMENTO STANDARD ---
+        else:
+            movimento = form.save(commit=False)
+            movimento.created_by = self.request.user
+            movimento.save()
+            messages.success(self.request, "Movimento di prima nota creato con successo.")
+            # Assegniamo l'oggetto salvato a self.object prima di procedere.
+            self.object = movimento
+        
+        return super().form_valid(form)
