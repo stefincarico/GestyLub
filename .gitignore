@@ -53,3 +53,5 @@ local_settings.py
 
 # Log e file di sessione
 *.log
+
+.DS_Store
