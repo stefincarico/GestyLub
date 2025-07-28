@@ -16,144 +16,191 @@
 <div class="card mb-4">
     <div class="card-header">
         Riepilogo Documento
-    </div>
-    <div class="card-body">
-        <div class="row">
-            <div class="col-md-6">
-                <p><strong>Cliente/Fornitore:</strong> {{ documento.anagrafica.nome_cognome_ragione_sociale }}</p>
-                <p><strong>Imponibile:</strong> € {{ documento.imponibile|floatformat:2 }}</p>
-                <p><strong>Totale Documento:</strong> € {{ documento.totale|floatformat:2 }}</p>
-                <p><strong>Note:</strong> {{ documento.note|default:"-" }}</p>
-            </div>
-            <div class="col-md-6">
-                <p><strong>Data Documento:</strong> {{ documento.data_documento|date:"d/m/Y" }}</p>
-                <p><strong>IVA:</strong> € {{ documento.iva|floatformat:2 }}</p>
-                <p><strong>Stato:</strong>
-                    {% if documento.stato == 'Confermato' %}<span class="badge bg-success">{{ documento.stato }}</span>{% endif %}
-                    {% if documento.stato == 'Bozza' %}<span class="badge bg-warning text-dark">{{ documento.stato }}</span>{% endif %}
-                    {% if documento.stato == 'Annullato' %}<span class="badge bg-secondary">{{ documento.stato }}</span>{% endif %}
-                </p>
-            </div>
+</div>
+
+<div class="card-body">
+    <div class="row">
+        <div class="col-md-6">
+            <p><strong>Cliente/Fornitore:</strong> {{ documento.anagrafica.nome_cognome_ragione_sociale }}</p>
+            <p><strong>Imponibile:</strong> € {{ documento.imponibile|floatformat:2 }}</p>
+            <p><strong>Totale Documento:</strong> € {{ documento.totale|floatformat:2 }}</p>
+            <p><strong>Note:</strong> {{ documento.note|default:"-" }}</p>
         </div>
-        <hr>
-        <h4 class="text-end text-danger">SALDO RESIDUO: € {{ saldo_residuo|floatformat:2 }}</h4>
+        <div class="col-md-6">
+            <p><strong>Data Documento:</strong> {{ documento.data_documento|date:"d/m/Y" }}</p>
+            <p><strong>IVA:</strong> € {{ documento.iva|floatformat:2 }}</p>
+            <p><strong>Stato:</strong>
+                {% if documento.stato == 'Confermato' %}<span class="badge bg-success">{{ documento.stato }}</span>{% endif %}
+                {% if documento.stato == 'Bozza' %}<span class="badge bg-warning text-dark">{{ documento.stato }}</span>{% endif %}
+                {% if documento.stato == 'Annullato' %}<span class="badge bg-secondary">{{ documento.stato }}</span>{% endif %}
+            </p>
+        </div>
     </div>
+    <hr>
+    <h4 class="text-end text-danger">SALDO RESIDUO: € {{ saldo_residuo|floatformat:2 }}</h4>
+</div>
 </div>
 
 <!-- Righe del Documento -->
 <div class="card mb-4">
-    <div class="card-header">Righe del Documento</div>
-    <div class="card-body p-0">
-        <table class="table table-striped mb-0">
-            <thead>
-                <tr>
-                    <th>Descrizione</th>
-                    <th class="text-end">Q.tà</th>
-                    <th class="text-end">Prezzo Unit.</th>
-                    <th class="text-end">IVA %</th>
-                    <th class="text-end">Imponibile</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for riga in documento.righe.all %}
-                <tr>
-                    <td>{{ riga.descrizione }}</td>
-                    <td class="text-end">{{ riga.quantita|floatformat:2 }}</td>
-                    <td class="text-end">€ {{ riga.prezzo_unitario|floatformat:2 }}</td>
-                    <td class="text-end">{{ riga.aliquota_iva.valore_percentuale|floatformat:2 }}%</td>
-                    <td class="text-end">€ {{ riga.imponibile_riga|floatformat:2 }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+<div class="card-header">Righe del Documento</div>
+<div class="card-body p-0">
+    <table class="table table-striped mb-0">
+        <thead>
+            <tr>
+                <th>Descrizione</th>
+                <th class="text-end">Q.tà</th>
+                <th class="text-end">Prezzo Unit.</th>
+                <th class="text-end">IVA %</th>
+                <th class="text-end">Imponibile</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for riga in documento.righe.all %}
+            <tr>
+                <td>{{ riga.descrizione }}</td>
+                <td class="text-end">{{ riga.quantita|floatformat:2 }}</td>
+                <td class="text-end">€ {{ riga.prezzo_unitario|floatformat:2 }}</td>
+                <td class="text-end">{{ riga.aliquota_iva.valore_percentuale|floatformat:2 }}%</td>
+                <td class="text-end">€ {{ riga.imponibile_riga|floatformat:2 }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
 </div>
 
 <!-- Scadenze -->
 <div class="card mb-4">
-    <div class="card-header">Scadenze</div>
-    <div class="card-body p-0">
-        <table class="table mb-0">
+<div class="card-header">Scadenze</div>
+<div class="card-body p-0">
+    <table class="table mb-0">
+        <thead>
+            <tr>
+                <th>Data Scadenza</th>
+                <th class="text-end">Importo Rata</th>
+                <th class="text-end">Residuo</th>
+                <th>Stato</th>
+                <th>Azioni</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for scadenza in scadenze %}
+            <tr>
+                <td>{{ scadenza.data_scadenza|date:"d/m/Y" }}</td>
+                <td class="text-end">€ {{ scadenza.importo_rata|floatformat:2 }}</td>
+                <td class="text-end">€ {{ scadenza.residuo|floatformat:2 }}</td>
+                <td>{{ scadenza.get_stato_display }}</td>
+                <td>
+                    <button type="button" class="btn btn-sm btn-primary"
+                            data-bs-toggle="modal" data-bs-target="#pagamentoModal"
+                            data-scadenza-id="{{ scadenza.id }}"
+                            data-scadenza-residuo="{{ scadenza.residuo|stringformat:'-1.2f' }}"
+                            data-scadenza-info="N.{{ scadenza.id }} del {{ scadenza.data_scadenza|date:'d/m/Y' }}">
+                        Paga/Incassa
+                    </button>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" class="text-center">Nessuna scadenza associata.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+<!-- INIZIO BLOCCO PAGINAZIONE SCADENZE -->
+{% if scadenze.has_other_pages %}
+<div class="card-footer">
+    <nav aria-label="Navigazione scadenze">
+        <ul class="pagination justify-content-center mb-0">
+            {% if scadenze.has_previous %}
+                <li class="page-item"><a class="page-link" href="?{% url_replace pagina_scadenze=scadenze.previous_page_number %}">Precedente</a></li>
+            {% else %}
+                <li class="page-item disabled"><span class="page-link">Precedente</span></li>
+            {% endif %}
+
+            <li class="page-item disabled"><span class="page-link">Pagina {{ scadenze.number }} di {{ scadenze.paginator.num_pages }}</span></li>
+
+            {% if scadenze.has_next %}
+                <li class="page-item"><a class="page-link" href="?{% url_replace pagina_scadenze=scadenze.next_page_number %}">Successiva</a></li>
+            {% else %}
+                <li class="page-item disabled"><span class="page-link">Successiva</span></li>
+            {% endif %}
+        </ul>
+    </nav>
+</div>
+{% endif %}
+<!-- FINE BLOCCO PAGINAZIONE SCADENZE -->
+</div>
+
+<!-- Cronologia Pagamenti / Incassi -->
+<div class="card mb-4">
+<div class="card-header">Cronologia Pagamenti / Incassi</div>
+<div class="card-body p-0">
+    <div class="table-responsive">
+        <table class="table table-striped mb-0">
             <thead>
                 <tr>
-                    <th>Data Scadenza</th>
-                    <th class="text-end">Importo Rata</th>
-                    <th class="text-end">Residuo</th>
-                    <th>Stato</th>
+                    <th>Data Pagamento</th>
+                    <th>Descrizione</th>
+                    <th>Rif. Data Scadenza</th>
+                    <th class="text-end">Importo</th>
+                    <th>Conto</th>
                     <th>Azioni</th>
                 </tr>
             </thead>
             <tbody>
-                {% for scadenza in scadenze %}
+                {% for pagamento in cronologia_pagamenti %}
                 <tr>
-                    <td>{{ scadenza.data_scadenza|date:"d/m/Y" }}</td>
-                    <td class="text-end">€ {{ scadenza.importo_rata|floatformat:2 }}</td>
-                    <td class="text-end">€ {{ scadenza.residuo|floatformat:2 }}</td>
-                    <td>{{ scadenza.get_stato_display }}</td>
+                    <td>{{ pagamento.data_registrazione|date:"d/m/Y" }}</td>
+                    <td>{{ pagamento.descrizione }}</td>
                     <td>
-                        <button type="button" class="btn btn-sm btn-primary" 
-                                data-bs-toggle="modal" data-bs-target="#pagamentoModal"
-                                data-scadenza-id="{{ scadenza.id }}"
-                                data-scadenza-residuo="{{ scadenza.residuo|stringformat:"-1.2f" }}"
-                                data-scadenza-info="N.{{ scadenza.id }} del {{ scadenza.data_scadenza|date:"d/m/Y" }}">
-                            Paga/Incassa
-                        </button>
+                        {% if pagamento.scadenza_collegata %}
+                            {{ pagamento.scadenza_collegata.data_scadenza|date:"d/m/Y" }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td class="text-end {% if pagamento.tipo_movimento == 'E' %}text-success{% else %}text-danger{% endif %}">
+                        € {{ pagamento.importo|format_currency }}
+                    </td>
+                    <td>{{ pagamento.conto_finanziario.nome_conto }}</td>
+                    <td>
+                        <a href="{% url 'pagamento_update' pagamento.pk %}" class="btn btn-sm btn-outline-primary">Modifica</a>
+                        <a href="{% url 'pagamento_delete' pagamento.pk %}" class="btn btn-sm btn-outline-danger">Elimina</a>
                     </td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="5" class="text-center">Nessuna scadenza associata.</td></tr>
+                <tr>
+                    <td colspan="6" class="text-center">Nessun pagamento registrato per questo documento.</td>
+                </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 </div>
+<!-- INIZIO BLOCCO PAGINAZIONE PAGAMENTI -->
+{% if cronologia_pagamenti.has_other_pages %}
+<div class="card-footer">
+    <nav aria-label="Navigazione pagamenti">
+        <ul class="pagination justify-content-center mb-0">
+            {% if cronologia_pagamenti.has_previous %}
+                <li class="page-item"><a class="page-link" href="?{% url_replace pagina_pagamenti=cronologia_pagamenti.previous_page_number %}">Precedente</a></li>
+            {% else %}
+                <li class="page-item disabled"><span class="page-link">Precedente</span></li>
+            {% endif %}
 
-<!-- Cronologia Pagamenti / Incassi -->
-<div class="card mb-4">
-    <div class="card-header">Cronologia Pagamenti / Incassi</div>
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-striped mb-0">
-                <thead>
-                    <tr>
-                        <th>Data Pagamento</th>
-                        <th>Descrizione</th>
-                        <th>Rif. Data Scadenza</th> 
-                        <th class="text-end">Importo</th>
-                        <th>Conto</th>
-                        <th>Azioni</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for pagamento in cronologia_pagamenti %}
-                    <tr>
-                        <td>{{ pagamento.data_registrazione|date:"d/m/Y" }}</td>
-                        <td>{{ pagamento.descrizione }}</td>
-                        <td>
-                            {% if pagamento.scadenza_collegata %}
-                                {{ pagamento.scadenza_collegata.data_scadenza|date:"d/m/Y" }}
-                            {% else %}
-                                -
-                            {% endif %}
-                        </td>
-                        <td class="text-end {% if pagamento.tipo_movimento == 'E' %}text-success{% else %}text-danger{% endif %}">
-                            € {{ pagamento.importo|format_currency }}
-                        </td>
-                        <td>{{ pagamento.conto_finanziario.nome_conto }}</td>
-                        <td>
-                            <a href="{% url 'pagamento_update' pagamento.pk %}" class="btn btn-sm btn-outline-primary">Modifica</a>
-                            <a href="{% url 'pagamento_delete' pagamento.pk %}" class="btn btn-sm btn-outline-danger">Elimina</a>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="6" class="text-center">Nessun pagamento registrato per questo documento.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
+            <li class="page-item disabled"><span class="page-link">Pagina {{ cronologia_pagamenti.number }} di {{ cronologia_pagamenti.paginator.num_pages }}</span></li>
+
+            {% if cronologia_pagamenti.has_next %}
+                <li class="page-item"><a class="page-link" href="?{% url_replace pagina_pagamenti=cronologia_pagamenti.next_page_number %}">Successiva</a></li>
+            {% else %}
+                <li class="page-item disabled"><span class="page-link">Successiva</span></li>
+            {% endif %}
+        </ul>
+    </nav>
+</div>
+{% endif %}
+<!-- FINE BLOCCO PAGINAZIONE PAGAMENTI -->
 </div>
 
 {% endblock %}

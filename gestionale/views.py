@@ -471,32 +471,74 @@ def get_anagrafiche_by_tipo(request):
 # ==============================================================================
 # === VISTE DOCUMENTI (Dettaglio/Partitario)                              ===
 # ==============================================================================
-def get_documento_dettaglio_data(pk):
+
+
+def get_documento_dettaglio_context(pk):
     """
     Funzione helper che recupera tutti i dati necessari per la vista
-    di dettaglio di un documento e per i suoi export.
+    di dettaglio di un documento, ma SENZA applicare la paginazione.
     """
     documento = get_object_or_404(DocumentoTestata, pk=pk)
-    
+
+    # Recupera i queryset completi e annota le scadenze con l'importo già pagato
     scadenze_qs = Scadenza.objects.filter(documento=documento).annotate(
         pagato=Coalesce(Sum('pagamenti__importo'), Value(0), output_field=models.DecimalField())
     ).order_by('data_scadenza')
-    
-    for s in scadenze_qs:
-        s.residuo = s.importo_rata - s.pagato
 
-    cronologia_pagamenti = PrimaNota.objects.filter(
+    cronologia_pagamenti_qs = PrimaNota.objects.filter(
         scadenza_collegata__documento=documento
     ).select_related('scadenza_collegata', 'conto_finanziario').order_by('-data_registrazione')
 
+    # Calcola il residuo per ogni scadenza nel queryset completo
+    # Questo è importante per il calcolo del saldo totale.
+    for s in scadenze_qs:
+        s.residuo = s.importo_rata - s.pagato
+
+    # Calcola il saldo totale del documento
     saldo_residuo = documento.totale - sum(s.pagato for s in scadenze_qs)
-    
+
+    # Restituisce i dati pronti per essere paginati dalla vista
     return {
-        'documento': documento, 
-        'scadenze': scadenze_qs, 
-        'cronologia_pagamenti': cronologia_pagamenti, 
+        'documento': documento,
+        'scadenze_qs': scadenze_qs,
+        'cronologia_pagamenti_qs': cronologia_pagamenti_qs,
         'saldo_residuo': saldo_residuo
     }
+
+
+class DocumentoDetailView(TenantRequiredMixin, View):
+    """
+    Mostra la vista di dettaglio completa di un singolo documento,
+    gestendo due paginazioni indipendenti per scadenze e pagamenti.
+    """
+    template_name = 'gestionale/documento_detail.html'
+
+    def get(self, request, *args, **kwargs):
+        # Usa la funzione helper per ottenere i dati di base e i queryset completi
+        context = get_documento_dettaglio_context(kwargs['pk'])
+
+        # Gestione della paginazione per le SCADENZE
+        pagina_scadenze_num = request.GET.get('pagina_scadenze', 1)
+        paginator_scadenze = Paginator(context['scadenze_qs'], 5) # 5 elementi per pagina
+        pagina_scadenze_obj = paginator_scadenze.get_page(pagina_scadenze_num)
+
+        # Gestione della paginazione per i PAGAMENTI
+        pagina_pagamenti_num = request.GET.get('pagina_pagamenti', 1)
+        paginator_pagamenti = Paginator(context['cronologia_pagamenti_qs'], 10) # 10 elementi per pagina
+        pagina_pagamenti_obj = paginator_pagamenti.get_page(pagina_pagamenti_num)
+
+        # Aggiorna il contesto da passare al template
+        context['scadenze'] = pagina_scadenze_obj
+        context['cronologia_pagamenti'] = pagina_pagamenti_obj
+        context['pagamento_form'] = PagamentoForm()
+
+        # Rimuove i queryset non più necessari per pulizia
+        context.pop('scadenze_qs')
+        context.pop('cronologia_pagamenti_qs')
+
+        # Renderizza il template con il contesto finale
+        return render(request, self.template_name, context)
+
 class DocumentoListView(TenantRequiredMixin, View): # Cambia da ListView a View
     """
     Mostra l'elenco paginato e filtrabile di tutti i documenti.
@@ -538,22 +580,6 @@ class DocumentoListView(TenantRequiredMixin, View): # Cambia da ListView a View
         }
         return render(request, self.template_name, context)
 
-class DocumentoDetailView(TenantRequiredMixin, View):
-    """
-    Mostra la vista di dettaglio completa di un singolo documento.
-    In questa versione, carica TUTTE le scadenze e i pagamenti, senza paginazione.
-    """
-    template_name = 'gestionale/documento_detail.html'
-    
-    def get(self, request, *args, **kwargs):
-        # Usiamo la nostra funzione helper per ottenere tutti i dati necessari.
-        context = get_documento_dettaglio_data(kwargs['pk'])
-        
-        # Aggiungiamo il form per la modale di pagamento.
-        context['pagamento_form'] = PagamentoForm()
-        
-        # Renderizziamo il template con il contesto completo.
-        return render(request, self.template_name, context)
     
 class DocumentoListExportExcelView(DocumentoListView):
     """
