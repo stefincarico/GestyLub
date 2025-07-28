@@ -659,7 +659,7 @@ class AnagraficaDetailView(TenantRequiredMixin, View):
         paginator_scadenze = Paginator(partitario_data['scadenze_aperte'], 5)
         page_number_scadenze = request.GET.get('pagina_scadenze', 1)
         context['scadenze_aperte'] = paginator_scadenze.get_page(page_number_scadenze)
-        paginator_movimenti = Paginator(partitario_data['movimenti'], 10)
+        paginator_movimenti = Paginator(partitario_data['movimenti'], 5)
         page_number_movimenti = request.GET.get('pagina_movimenti', 1)
         context['movimenti'] = paginator_movimenti.get_page(page_number_movimenti)
         context['pagamento_form'] = PagamentoForm()
@@ -1378,8 +1378,7 @@ class PrimaNotaUpdateView(TenantRequiredMixin, UpdateView):
         if self.object.movimento_collegato:
             messages.error(request, "I movimenti di giroconto non possono essere modificati. Si prega di eliminarli e ricrearli.")
             return redirect('primanota_list')
-            # In alternativa, per una sicurezza maggiore:
-            # return HttpResponseForbidden("I giroconti non sono modificabili.")
+
         return super().dispatch(request, *args, **kwargs)
 
     def get_success_url(self):
