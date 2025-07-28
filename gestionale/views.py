@@ -966,9 +966,10 @@ class PagamentoDeleteView(TenantRequiredMixin, DeleteView):
                 scadenza_da_aggiornare.refresh_from_db()
                 
                 # Calcoliamo il nuovo totale pagato.
-                totale_pagato = scadenza_da_aggiornare.pagamenti.aggregate(
-                    total=Coalesce(Sum('importo'), Value(0))
-                )['total']
+                aggregato = scadenza_da_aggiornare.pagamenti.aggregate(
+                    total=Coalesce(Sum('importo'), Value(0), output_field=models.DecimalField())
+                )
+                totale_pagato = aggregato['total']
                 
                 # Aggiorniamo lo stato.
                 if totale_pagato <= 0:
