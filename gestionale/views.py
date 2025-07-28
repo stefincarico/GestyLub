@@ -539,58 +539,79 @@ class DocumentoDetailView(TenantRequiredMixin, View):
         # Renderizza il template con il contesto finale
         return render(request, self.template_name, context)
 
-class DocumentoListView(TenantRequiredMixin, View): # Cambia da ListView a View
+# ==============================================================================
+# === VISTE DOCUMENTI (LISTA + EXPORTS)                                     ===
+# ==============================================================================
+
+class DocumentoListView(TenantRequiredMixin, View):
     """
     Mostra l'elenco paginato e filtrabile di tutti i documenti.
+    Contiene la logica di recupero dati riutilizzabile dagli export.
     """
     template_name = 'gestionale/documento_list.html'
     paginate_by = 15
 
-    def get(self, request, *args, **kwargs):
+    def _get_filtered_data(self, request):
+        """
+        Metodo helper che centralizza il recupero e il filtraggio dei documenti.
+        """
         filter_form = DocumentoFilterForm(request.GET or None)
         
-        # Queryset di base, ordinato come richiesto (ascendente)
         documenti_qs = DocumentoTestata.objects.select_related('anagrafica').order_by('data_documento', 'numero_documento')
 
-        # Applica i filtri se il form è valido
         if filter_form.is_valid():
-            
             tipo_doc = filter_form.cleaned_data.get('tipo_doc')
             if tipo_doc:
                 documenti_qs = documenti_qs.filter(tipo_doc=tipo_doc)
-
             data_da = filter_form.cleaned_data.get('data_da')
             if data_da:
                 documenti_qs = documenti_qs.filter(data_documento__gte=data_da)
-
             data_a = filter_form.cleaned_data.get('data_a')
             if data_a:
                 documenti_qs = documenti_qs.filter(data_documento__lte=data_a)
         
-        # Applica la paginazione al queryset già filtrato
+        return documenti_qs, filter_form
+
+    def get(self, request, *args, **kwargs):
+        documenti_qs, filter_form = self._get_filtered_data(request)
+        
         paginator = Paginator(documenti_qs, self.paginate_by)
         page_number = request.GET.get('page')
         page_obj = paginator.get_page(page_number)
         
         context = {
-            'documenti': page_obj, # Passiamo l'oggetto pagina, non il queryset
+            'documenti': page_obj,
             'is_paginated': page_obj.has_other_pages(),
-            'page_obj': page_obj, # Passiamo l'oggetto pagina anche per il template di paginazione
+            'page_obj': page_obj,
             'filter_form': filter_form,
         }
         return render(request, self.template_name, context)
 
-    
 class DocumentoListExportExcelView(DocumentoListView):
     """
-    Esporta la lista dei documenti in formato Excel.
+    Esporta la lista filtrata dei documenti in formato Excel.
     """
     def get(self, request, *args, **kwargs):
-        documenti_qs = self.get_queryset()
+        # Chiama il nostro metodo helper per ottenere i dati filtrati.
+        documenti_qs, filter_form = self._get_filtered_data(request)
         
         tenant_name = request.session.get('active_tenant_name', 'GestionaleDjango')
         report_title = 'Elenco Documenti'
         filename_prefix = 'Elenco_Documenti'
+        
+        # Costruisce la stringa dei filtri applicati.
+        filtri_attivi = []
+        if filter_form.is_valid() and filter_form.cleaned_data:
+            for name, value in filter_form.cleaned_data.items():
+                if value:
+                    label = filter_form.fields[name].label or name.title()
+                    display_value = value
+                    if hasattr(filter_form.fields[name], 'choices'):
+                        display_value = dict(filter_form.fields[name].choices).get(value, value)
+                    if isinstance(value, date):
+                        display_value = value.strftime('%d/%m/%Y')
+                    filtri_attivi.append(f"{label}: {display_value}")
+        filtri_str = " | ".join(filtri_attivi) if filtri_attivi else "Nessun filtro"
         
         headers = ["Tipo", "Numero", "Data", "Cliente/Fornitore", "Totale", "Stato"]
         data_rows = []
@@ -604,24 +625,40 @@ class DocumentoListExportExcelView(DocumentoListView):
                 doc.get_stato_display()
             ])
             
+        report_sections = [{'title': 'Elenco Documenti', 'headers': headers, 'rows': data_rows}]
+            
         return generate_excel_report(
-            tenant_name, report_title, "Nessun filtro applicato", None, headers, data_rows,
+            tenant_name, report_title, filtri_str, None, report_sections,
             filename_prefix=filename_prefix
         )
 
 class DocumentoListExportPdfView(DocumentoListView):
     """
-    Esporta la lista dei documenti (non paginata) in formato PDF.
+    Esporta la lista filtrata dei documenti in formato PDF.
     """
     def get(self, request, *args, **kwargs):
-        # get_queryset() riutilizza la logica della ListView base,
-        # incluso l'ordinamento che avevamo definito.
-        documenti_qs = self.get_queryset()
+        # Chiama il nostro metodo helper per ottenere i dati filtrati.
+        documenti_qs, filter_form = self._get_filtered_data(request)
         
+        # Costruisce la stringa dei filtri applicati.
+        filtri_attivi = []
+        if filter_form.is_valid() and filter_form.cleaned_data:
+            for name, value in filter_form.cleaned_data.items():
+                if value:
+                    label = filter_form.fields[name].label or name.title()
+                    display_value = value
+                    if hasattr(filter_form.fields[name], 'choices'):
+                        display_value = dict(filter_form.fields[name].choices).get(value, value)
+                    if isinstance(value, date):
+                        display_value = value.strftime('%d/%m/%Y')
+                    filtri_attivi.append(f"{label}: {display_value}")
+        filtri_str = " | ".join(filtri_attivi) if filtri_attivi else "Nessun filtro"
+
         context = {
             'tenant_name': request.session.get('active_tenant_name', 'GestionaleDjango'),
             'report_title': 'Elenco Documenti',
             'timestamp': timezone.now().strftime('%d/%m/%Y %H:%M:%S'),
+            'filtri_str': filtri_str,
             'documenti': documenti_qs,
         }
         
@@ -630,7 +667,6 @@ class DocumentoListExportPdfView(DocumentoListView):
             'gestionale/documento_list_pdf.html', 
             context
         )
-
 # ==============================================================================
 # === VISTE PARTITARIO ANAGRAFICA (DETAIL + EXPORTS)                        ===
 # ==============================================================================
