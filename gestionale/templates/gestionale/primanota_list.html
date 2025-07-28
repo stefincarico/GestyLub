@@ -89,9 +89,11 @@
                             {% endif %}
                         </td>
                         <td>
-                            <!-- Pulsanti visibili solo se non è un pagamento di una scadenza (non modificabile da qui) -->
                             {% if not movimento.scadenza_collegata %}
-                                <a href="{% url 'primanota_update' movimento.pk %}" class="btn btn-sm btn-outline-primary">Modifica</a>
+                                <!-- NUOVO CONTROLLO -->
+                                {% if not movimento.movimento_collegato %}
+                                    <a href="{% url 'primanota_update' movimento.pk %}" class="btn btn-sm btn-outline-primary">Modifica</a>
+                                {% endif %}
                                 <a href="{% url 'primanota_delete' movimento.pk %}" class="btn btn-sm btn-outline-danger">Elimina</a>
                             {% else %}
                                 <span class="text-muted fst-italic">Da Scadenza</span>

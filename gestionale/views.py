@@ -19,7 +19,7 @@ from django.core.paginator import Paginator
 from django.db import models, transaction
 from django.db.models import Q, Sum, Value
 from django.db.models.functions import Coalesce
-from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
+from django.http import HttpResponse, HttpResponseRedirect, JsonResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse, reverse_lazy
@@ -1369,6 +1369,19 @@ class PrimaNotaUpdateView(TenantRequiredMixin, UpdateView):
     form_class = PrimaNotaUpdateForm # Usa il form specifico per la modifica (per la data)
     template_name = 'gestionale/primanota_form.html'
     
+    def dispatch(self, request, *args, **kwargs):
+        """
+        Controlla se il movimento è un giroconto prima di procedere.
+        """
+        # Recuperiamo l'oggetto prima di ogni altra cosa
+        self.object = self.get_object()
+        if self.object.movimento_collegato:
+            messages.error(request, "I movimenti di giroconto non possono essere modificati. Si prega di eliminarli e ricrearli.")
+            return redirect('primanota_list')
+            # In alternativa, per una sicurezza maggiore:
+            # return HttpResponseForbidden("I giroconti non sono modificabili.")
+        return super().dispatch(request, *args, **kwargs)
+
     def get_success_url(self):
         """
         Restituisce l'URL a cui reindirizzare dopo un salvataggio riuscito.

@@ -452,16 +452,17 @@ class PrimaNotaForm(forms.ModelForm):
     class Meta:
         model = PrimaNota
         fields = [
+            'causale', 
             'data_registrazione', 'descrizione', 'importo', 'tipo_movimento',
-            'causale', 'conto_finanziario', 'conto_destinazione',
+            'conto_finanziario', 'conto_destinazione',
             'conto_operativo', 'anagrafica', 'cantiere'
         ]
         widgets = {
+            'causale': forms.Select(attrs={'class': 'form-select'}),
             'data_registrazione': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'descrizione': forms.TextInput(attrs={'class': 'form-control'}),
             'importo': forms.NumberInput(attrs={'class': 'form-control'}),
-            'tipo_movimento': forms.Select(attrs={'class': 'form-select'}),
-            'causale': forms.Select(attrs={'class': 'form-select'}),
+            'tipo_movimento': forms.Select(attrs={'class': 'form-select'}),            
             'conto_finanziario': forms.Select(attrs={'class': 'form-select'}),
             'conto_operativo': forms.Select(attrs={'class': 'form-select'}),
             'anagrafica': forms.Select(attrs={'class': 'form-select'}),
@@ -548,3 +549,4 @@ class PrimaNotaUpdateForm(PrimaNotaForm): # Eredita dal form di creazione
         if self.instance and self.instance.data_registrazione:
             # ...formattiamo la data nel formato che il widget HTML si aspetta.
             self.initial['data_registrazione'] = self.instance.data_registrazione.strftime('%Y-%m-%d')
+
