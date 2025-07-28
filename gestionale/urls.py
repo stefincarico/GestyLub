@@ -4,7 +4,7 @@ from .views import (
     AnagraficaListExportExcelView, AnagraficaListExportPdfView, AnagraficaPartitarioExportPdfView, DashboardView, AnagraficaListView, AnagraficaCreateView, 
     DipendenteDettaglioCreateView, AnagraficaUpdateView, AnagraficaDetailView,
     AnagraficaToggleAttivoView, DocumentoListExportExcelView, DocumentoListExportPdfView, 
-    DocumentoListView, DocumentoDetailView, PrimaNotaCreateView, PrimaNotaListExportExcelView, PrimaNotaListExportPdfView, PrimaNotaListView,RegistraPagamentoView, SalvaAttivitaDiarioView, ScadenzarioExportPdfView,
+    DocumentoListView, DocumentoDetailView, PagamentoDeleteView, PrimaNotaCreateView, PrimaNotaListExportExcelView, PrimaNotaListExportPdfView, PrimaNotaListView,RegistraPagamentoView, SalvaAttivitaDiarioView, ScadenzarioExportPdfView,
     ScadenzarioListView, ScadenzarioExportExcelView, AnagraficaPartitarioExportExcelView,
     DashboardHRView, PrimaNotaCreateView, PrimaNotaUpdateView, PrimaNotaDeleteView
 )
@@ -43,4 +43,5 @@ urlpatterns = [
     path('primanota/<int:pk>/elimina/', PrimaNotaDeleteView.as_view(), name='primanota_delete'),
     path('primanota/export/excel/', PrimaNotaListExportExcelView.as_view(), name='primanota_export_excel'),
     path('primanota/export/pdf/', PrimaNotaListExportPdfView.as_view(), name='primanota_export_pdf'),
+    path('pagamenti/<int:pk>/elimina/', PagamentoDeleteView.as_view(), name='pagamento_delete'),
 ]

@@ -26,7 +26,7 @@ from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.views import View
 from django.views.generic import DetailView, ListView
-from django.views.generic.edit import CreateView, UpdateView,DeleteView
+from django.views.generic.edit import CreateView, UpdateView, DeleteView
 
 # Librerie di terze parti
 import openpyxl
@@ -928,10 +928,65 @@ class RegistraPagamentoView(TenantRequiredMixin, View):
             
         return redirect(redirect_url)
     
+class PagamentoDeleteView(TenantRequiredMixin, DeleteView):
+    """
+    Gestisce l'eliminazione di un pagamento (record di PrimaNota).
+    Mostra una pagina di conferma e, dopo l'eliminazione, ricalcola
+    e aggiorna lo stato della scadenza collegata.
+    """
+    model = PrimaNota
+    template_name = 'gestionale/pagamento_confirm_delete.html'
+    
+    def get_success_url(self):
+        """
+        Restituisce l'URL a cui reindirizzare dopo l'eliminazione.
+        Torniamo alla pagina di dettaglio del documento a cui apparteneva il pagamento.
+        """
+        scadenza = self.object.scadenza_collegata
+        if scadenza:
+            return reverse_lazy('documento_detail', kwargs={'pk': scadenza.documento.pk})
+        # Fallback nel caso (improbabile) in cui non ci sia una scadenza
+        return reverse_lazy('primanota_list')
+
+    def form_valid(self, form):
+        """
+        Questo metodo viene eseguito dopo che l'utente ha confermato l'eliminazione.
+        """
+        # self.object è il record di PrimaNota che stiamo per cancellare.
+        scadenza_da_aggiornare = self.object.scadenza_collegata
+        
+        with transaction.atomic():
+            # Eseguiamo l'eliminazione effettiva del pagamento.
+            # Chiamiamo il metodo della classe base per farlo.
+            response = super().form_valid(form)
+            
+            # Se la scadenza esiste ancora, ricalcoliamo il suo stato.
+            if scadenza_da_aggiornare:
+                # Ricarichiamo l'oggetto dal DB per essere sicuri dei dati.
+                scadenza_da_aggiornare.refresh_from_db()
+                
+                # Calcoliamo il nuovo totale pagato.
+                totale_pagato = scadenza_da_aggiornare.pagamenti.aggregate(
+                    total=Coalesce(Sum('importo'), Value(0))
+                )['total']
+                
+                # Aggiorniamo lo stato.
+                if totale_pagato <= 0:
+                    scadenza_da_aggiornare.stato = Scadenza.Stato.APERTA
+                elif totale_pagato < scadenza_da_aggiornare.importo_rata:
+                    scadenza_da_aggiornare.stato = Scadenza.Stato.PARZIALE
+                else:
+                    scadenza_da_aggiornare.stato = Scadenza.Stato.SALDATA
+                
+                scadenza_da_aggiornare.save()
+
+        messages.success(self.request, f"Pagamento N. {self.object.pk} eliminato con successo. Stato scadenza aggiornato.")
+        return response
+
+
 # ==============================================================================
 # === VISTE SCADENZIARIO                                                    ===
 # ==============================================================================
-
 
 class ScadenzarioListView(TenantRequiredMixin, View):
     """
