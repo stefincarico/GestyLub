@@ -1,0 +1,25 @@
+{% extends "gestionale/base.html" %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<h1 class="h2 mb-4">{{ title }}</h1>
+<div class="card">
+    <div class="card-body">
+        <p>Stai modificando il pagamento per la scadenza del <strong>{{ object.scadenza_collegata.data_scadenza|date:"d/m/Y" }}</strong> 
+           relativa al documento <strong>{{ object.scadenza_collegata.documento.numero_documento }}</strong>.</p>
+        <hr>
+        <form method="post">
+            {% csrf_token %}
+            
+            {% include "gestionale/partials/_form_field.html" with field=form.data_registrazione %}
+            {% include "gestionale/partials/_form_field.html" with field=form.importo %}
+            {% include "gestionale/partials/_form_field.html" with field=form.conto_finanziario %}
+
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary">Salva Modifiche</button>
+                <a href="{{ object.scadenza_collegata.documento.get_absolute_url }}" class="btn btn-secondary">Annulla</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

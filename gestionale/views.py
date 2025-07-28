@@ -39,7 +39,7 @@ from .forms import (
     AnagraficaForm, DiarioAttivitaForm, DipendenteDettaglioForm,
     DocumentoFilterForm, DocumentoRigaForm, DocumentoTestataForm,
     PagamentoForm, PartitarioFilterForm, PrimaNotaFilterForm, PrimaNotaForm,
-    ScadenzarioFilterForm, ScadenzaWizardForm,PrimaNotaUpdateForm
+    ScadenzarioFilterForm, ScadenzaWizardForm,PrimaNotaUpdateForm,PagamentoUpdateForm
 )
 from .models import (
     AliquotaIVA, Anagrafica, Cantiere, Causale, ContoFinanziario,
@@ -984,6 +984,54 @@ class PagamentoDeleteView(TenantRequiredMixin, DeleteView):
         messages.success(self.request, f"Pagamento N. {self.object.pk} eliminato con successo. Stato scadenza aggiornato.")
         return response
 
+class PagamentoUpdateView(TenantRequiredMixin, UpdateView):
+    """
+    Gestisce la modifica di un pagamento esistente (record di PrimaNota).
+    """
+    model = PrimaNota
+    form_class = PagamentoUpdateForm
+    template_name = 'gestionale/pagamento_form.html'
+    
+    def get_success_url(self):
+        """
+        Torna alla pagina di dettaglio del documento di origine.
+        """
+        return reverse_lazy('documento_detail', kwargs={'pk': self.object.scadenza_collegata.documento.pk})
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = f"Modifica Pagamento N. {self.object.pk}"
+        return context
+
+    def form_valid(self, form):
+        """
+        Salva le modifiche e ricalcola lo stato della scadenza.
+        """
+        with transaction.atomic():
+            # Salva le modifiche al pagamento
+            pagamento = form.save(commit=False)
+            pagamento.updated_by = self.request.user # Anche se non abbiamo questo campo su PrimaNota
+            pagamento.save()
+            
+            # Ricalcola e aggiorna lo stato della scadenza collegata
+            scadenza = pagamento.scadenza_collegata
+            scadenza.refresh_from_db()
+            
+            totale_pagato = scadenza.pagamenti.aggregate(
+                total=Coalesce(Sum('importo'), Value(0), output_field=models.DecimalField())
+            )['total']
+            
+            if totale_pagato <= 0:
+                scadenza.stato = Scadenza.Stato.APERTA
+            elif totale_pagato < scadenza.importo_rata:
+                scadenza.stato = Scadenza.Stato.PARZIALE
+            else:
+                scadenza.stato = Scadenza.Stato.SALDATA
+            scadenza.save()
+
+        messages.success(self.request, f"Pagamento N. {self.object.pk} aggiornato con successo.")
+        return super().form_valid(form)
+    
 
 # ==============================================================================
 # === VISTE SCADENZIARIO                                                    ===

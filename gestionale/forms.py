@@ -1,6 +1,9 @@
 # gestionale/forms.py
 
 from django import forms
+from django.db import models
+from django.db.models import Sum, Value
+from django.db.models.functions import Coalesce
 from .models import (Anagrafica, Cantiere, Causale, ContoOperativo, 
         DipendenteDettaglio, DocumentoRiga, DocumentoTestata, AliquotaIVA, PrimaNota,
         Scadenza, ContoFinanziario, DiarioAttivita, MezzoAziendale)
@@ -550,3 +553,53 @@ class PrimaNotaUpdateForm(PrimaNotaForm): # Eredita dal form di creazione
             # ...formattiamo la data nel formato che il widget HTML si aspetta.
             self.initial['data_registrazione'] = self.instance.data_registrazione.strftime('%Y-%m-%d')
 
+class PagamentoUpdateForm(forms.ModelForm):
+    """
+    Form per la MODIFICA di un pagamento esistente (PrimaNota).
+    Include una validazione custom per l'importo.
+    """
+    class Meta:
+        model = PrimaNota
+        fields = ['data_registrazione', 'importo', 'conto_finanziario']
+        widgets = {
+            'data_registrazione': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'importo': forms.NumberInput(attrs={'class': 'form-control'}),
+            'conto_finanziario': forms.Select(attrs={'class': 'form-select'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['conto_finanziario'].queryset = ContoFinanziario.objects.filter(attivo=True)
+        
+        # Formatta la data iniziale nel formato YYYY-MM-DD
+        if self.instance and self.instance.data_registrazione:
+            self.initial['data_registrazione'] = self.instance.data_registrazione.strftime('%Y-%m-%d')
+
+    def clean_importo(self):
+        """
+        Validazione per assicurarsi che il nuovo importo sia valido.
+        """
+        importo_nuovo = self.cleaned_data.get('importo')
+        if importo_nuovo <= 0:
+            raise forms.ValidationError("L'importo deve essere maggiore di zero.")
+
+        # self.instance è il pagamento ORIGINALE, prima delle modifiche
+        scadenza = self.instance.scadenza_collegata
+        importo_originale_pagamento = self.instance.importo
+        
+        # Calcoliamo il totale già pagato sulla scadenza, ESCLUSO questo pagamento
+        # Aggiungiamo output_field=models.DecimalField() a Coalesce
+        totale_altri_pagamenti = scadenza.pagamenti.exclude(pk=self.instance.pk).aggregate(
+            total=Coalesce(Sum('importo'), Value(0), output_field=models.DecimalField())
+        )['total']
+        
+        # Il massimo importo che questo pagamento può assumere
+        massimo_importo_consentito = scadenza.importo_rata - totale_altri_pagamenti
+
+        if importo_nuovo > massimo_importo_consentito:
+            raise forms.ValidationError(
+                f"L'importo supera il residuo della scadenza. Massimo consentito: € {massimo_importo_consentito:.2f}"
+            )
+        
+        return importo_nuovo
+    
