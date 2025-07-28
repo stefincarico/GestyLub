@@ -1,0 +1,28 @@
+Istruzioni per Salvare e Gestire la Cronologia della Chat
+
+Ciao! Per salvare o gestire la cronologia di questa conversazione, la maggior parte degli strumenti a riga di comando (CLI) come questo usano comandi specifici che iniziano con una barra (/).
+
+Ecco i passaggi che puoi seguire:
+
+1.  **Cerca il Comando di Aiuto:**
+    Il primo comando da provare è sempre quello di aiuto. Ti mostrerà la lista di tutti i comandi disponibili. Prova a digitare:
+    /help
+
+2.  **Cerca Comandi per la Cronologia o la Chat:**
+    Scorri la lista dei comandi per trovare quelli relativi alla gestione della sessione o della cronologia. I nomi più comuni sono:
+    - /history
+    - /chat
+    - /session
+
+3.  **Salva o Esporta la Chat:**
+    Una volta trovato il comando principale, probabilmente avrà dei sottocomandi come "save" o "export". Ad esempio, potresti provare:
+    - /history save nome_file.json
+    - /chat export nome_file.txt
+
+Per riaprire una chat, probabilmente userai un comando simile, come `/history load nome_file.json`.
+
+**Riepilogo Comandi da Provare:**
+- /help
+- /history
+- /chat save
+- /chat export
