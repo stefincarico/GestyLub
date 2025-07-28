@@ -118,6 +118,7 @@
                     <tr>
                         <th>Data Pagamento</th>
                         <th>Descrizione</th>
+                        <th>Rif. Data Scadenza</th> 
                         <th class="text-end">Importo</th>
                         <th>Conto</th>
                         <th>Azioni</th>
@@ -128,6 +129,13 @@
                     <tr>
                         <td>{{ pagamento.data_registrazione|date:"d/m/Y" }}</td>
                         <td>{{ pagamento.descrizione }}</td>
+                        <td>
+                            {% if pagamento.scadenza_collegata %}
+                                {{ pagamento.scadenza_collegata.data_scadenza|date:"d/m/Y" }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
                         <td class="text-end {% if pagamento.tipo_movimento == 'E' %}text-success{% else %}text-danger{% endif %}">
                             € {{ pagamento.importo|format_currency }}
                         </td>
@@ -141,7 +149,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="5" class="text-center">Nessun pagamento registrato per questo documento.</td>
+                        <td colspan="6" class="text-center">Nessun pagamento registrato per questo documento.</td>
                     </tr>
                     {% endfor %}
                 </tbody>

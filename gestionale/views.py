@@ -544,7 +544,7 @@ class DocumentoDetailView(TenantRequiredMixin, DetailView):
         # 'scadenza_collegata__documento' attraversa due relazioni: da PrimaNota a Scadenza, e da Scadenza a Documento.
         cronologia_pagamenti = PrimaNota.objects.filter(
             scadenza_collegata__documento=documento
-        ).order_by('-data_registrazione')
+        ).select_related('scadenza_collegata', 'conto_finanziario').order_by('-data_registrazione')
         # === FINE NUOVA LOGICA ===
 
         context['scadenze'] = scadenze_con_pagato
