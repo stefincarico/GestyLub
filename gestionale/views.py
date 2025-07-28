@@ -1556,3 +1556,4 @@ class PrimaNotaCreateView(TenantRequiredMixin, CreateView):
             
         # Reindirizza alla pagina di successo in entrambi i casi.
         return HttpResponseRedirect(self.get_success_url())
+    
