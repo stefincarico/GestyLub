@@ -471,7 +471,32 @@ def get_anagrafiche_by_tipo(request):
 # ==============================================================================
 # === VISTE DOCUMENTI (Dettaglio/Partitario)                              ===
 # ==============================================================================
+def get_documento_dettaglio_data(pk):
+    """
+    Funzione helper che recupera tutti i dati necessari per la vista
+    di dettaglio di un documento e per i suoi export.
+    """
+    documento = get_object_or_404(DocumentoTestata, pk=pk)
+    
+    scadenze_qs = Scadenza.objects.filter(documento=documento).annotate(
+        pagato=Coalesce(Sum('pagamenti__importo'), Value(0), output_field=models.DecimalField())
+    ).order_by('data_scadenza')
+    
+    for s in scadenze_qs:
+        s.residuo = s.importo_rata - s.pagato
 
+    cronologia_pagamenti = PrimaNota.objects.filter(
+        scadenza_collegata__documento=documento
+    ).select_related('scadenza_collegata', 'conto_finanziario').order_by('-data_registrazione')
+
+    saldo_residuo = documento.totale - sum(s.pagato for s in scadenze_qs)
+    
+    return {
+        'documento': documento, 
+        'scadenze': scadenze_qs, 
+        'cronologia_pagamenti': cronologia_pagamenti, 
+        'saldo_residuo': saldo_residuo
+    }
 class DocumentoListView(TenantRequiredMixin, View): # Cambia da ListView a View
     """
     Mostra l'elenco paginato e filtrabile di tutti i documenti.
@@ -513,47 +538,22 @@ class DocumentoListView(TenantRequiredMixin, View): # Cambia da ListView a View
         }
         return render(request, self.template_name, context)
 
-class DocumentoDetailView(TenantRequiredMixin, DetailView):
-    model = DocumentoTestata
+class DocumentoDetailView(TenantRequiredMixin, View):
+    """
+    Mostra la vista di dettaglio completa di un singolo documento.
+    In questa versione, carica TUTTE le scadenze e i pagamenti, senza paginazione.
+    """
     template_name = 'gestionale/documento_detail.html'
-    context_object_name = 'documento'
-
-    def get_context_data(self, **kwargs):
-        """
-        Prepara tutti i dati per la vista di dettaglio del documento.
-        """
-        context = super().get_context_data(**kwargs)
-        documento = self.get_object()
+    
+    def get(self, request, *args, **kwargs):
+        # Usiamo la nostra funzione helper per ottenere tutti i dati necessari.
+        context = get_documento_dettaglio_data(kwargs['pk'])
         
-        # Recuperiamo le scadenze e calcoliamo il loro stato
-        scadenze_con_pagato = Scadenza.objects.filter(documento=documento).annotate(
-            pagato=Coalesce(
-                Sum('pagamenti__importo'), 
-                Value(0), 
-                output_field=models.DecimalField()
-            )).order_by('data_scadenza')
-        
-        totale_pagato_doc = 0
-        for scadenza in scadenze_con_pagato:
-            scadenza.residuo = scadenza.importo_rata - scadenza.pagato
-            totale_pagato_doc += scadenza.pagato
-
-        # === INIZIO NUOVA LOGICA ===
-        # Recuperiamo tutti i movimenti di Prima Nota collegati a questo documento,
-        # tramite la relazione inversa attraverso le scadenze.
-        # 'scadenza_collegata__documento' attraversa due relazioni: da PrimaNota a Scadenza, e da Scadenza a Documento.
-        cronologia_pagamenti = PrimaNota.objects.filter(
-            scadenza_collegata__documento=documento
-        ).select_related('scadenza_collegata', 'conto_finanziario').order_by('-data_registrazione')
-        # === FINE NUOVA LOGICA ===
-
-        context['scadenze'] = scadenze_con_pagato
-        context['totale_pagato'] = totale_pagato_doc
-        context['saldo_residuo'] = documento.totale - totale_pagato_doc
+        # Aggiungiamo il form per la modale di pagamento.
         context['pagamento_form'] = PagamentoForm()
-        context['cronologia_pagamenti'] = cronologia_pagamenti # Aggiungiamo la nuova lista al contesto
-
-        return context
+        
+        # Renderizziamo il template con il contesto completo.
+        return render(request, self.template_name, context)
     
 class DocumentoListExportExcelView(DocumentoListView):
     """

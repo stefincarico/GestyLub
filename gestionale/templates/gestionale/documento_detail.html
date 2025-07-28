@@ -141,8 +141,6 @@
                         </td>
                         <td>{{ pagamento.conto_finanziario.nome_conto }}</td>
                         <td>
-                            <!-- Pulsanti per ora finti. Li attiveremo nei prossimi sprint -->
-                            <!-- TODO: Aggiungere controllo permessi -->
                             <a href="{% url 'pagamento_update' pagamento.pk %}" class="btn btn-sm btn-outline-primary">Modifica</a>
                             <a href="{% url 'pagamento_delete' pagamento.pk %}" class="btn btn-sm btn-outline-danger">Elimina</a>
                         </td>
