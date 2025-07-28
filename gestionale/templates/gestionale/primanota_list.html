@@ -6,8 +6,9 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1 class="h2">Prima Nota</h1>
     <div>
-        <!-- TODO: Aggiungere URL per Nuovo Movimento e Export -->
-         <a href="{% url 'primanota_create' %}" class="btn btn-primary">+ Nuovo Movimento</a>
+        <a href="{% url 'primanota_export_excel' %}?{{ request.GET.urlencode }}" class="btn" style="background-color: #185C37; color: white;">Esporta Excel</a>
+        <a href="{% url 'primanota_export_pdf' %}?{{ request.GET.urlencode }}" class="btn" style="background-color: #FF9900; color: white;">Esporta PDF</a>
+        <a href="{% url 'primanota_create' %}" class="btn btn-primary">+ Nuovo Movimento</a>
     </div>
 </div>
 

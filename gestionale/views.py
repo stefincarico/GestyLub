@@ -4,6 +4,7 @@
 # === IMPORTAZIONI ORGANIZZATE                                              ===
 # ==============================================================================
 # Standard Library
+from dataclasses import field
 import json
 from datetime import date, timedelta
 today = date.today()
@@ -1286,73 +1287,58 @@ class SalvaAttivitaDiarioView(TenantRequiredMixin, View):
 
 class PrimaNotaListView(TenantRequiredMixin, View):
     """
-    Mostra l'elenco paginato e filtrabile di tutti i movimenti di Prima Nota.
-    Eredita da 'View' per avere il massimo controllo sulla logica di recupero
-    dei dati e sulla gestione dei filtri.
+    Gestisce la visualizzazione della dashboard di Prima Nota.
+    Contiene la logica di recupero e filtraggio dati riutilizzabile dagli export.
     """
     template_name = 'gestionale/primanota_list.html'
-    paginate_by = 15 # Numero di movimenti da visualizzare per pagina
+    paginate_by = 15
+
+    def _get_filtered_data(self, request):
+        """
+        Metodo helper che centralizza il recupero e il filtraggio dei movimenti.
+        Restituisce il queryset filtrato e il form dei filtri.
+        """
+        filter_form = PrimaNotaFilterForm(request.GET or None)
+        
+        # Queryset di base con ottimizzazione select_related
+        movimenti_qs = PrimaNota.objects.select_related(
+            'conto_finanziario', 'causale', 'anagrafica', 'cantiere'
+        ).order_by('-data_registrazione', '-pk')
+
+        # Applica i filtri se il form è valido
+        if filter_form.is_valid():
+            cleaned_data = filter_form.cleaned_data
+            if cleaned_data.get('descrizione'):
+                movimenti_qs = movimenti_qs.filter(descrizione__icontains=cleaned_data['descrizione'])
+            if cleaned_data.get('conto_finanziario'):
+                movimenti_qs = movimenti_qs.filter(conto_finanziario=cleaned_data['conto_finanziario'])
+            if cleaned_data.get('causale'):
+                movimenti_qs = movimenti_qs.filter(causale=cleaned_data['causale'])
+            if cleaned_data.get('data_da'):
+                movimenti_qs = movimenti_qs.filter(data_registrazione__gte=cleaned_data['data_da'])
+            if cleaned_data.get('data_a'):
+                movimenti_qs = movimenti_qs.filter(data_registrazione__lte=cleaned_data['data_a'])
+        
+        return movimenti_qs, filter_form
 
     def get(self, request, *args, **kwargs):
         """
-        Gestisce le richieste GET. Recupera i dati, applica i filtri,
-        gestisce la paginazione e renderizza il template.
+        Gestisce la richiesta GET per la pagina HTML.
         """
-        # 1. INIZIALIZZA IL FORM DEI FILTRI
-        # Crea un'istanza del form, popolandola con i dati presenti nell'URL
-        # (request.GET). 'or None' è una sicurezza per quando non ci sono parametri.
-        filter_form = PrimaNotaFilterForm(request.GET or None)
+        movimenti_qs, filter_form = self._get_filtered_data(request)
         
-        # 2. QUERYSET DI BASE
-        # Selezioniamo tutti i movimenti di Prima Nota.
-        # - select_related('conto_finanziario', 'causale'): Ottimizzazione fondamentale.
-        #   Dice a Django di recuperare i dati dei modelli collegati con una sola
-        #   query, evitando il problema delle "N+1 query".
-        # - order_by('-data_registrazione', '-pk'): Ordina i movimenti dal più
-        #   recente al più vecchio. A parità di data, ordina per ID decrescente,
-        #   garantendo che i movimenti creati per ultimi appaiano per primi.
-        movimenti_qs = PrimaNota.objects.select_related(
-            'conto_finanziario', 'causale'
-        ).order_by('-data_registrazione', '-pk')
-
-        # 3. APPLICAZIONE DEI FILTRI
-        # Controlliamo se il form è stato inviato con dati validi.
-        if filter_form.is_valid():
-            cleaned_data = filter_form.cleaned_data
-            
-            if cleaned_data.get('descrizione'):
-                # __icontains: filtro testuale non sensibile a maiuscole/minuscole.
-                movimenti_qs = movimenti_qs.filter(descrizione__icontains=cleaned_data['descrizione'])
-            
-            if cleaned_data.get('conto_finanziario'):
-                movimenti_qs = movimenti_qs.filter(conto_finanziario=cleaned_data['conto_finanziario'])
-            
-            if cleaned_data.get('causale'):
-                movimenti_qs = movimenti_qs.filter(causale=cleaned_data['causale'])
-            
-            if cleaned_data.get('data_da'):
-                # __gte: 'greater than or equal to' (maggiore o uguale a).
-                movimenti_qs = movimenti_qs.filter(data_registrazione__gte=cleaned_data['data_da'])
-            
-            if cleaned_data.get('data_a'):
-                # __lte: 'less than or equal to' (minore o uguale a).
-                movimenti_qs = movimenti_qs.filter(data_registrazione__lte=cleaned_data['data_a'])
-
-        # 4. GESTIONE DELLA PAGINAZIONE
-        # Applichiamo la paginazione al queryset, che sia quello originale o quello filtrato.
+        # Paginazione
         paginator = Paginator(movimenti_qs, self.paginate_by)
         page_number = request.GET.get('page')
         page_obj = paginator.get_page(page_number)
         
-        # 5. PREPARAZIONE DEL CONTESTO PER IL TEMPLATE
+        # Contesto per il template
         context = {
-            'movimenti': page_obj, # L'oggetto pagina contiene gli elementi della pagina corrente
-            'is_paginated': page_obj.has_other_pages(), # Utile per mostrare la paginazione solo se serve
-            'page_obj': page_obj, # Passiamo l'oggetto pagina anche per il partial di paginazione
-            'filter_form': filter_form, # Passiamo il form per renderizzare i filtri
+            'movimenti': page_obj,
+            'is_paginated': page_obj.has_other_pages(),
+            'page_obj': page_obj,
+            'filter_form': filter_form,
         }
-        
-        # 6. RENDERIZZA LA PAGINA
         return render(request, self.template_name, context)
 
 class PrimaNotaDeleteView(TenantRequiredMixin, DeleteView):
@@ -1556,4 +1542,103 @@ class PrimaNotaCreateView(TenantRequiredMixin, CreateView):
             
         # Reindirizza alla pagina di successo in entrambi i casi.
         return HttpResponseRedirect(self.get_success_url())
+    
+class PrimaNotaListExportExcelView(PrimaNotaListView):
+    """
+    Esporta la lista filtrata dei movimenti di Prima Nota in formato Excel.
+    Eredita da PrimaNotaListView per accedere al metodo _get_filtered_data.
+    """
+    def get(self, request, *args, **kwargs):
+        # 1. RECUPERO DATI FILTRATI
+        # Chiamiamo il nostro metodo helper per ottenere i dati esatti che l'utente vede.
+        movimenti_qs, filter_form = self._get_filtered_data(request)
+        
+        # 2. PREPARAZIONE DEI DATI PER IL REPORT
+        tenant_name = request.session.get('active_tenant_name', 'GestionaleDjango')
+        report_title = 'Elenco Movimenti di Prima Nota'
+        filename_prefix = 'Prima_Nota'
+        
+        # Costruisci la stringa dei filtri applicati
+        filtri_attivi = []
+        if filter_form.is_valid() and filter_form.cleaned_data:
+            for name, value in filter_form.cleaned_data.items():
+                if value:
+                    label = filter_form.fields[name].label or name.title()
+                    display_value = value
+                    if hasattr(filter_form.fields[name], 'choices'):
+                        display_value = dict(filter_form.fields[name].choices).get(value, value)
+                    if isinstance(value, date):
+                        display_value = value.strftime('%d/%m/%Y')
+                    if isinstance(field, forms.ModelChoiceField): # 'field' non è definito, usiamo 'filter_form.fields[name]'
+                        display_value = str(value)
+                    filtri_attivi.append(f"{label}: {display_value}")
+        filtri_str = " | ".join(filtri_attivi) if filtri_attivi else "Nessun filtro"
+
+        # Definisci le sezioni del report (in questo caso solo una)
+        headers = ["Data", "Descrizione", "Conto Finanziario", "Causale", "Entrata", "Uscita", "Anagrafica", "Cantiere"]
+        data_rows = []
+        for movimento in movimenti_qs:
+            data_rows.append([
+                movimento.data_registrazione,
+                movimento.descrizione,
+                movimento.conto_finanziario.nome_conto,
+                movimento.causale.descrizione,
+                movimento.importo if movimento.tipo_movimento == 'E' else None,
+                movimento.importo if movimento.tipo_movimento == 'U' else None,
+                str(movimento.anagrafica) if movimento.anagrafica else "",
+                str(movimento.cantiere) if movimento.cantiere else "",
+            ])
+        
+        report_sections = [{'title': 'Dettaglio Movimenti', 'headers': headers, 'rows': data_rows}]
+        
+        # 3. CHIAMATA ALLA FUNZIONE DI UTILITY
+        # Deleghiamo tutta la complessità della creazione del file Excel.
+        return generate_excel_report(
+            tenant_name=tenant_name,
+            report_title=report_title,
+            filters_string=filtri_str,
+            kpi_data=None, # Questo report non ha KPI
+            report_sections=report_sections,
+            filename_prefix=filename_prefix
+        )
+  
+class PrimaNotaListExportPdfView(PrimaNotaListView):
+    """
+    Esporta la lista filtrata dei movimenti di Prima Nota in formato PDF.
+    """
+    def get(self, request, *args, **kwargs):
+        # 1. Riutilizziamo la nostra logica centralizzata per ottenere i dati filtrati.
+        movimenti_qs, filter_form = self._get_filtered_data(request)
+        
+        # 2. Prepariamo la stringa dei filtri applicati.
+        filtri_attivi = []
+        if filter_form.is_valid() and filter_form.cleaned_data:
+            for name, value in filter_form.cleaned_data.items():
+                if value:
+                    label = filter_form.fields[name].label or name.title()
+                    # Gestiamo i diversi tipi di campo per avere una visualizzazione pulita
+                    if isinstance(value, date):
+                        display_value = value.strftime('%d/%m/%Y')
+                    elif isinstance(value, models.Model):
+                        display_value = str(value)
+                    else:
+                        display_value = value
+                    filtri_attivi.append(f"{label}: {display_value}")
+        filtri_str = " | ".join(filtri_attivi) if filtri_attivi else "Nessun filtro"
+
+        # 3. Prepariamo il contesto da passare al template PDF.
+        context = {
+            'tenant_name': request.session.get('active_tenant_name', 'GestionaleDjango'),
+            'report_title': 'Elenco Movimenti di Prima Nota',
+            'timestamp': timezone.now().strftime('%d/%m/%Y %H:%M:%S'),
+            'filtri_str': filtri_str,
+            'movimenti': movimenti_qs,
+        }
+        
+        # 4. Chiamiamo la nostra utility per generare il PDF.
+        return generate_pdf_report(
+            request, 
+            'gestionale/primanota_list_pdf.html', 
+            context
+        )
     

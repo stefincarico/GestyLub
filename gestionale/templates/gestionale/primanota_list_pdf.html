@@ -1,0 +1,58 @@
+{% load currency_filters %}
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ report_title }}</title>
+    <style>
+        @page { size: A4 landscape; margin: 1.5cm; }
+        body { font-family: 'Helvetica', sans-serif; font-size: 9pt; }
+        h1 { text-align: center; font-size: 18pt; margin-bottom: 5px; }
+        .report-info { text-align: center; font-size: 8pt; color: #666; margin-bottom: 20px; border-bottom: 1px solid #ccc; padding-bottom: 10px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
+        th { background-color: #f2f2f2; font-size: 8pt; }
+        .text-right { text-align: right; }
+        .text-success { color: #198754; }
+        .text-danger { color: #dc3545; }
+    </style>
+</head>
+<body>
+    <h1>{{ report_title }}</h1>
+    <div class="report-info">
+        <strong>Azienda:</strong> {{ tenant_name }} | 
+        <strong>Filtri:</strong> {{ filtri_str }} | 
+        <strong>Generato il:</strong> {{ timestamp }}
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 10%;">Data</th>
+                <th style="width: 35%;">Descrizione</th>
+                <th style="width: 15%;">Conto Fin.</th>
+                <th style="width: 15%;">Causale</th>
+                <th class="text-right" style="width: 12.5%;">Entrata</th>
+                <th class="text-right" style="width: 12.5%;">Uscita</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for movimento in movimenti %}
+            <tr>
+                <td>{{ movimento.data_registrazione|date:"d/m/Y" }}</td>
+                <td>{{ movimento.descrizione }}</td>
+                <td>{{ movimento.conto_finanziario.nome_conto }}</td>
+                <td>{{ movimento.causale.descrizione }}</td>
+                <td class="text-right text-success">
+                    {% if movimento.tipo_movimento == 'E' %}{{ movimento.importo|format_currency }}{% endif %}
+                </td>
+                <td class="text-right text-danger">
+                    {% if movimento.tipo_movimento == 'U' %}{{ movimento.importo|format_currency }}{% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6" style="text-align: center;">Nessun movimento trovato con i filtri applicati.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>
