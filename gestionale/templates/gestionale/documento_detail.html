@@ -1,7 +1,6 @@
 <!-- gestionale/templates/gestionale/documento_detail.html -->
-
 {% extends "gestionale/base.html" %}
-
+{% load currency_filters %}
 {% block title %}Dettaglio: {{ documento }}{% endblock %}
 
 {% block content %}
@@ -106,6 +105,48 @@
                 {% endfor %}
             </tbody>
         </table>
+    </div>
+</div>
+
+<!-- Cronologia Pagamenti / Incassi -->
+<div class="card mb-4">
+    <div class="card-header">Cronologia Pagamenti / Incassi</div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-striped mb-0">
+                <thead>
+                    <tr>
+                        <th>Data Pagamento</th>
+                        <th>Descrizione</th>
+                        <th class="text-end">Importo</th>
+                        <th>Conto</th>
+                        <th>Azioni</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for pagamento in cronologia_pagamenti %}
+                    <tr>
+                        <td>{{ pagamento.data_registrazione|date:"d/m/Y" }}</td>
+                        <td>{{ pagamento.descrizione }}</td>
+                        <td class="text-end {% if pagamento.tipo_movimento == 'E' %}text-success{% else %}text-danger{% endif %}">
+                            € {{ pagamento.importo|format_currency }}
+                        </td>
+                        <td>{{ pagamento.conto_finanziario.nome_conto }}</td>
+                        <td>
+                            <!-- Pulsanti per ora finti. Li attiveremo nei prossimi sprint -->
+                            <!-- TODO: Aggiungere controllo permessi -->
+                            <a href="#" class="btn btn-sm btn-outline-primary">Modifica</a>
+                            <a href="#" class="btn btn-sm btn-outline-danger">Elimina</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center">Nessun pagamento registrato per questo documento.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 

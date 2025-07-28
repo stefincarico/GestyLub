@@ -519,9 +519,13 @@ class DocumentoDetailView(TenantRequiredMixin, DetailView):
     context_object_name = 'documento'
 
     def get_context_data(self, **kwargs):
+        """
+        Prepara tutti i dati per la vista di dettaglio del documento.
+        """
         context = super().get_context_data(**kwargs)
         documento = self.get_object()
         
+        # Recuperiamo le scadenze e calcoliamo il loro stato
         scadenze_con_pagato = Scadenza.objects.filter(documento=documento).annotate(
             pagato=Coalesce(
                 Sum('pagamenti__importo'), 
@@ -529,18 +533,26 @@ class DocumentoDetailView(TenantRequiredMixin, DetailView):
                 output_field=models.DecimalField()
             )).order_by('data_scadenza')
         
-        
         totale_pagato_doc = 0
         for scadenza in scadenze_con_pagato:
             scadenza.residuo = scadenza.importo_rata - scadenza.pagato
             totale_pagato_doc += scadenza.pagato
 
+        # === INIZIO NUOVA LOGICA ===
+        # Recuperiamo tutti i movimenti di Prima Nota collegati a questo documento,
+        # tramite la relazione inversa attraverso le scadenze.
+        # 'scadenza_collegata__documento' attraversa due relazioni: da PrimaNota a Scadenza, e da Scadenza a Documento.
+        cronologia_pagamenti = PrimaNota.objects.filter(
+            scadenza_collegata__documento=documento
+        ).order_by('-data_registrazione')
+        # === FINE NUOVA LOGICA ===
+
         context['scadenze'] = scadenze_con_pagato
         context['totale_pagato'] = totale_pagato_doc
         context['saldo_residuo'] = documento.totale - totale_pagato_doc
-
         context['pagamento_form'] = PagamentoForm()
-        
+        context['cronologia_pagamenti'] = cronologia_pagamenti # Aggiungiamo la nuova lista al contesto
+
         return context
     
 class DocumentoListExportExcelView(DocumentoListView):
@@ -879,10 +891,10 @@ class RegistraPagamentoView(TenantRequiredMixin, View):
 
             with transaction.atomic():
                 if scadenza.tipo_scadenza == Scadenza.Tipo.INCASSO:
-                    causale, _ = Causale.objects.get_or_create(descrizione="INCASSO FATTURA CLIENTE")
+                    causale, _ = Causale.objects.get_or_create(descrizione="INC. FT. CLI.")
                     tipo_movimento = PrimaNota.TipoMovimento.ENTRATA
                 else:
-                    causale, _ = Causale.objects.get_or_create(descrizione="PAGAMENTO FATTURA FORNITORE")
+                    causale, _ = Causale.objects.get_or_create(descrizione="PAG. FT. FORN.")
                     tipo_movimento = PrimaNota.TipoMovimento.USCITA
                 
                 PrimaNota.objects.create(
