@@ -4,7 +4,7 @@ from .views import (
     AdminDashboardView, AliquotaIVACreateView, AliquotaIVAListView, AliquotaIVAToggleAttivoView, AliquotaIVAUpdateView, AnagraficaListExportExcelView, AnagraficaListExportPdfView, AnagraficaPartitarioExportPdfView, CausaleCreateView, CausaleListView, CausaleToggleAttivoView, CausaleUpdateView, ContoFinanziarioCreateView, ContoFinanziarioListView, ContoFinanziarioToggleAttivoView, ContoFinanziarioUpdateView, ContoOperativoCreateView, ContoOperativoListView, ContoOperativoToggleAttivoView, ContoOperativoUpdateView, DashboardView, AnagraficaListView, AnagraficaCreateView, 
     DipendenteDettaglioCreateView, AnagraficaUpdateView, AnagraficaDetailView,
     AnagraficaToggleAttivoView, DocumentoListExportExcelView, DocumentoListExportPdfView, 
-    DocumentoListView, DocumentoDetailView, ModalitaPagamentoCreateView, ModalitaPagamentoListView, ModalitaPagamentoToggleAttivoView, ModalitaPagamentoUpdateView, PagamentoDeleteView, PagamentoUpdateView, PrimaNotaCreateView, PrimaNotaListExportExcelView, PrimaNotaListExportPdfView, PrimaNotaListView,RegistraPagamentoView, SalvaAttivitaDiarioView, ScadenzarioExportPdfView,
+    DocumentoListView, DocumentoDetailView, MezzoAziendaleCreateView, MezzoAziendaleListView, MezzoAziendaleToggleAttivoView, MezzoAziendaleUpdateView, ModalitaPagamentoCreateView, ModalitaPagamentoListView, ModalitaPagamentoToggleAttivoView, ModalitaPagamentoUpdateView, PagamentoDeleteView, PagamentoUpdateView, PrimaNotaCreateView, PrimaNotaListExportExcelView, PrimaNotaListExportPdfView, PrimaNotaListView,RegistraPagamentoView, SalvaAttivitaDiarioView, ScadenzarioExportPdfView,
     ScadenzarioListView, ScadenzarioExportExcelView, AnagraficaPartitarioExportExcelView,
     DashboardHRView, PrimaNotaCreateView, PrimaNotaUpdateView, PrimaNotaDeleteView, DocumentoDetailExportPdfView, TesoreriaDashboardView, TesoreriaExportExcelView, TesoreriaExportPdfView
 )
@@ -75,4 +75,9 @@ urlpatterns = [
     path('admin-panel/conti-operativi/nuovo/', ContoOperativoCreateView.as_view(), name='conto_operativo_create'),
     path('admin-panel/conti-operativi/<int:pk>/modifica/', ContoOperativoUpdateView.as_view(), name='conto_operativo_update'),
     path('admin-panel/conti-operativi/<int:pk>/toggle-attivo/', ContoOperativoToggleAttivoView.as_view(), name='conto_operativo_toggle'),
+    # URLS PER MEZZI AZIENDALI
+    path('admin-panel/mezzi/', MezzoAziendaleListView.as_view(), name='mezzo_aziendale_list'),
+    path('admin-panel/mezzi/nuovo/', MezzoAziendaleCreateView.as_view(), name='mezzo_aziendale_create'),
+    path('admin-panel/mezzi/<int:pk>/modifica/', MezzoAziendaleUpdateView.as_view(), name='mezzo_aziendale_update'),
+    path('admin-panel/mezzi/<int:pk>/toggle-attivo/', MezzoAziendaleToggleAttivoView.as_view(), name='mezzo_aziendale_toggle'),
 ]

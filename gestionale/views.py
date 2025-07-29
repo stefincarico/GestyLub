@@ -38,7 +38,7 @@ from weasyprint import HTML
 # Importazioni delle app locali
 from .forms import (
     AliquotaIVAForm, AnagraficaForm, CausaleForm, ContoFinanziarioForm, ContoOperativoForm, DiarioAttivitaForm, DipendenteDettaglioForm,
-    DocumentoFilterForm, DocumentoRigaForm, DocumentoTestataForm, ModalitaPagamentoForm,
+    DocumentoFilterForm, DocumentoRigaForm, DocumentoTestataForm, MezzoAziendaleForm, ModalitaPagamentoForm,
     PagamentoForm, PartitarioFilterForm, PrimaNotaFilterForm, PrimaNotaForm,
     ScadenzarioFilterForm, ScadenzaWizardForm,PrimaNotaUpdateForm,PagamentoUpdateForm
 )
@@ -2233,7 +2233,7 @@ class ContoOperativoCreateView(TenantRequiredMixin, AdminRequiredMixin, CreateVi
         return super().form_valid(form)
 
 class ContoOperativoUpdateView(TenantRequiredMixin, AdminRequiredMixin, UpdateView):
-    
+
     model = ContoOperativo
     form_class = ContoOperativoForm
     template_name = 'gestionale/config_form_base.html'
@@ -2257,4 +2257,56 @@ class ContoOperativoToggleAttivoView(TenantRequiredMixin, AdminRequiredMixin, Vi
         messages.success(request, f"Stato di '{obj.nome_conto}' aggiornato.")
         return redirect('conto_operativo_list')
     
+ # --- VISTE CRUD PER MEZZI AZIENDALI ---
+
+class MezzoAziendaleListView(TenantRequiredMixin, AdminRequiredMixin, ListView):
+    model = MezzoAziendale
+    template_name = 'gestionale/mezzo_aziendale_list.html'
+    context_object_name = 'oggetti'
     
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = 'Gestione Flotta Mezzi'
+        context['create_url'] = reverse_lazy('mezzo_aziendale_create')
+        return context
+
+class MezzoAziendaleCreateView(TenantRequiredMixin, AdminRequiredMixin, CreateView):
+    model = MezzoAziendale
+    form_class = MezzoAziendaleForm
+    template_name = 'gestionale/config_form_base.html'
+    success_url = reverse_lazy('mezzo_aziendale_list')
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = 'Nuovo Mezzo Aziendale'
+        context['cancel_url'] = reverse_lazy('mezzo_aziendale_list')
+        return context
+        
+    def form_valid(self, form):
+        messages.success(self.request, "Mezzo aziendale creato con successo.")
+        return super().form_valid(form)
+
+class MezzoAziendaleUpdateView(TenantRequiredMixin, AdminRequiredMixin, UpdateView):
+    model = MezzoAziendale
+    form_class = MezzoAziendaleForm
+    template_name = 'gestionale/config_form_base.html'
+    success_url = reverse_lazy('mezzo_aziendale_list')
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = 'Modifica Mezzo Aziendale'
+        context['cancel_url'] = reverse_lazy('mezzo_aziendale_list')
+        return context
+
+    def form_valid(self, form):
+        messages.success(self.request, "Mezzo aziendale aggiornato con successo.")
+        return super().form_valid(form)
+
+class MezzoAziendaleToggleAttivoView(TenantRequiredMixin, AdminRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        obj = get_object_or_404(MezzoAziendale, pk=kwargs.get('pk'))
+        obj.attivo = not obj.attivo
+        obj.save()
+        messages.success(request, f"Stato di '{obj.targa}' aggiornato.")
+        return redirect('mezzo_aziendale_list')
+   

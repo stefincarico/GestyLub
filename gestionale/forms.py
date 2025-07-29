@@ -688,3 +688,21 @@ class ContoOperativoForm(forms.ModelForm):
         data = self.cleaned_data.get('nome_conto')
         return data.upper() if data else data
 
+class MezzoAziendaleForm(forms.ModelForm):
+    """
+    Form per la creazione e modifica dei Mezzi Aziendali.
+    """
+    class Meta:
+        model = MezzoAziendale
+        fields = ['targa', 'descrizione', 'tipo', 'attivo']
+        widgets = {
+            'targa': forms.TextInput(attrs={'class': 'form-control'}),
+            'descrizione': forms.TextInput(attrs={'class': 'form-control'}),
+            'tipo': forms.TextInput(attrs={'class': 'form-control'}),
+            'attivo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+    def clean_targa(self):
+        data = self.cleaned_data.get('targa')
+        # Rimuove spazi e converte in maiuscolo per coerenza
+        return data.replace(" ", "").upper() if data else data

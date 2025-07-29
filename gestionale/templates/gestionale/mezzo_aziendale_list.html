@@ -1,0 +1,53 @@
+{% extends "gestionale/base.html" %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h2 mb-0">{{ title }}</h1>
+    <div>
+        <a href="{{ create_url }}" class="btn btn-primary">+ Nuovo</a>
+    </div>
+</div>
+<div class="card">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Targa</th>
+                    <th>Descrizione</th>
+                    <th>Tipo</th>
+                    <th>Stato</th>
+                    <th>Azioni</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for obj in oggetti %}
+                <tr>
+                    <td><strong>{{ obj.targa }}</strong></td>
+                    <td>{{ obj.descrizione }}</td>
+                    <td>{{ obj.tipo|default_if_none:"" }}</td>
+                    <td>
+                        {% if obj.attivo %}
+                            <span class="badge bg-success">Attivo</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Non Attivo</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{% url 'mezzo_aziendale_update' obj.pk %}" class="btn btn-sm btn-outline-primary">Modifica</a>
+                        <form action="{% url 'mezzo_aziendale_toggle' obj.pk %}" method="post" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm {% if obj.attivo %}btn-outline-danger{% else %}btn-outline-success{% endif %}">
+                                {% if obj.attivo %}Disattiva{% else %}Riattiva{% endif %}
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="text-center">Nessun elemento trovato.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
