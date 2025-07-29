@@ -704,8 +704,15 @@ class MezzoAziendaleForm(forms.ModelForm):
 
     def clean_targa(self):
         data = self.cleaned_data.get('targa')
-        # Rimuove spazi e converte in maiuscolo per coerenza
         return data.replace(" ", "").upper() if data else data
+    
+    def clean_descrizione(self):
+        data = self.cleaned_data.get('descrizione')
+        return data.upper() if data else data
+    
+    def clean_tipo(self):
+        data = self.cleaned_data.get('tipo')
+        return data.upper() if data else data
 
 class TipoScadenzaPersonaleForm(forms.ModelForm):
     """
