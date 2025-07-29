@@ -1,7 +1,7 @@
 # gestionale/urls.py
 from django.urls import path
 from .views import (
-    AdminDashboardView, AnagraficaListExportExcelView, AnagraficaListExportPdfView, AnagraficaPartitarioExportPdfView, DashboardView, AnagraficaListView, AnagraficaCreateView, 
+    AdminDashboardView, AliquotaIVACreateView, AliquotaIVAListView, AliquotaIVAToggleAttivoView, AliquotaIVAUpdateView, AnagraficaListExportExcelView, AnagraficaListExportPdfView, AnagraficaPartitarioExportPdfView, DashboardView, AnagraficaListView, AnagraficaCreateView, 
     DipendenteDettaglioCreateView, AnagraficaUpdateView, AnagraficaDetailView,
     AnagraficaToggleAttivoView, DocumentoListExportExcelView, DocumentoListExportPdfView, 
     DocumentoListView, DocumentoDetailView, ModalitaPagamentoCreateView, ModalitaPagamentoListView, ModalitaPagamentoToggleAttivoView, ModalitaPagamentoUpdateView, PagamentoDeleteView, PagamentoUpdateView, PrimaNotaCreateView, PrimaNotaListExportExcelView, PrimaNotaListExportPdfView, PrimaNotaListView,RegistraPagamentoView, SalvaAttivitaDiarioView, ScadenzarioExportPdfView,
@@ -55,4 +55,9 @@ urlpatterns = [
     path('admin-panel/modalita-pagamento/nuova/', ModalitaPagamentoCreateView.as_view(), name='modalita_pagamento_create'),
     path('admin-panel/modalita-pagamento/<int:pk>/modifica/', ModalitaPagamentoUpdateView.as_view(), name='modalita_pagamento_update'),
     path('admin-panel/modalita-pagamento/<int:pk>/toggle-attivo/', ModalitaPagamentoToggleAttivoView.as_view(), name='modalita_pagamento_toggle'),
+    # URLS PER ALIQUOTE IVA
+    path('admin-panel/aliquote-iva/', AliquotaIVAListView.as_view(), name='aliquota_iva_list'),
+    path('admin-panel/aliquote-iva/nuova/', AliquotaIVACreateView.as_view(), name='aliquota_iva_create'),
+    path('admin-panel/aliquote-iva/<int:pk>/modifica/', AliquotaIVAUpdateView.as_view(), name='aliquota_iva_update'),
+    path('admin-panel/aliquote-iva/<int:pk>/toggle-attivo/', AliquotaIVAToggleAttivoView.as_view(), name='aliquota_iva_toggle'),
 ]

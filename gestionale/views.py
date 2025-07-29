@@ -37,7 +37,7 @@ from weasyprint import HTML
 
 # Importazioni delle app locali
 from .forms import (
-    AnagraficaForm, DiarioAttivitaForm, DipendenteDettaglioForm,
+    AliquotaIVAForm, AnagraficaForm, DiarioAttivitaForm, DipendenteDettaglioForm,
     DocumentoFilterForm, DocumentoRigaForm, DocumentoTestataForm, ModalitaPagamentoForm,
     PagamentoForm, PartitarioFilterForm, PrimaNotaFilterForm, PrimaNotaForm,
     ScadenzarioFilterForm, ScadenzaWizardForm,PrimaNotaUpdateForm,PagamentoUpdateForm
@@ -2043,3 +2043,57 @@ class ModalitaPagamentoToggleAttivoView(TenantRequiredMixin, AdminRequiredMixin,
         messages.success(request, f"Stato di '{obj.descrizione}' aggiornato.")
         return redirect('modalita_pagamento_list')
     
+# --- VISTE CRUD PER ALIQUOTE IVA ---
+
+class AliquotaIVAListView(TenantRequiredMixin, AdminRequiredMixin, ListView):
+    model = AliquotaIVA
+    template_name = 'gestionale/aliquota_iva_list.html' # Useremo un template specifico per ora
+    context_object_name = 'oggetti'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = 'Aliquote IVA'
+        context['create_url'] = reverse_lazy('aliquota_iva_create')
+        return context
+
+class AliquotaIVACreateView(TenantRequiredMixin, AdminRequiredMixin, CreateView):
+    model = AliquotaIVA
+    form_class = AliquotaIVAForm
+    template_name = 'gestionale/config_form_base.html' # Riutilizziamo il form generico!
+    success_url = reverse_lazy('aliquota_iva_list')
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = 'Nuova Aliquota IVA'
+        # Passiamo l'URL di "annulla" per il template generico
+        context['cancel_url'] = reverse_lazy('aliquota_iva_list')
+        return context
+        
+    def form_valid(self, form):
+        messages.success(self.request, "Aliquota IVA creata con successo.")
+        return super().form_valid(form)
+
+class AliquotaIVAUpdateView(TenantRequiredMixin, AdminRequiredMixin, UpdateView):
+    model = AliquotaIVA
+    form_class = AliquotaIVAForm
+    template_name = 'gestionale/config_form_base.html' # Riutilizziamo il form generico!
+    success_url = reverse_lazy('aliquota_iva_list')
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = 'Modifica Aliquota IVA'
+        context['cancel_url'] = reverse_lazy('aliquota_iva_list')
+        return context
+
+    def form_valid(self, form):
+        messages.success(self.request, "Aliquota IVA aggiornata con successo.")
+        return super().form_valid(form)
+
+class AliquotaIVAToggleAttivoView(TenantRequiredMixin, AdminRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        obj = get_object_or_404(AliquotaIVA, pk=kwargs.get('pk'))
+        obj.attivo = not obj.attivo
+        obj.save()
+        messages.success(request, f"Stato di '{obj.descrizione}' aggiornato.")
+        return redirect('aliquota_iva_list')
+

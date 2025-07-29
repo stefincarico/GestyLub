@@ -620,3 +620,21 @@ class ModalitaPagamentoForm(forms.ModelForm):
         # Applichiamo la sanificazione per coerenza
         data = self.cleaned_data.get('descrizione')
         return data.upper() if data else data
+    
+class AliquotaIVAForm(forms.ModelForm):
+    """
+    Form per la creazione e modifica delle Aliquote IVA.
+    """
+    class Meta:
+        model = AliquotaIVA
+        fields = ['descrizione', 'valore_percentuale', 'attivo']
+        widgets = {
+            'descrizione': forms.TextInput(attrs={'class': 'form-control'}),
+            'valore_percentuale': forms.NumberInput(attrs={'class': 'form-control'}),
+            'attivo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+    def clean_descrizione(self):
+        data = self.cleaned_data.get('descrizione')
+        return data.upper() if data else data
+    
