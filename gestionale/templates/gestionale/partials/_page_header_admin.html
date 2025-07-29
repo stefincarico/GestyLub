@@ -1,0 +1,10 @@
+<!-- gestionale/templates/gestionale/partials/_page_header_admin.html -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h2 mb-0">{{ title }}</h1>
+    <div>
+        <a href="{% url 'admin_dashboard' %}" class="btn btn-secondary me-2">← Ritorna alla Dashboard</a>
+        {% if create_url %}
+        <a href="{{ create_url }}" class="btn btn-primary">+ Nuovo</a>
+        {% endif %}
+    </div>
+</div>

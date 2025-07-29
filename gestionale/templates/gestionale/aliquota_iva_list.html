@@ -2,13 +2,7 @@
 {% block title %}{{ title }}{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h1 class="h2 mb-0">{{ title }}</h1>
-    <div>
-        <a href="{% url 'admin_dashboard' %}" class="btn btn-secondary me-2">← Ritorna alla Dashboard</a>
-        <a href="{{ create_url }}" class="btn btn-primary">+ Nuova</a>
-    </div>
-</div>
+{% include "gestionale/partials/_page_header_admin.html" %}
 <div class="card">
     <div class="card-body p-0">
         <table class="table table-hover mb-0">
