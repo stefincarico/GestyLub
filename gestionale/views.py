@@ -40,12 +40,12 @@ from .forms import (
     AliquotaIVAForm, AnagraficaForm, CausaleForm, ContoFinanziarioForm, ContoOperativoForm, DiarioAttivitaForm, DipendenteDettaglioForm,
     DocumentoFilterForm, DocumentoRigaForm, DocumentoTestataForm, MezzoAziendaleForm, ModalitaPagamentoForm,
     PagamentoForm, PartitarioFilterForm, PrimaNotaFilterForm, PrimaNotaForm,
-    ScadenzarioFilterForm, ScadenzaWizardForm,PrimaNotaUpdateForm,PagamentoUpdateForm
+    ScadenzarioFilterForm, ScadenzaWizardForm,PrimaNotaUpdateForm,PagamentoUpdateForm, TipoScadenzaPersonaleForm
 )
 from .models import (
     AliquotaIVA, Anagrafica, Cantiere, Causale, ContoFinanziario,
     ContoOperativo, DiarioAttivita, DipendenteDettaglio, DocumentoRiga,
-    DocumentoTestata, MezzoAziendale, ModalitaPagamento, PrimaNota, Scadenza
+    DocumentoTestata, MezzoAziendale, ModalitaPagamento, PrimaNota, Scadenza, TipoScadenzaPersonale
 )
 from .report_utils import generate_excel_report, generate_pdf_report
 
@@ -2310,3 +2310,60 @@ class MezzoAziendaleToggleAttivoView(TenantRequiredMixin, AdminRequiredMixin, Vi
         messages.success(request, f"Stato di '{obj.targa}' aggiornato.")
         return redirect('mezzo_aziendale_list')
    
+
+
+
+# --- VISTE CRUD PER TIPI SCADENZE PERSONALE ---
+
+class TipoScadenzaPersonaleListView(TenantRequiredMixin, AdminRequiredMixin, ListView):
+    model = TipoScadenzaPersonale
+    template_name = 'gestionale/tipo_scadenza_personale_list.html'
+    context_object_name = 'oggetti'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = 'Tipi Scadenze del Personale'
+        context['create_url'] = reverse_lazy('tipo_scadenza_personale_create')
+        return context
+
+class TipoScadenzaPersonaleCreateView(TenantRequiredMixin, AdminRequiredMixin, CreateView):
+    model = TipoScadenzaPersonale
+    form_class = TipoScadenzaPersonaleForm
+    template_name = 'gestionale/config_form_base.html'
+    success_url = reverse_lazy('tipo_scadenza_personale_list')
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = 'Nuovo Tipo Scadenza Personale'
+        context['cancel_url'] = reverse_lazy('tipo_scadenza_personale_list')
+        return context
+        
+    def form_valid(self, form):
+        messages.success(self.request, "Tipo scadenza creato con successo.")
+        return super().form_valid(form)
+
+class TipoScadenzaPersonaleUpdateView(TenantRequiredMixin, AdminRequiredMixin, UpdateView):
+    model = TipoScadenzaPersonale
+    form_class = TipoScadenzaPersonaleForm
+    template_name = 'gestionale/config_form_base.html'
+    success_url = reverse_lazy('tipo_scadenza_personale_list')
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = 'Modifica Tipo Scadenza Personale'
+        context['cancel_url'] = reverse_lazy('tipo_scadenza_personale_list')
+        return context
+
+    def form_valid(self, form):
+        messages.success(self.request, "Tipo scadenza aggiornato con successo.")
+        return super().form_valid(form)
+
+class TipoScadenzaPersonaleToggleAttivoView(TenantRequiredMixin, AdminRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        obj = get_object_or_404(TipoScadenzaPersonale, pk=kwargs.get('pk'))
+        obj.attivo = not obj.attivo
+        obj.save()
+        messages.success(request, f"Stato di '{obj.descrizione}' aggiornato.")
+        return redirect('tipo_scadenza_personale_list')
+    
+    

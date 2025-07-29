@@ -6,7 +6,7 @@ from django.db.models import Sum, Value
 from django.db.models.functions import Coalesce
 from .models import (Anagrafica, Cantiere, Causale, ContoOperativo, 
         DipendenteDettaglio, DocumentoRiga, DocumentoTestata, AliquotaIVA, ModalitaPagamento, PrimaNota,
-        Scadenza, ContoFinanziario, DiarioAttivita, MezzoAziendale)
+        Scadenza, ContoFinanziario, DiarioAttivita, MezzoAziendale, TipoScadenzaPersonale)
 
 class AnagraficaForm(forms.ModelForm):
     """
@@ -706,3 +706,22 @@ class MezzoAziendaleForm(forms.ModelForm):
         data = self.cleaned_data.get('targa')
         # Rimuove spazi e converte in maiuscolo per coerenza
         return data.replace(" ", "").upper() if data else data
+
+class TipoScadenzaPersonaleForm(forms.ModelForm):
+    """
+    Form per la creazione e modifica dei Tipi di Scadenze Personale.
+    """
+    class Meta:
+        model = TipoScadenzaPersonale
+        fields = ['descrizione', 'validita_mesi', 'note', 'attivo']
+        widgets = {
+            'descrizione': forms.TextInput(attrs={'class': 'form-control'}),
+            'validita_mesi': forms.NumberInput(attrs={'class': 'form-control'}),
+            'note': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'attivo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+    def clean_descrizione(self):
+        data = self.cleaned_data.get('descrizione')
+        return data.upper() if data else data
+    

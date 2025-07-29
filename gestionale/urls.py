@@ -6,7 +6,7 @@ from .views import (
     AnagraficaToggleAttivoView, DocumentoListExportExcelView, DocumentoListExportPdfView, 
     DocumentoListView, DocumentoDetailView, MezzoAziendaleCreateView, MezzoAziendaleListView, MezzoAziendaleToggleAttivoView, MezzoAziendaleUpdateView, ModalitaPagamentoCreateView, ModalitaPagamentoListView, ModalitaPagamentoToggleAttivoView, ModalitaPagamentoUpdateView, PagamentoDeleteView, PagamentoUpdateView, PrimaNotaCreateView, PrimaNotaListExportExcelView, PrimaNotaListExportPdfView, PrimaNotaListView,RegistraPagamentoView, SalvaAttivitaDiarioView, ScadenzarioExportPdfView,
     ScadenzarioListView, ScadenzarioExportExcelView, AnagraficaPartitarioExportExcelView,
-    DashboardHRView, PrimaNotaCreateView, PrimaNotaUpdateView, PrimaNotaDeleteView, DocumentoDetailExportPdfView, TesoreriaDashboardView, TesoreriaExportExcelView, TesoreriaExportPdfView
+    DashboardHRView, PrimaNotaCreateView, PrimaNotaUpdateView, PrimaNotaDeleteView, DocumentoDetailExportPdfView, TesoreriaDashboardView, TesoreriaExportExcelView, TesoreriaExportPdfView, TipoScadenzaPersonaleCreateView, TipoScadenzaPersonaleListView, TipoScadenzaPersonaleToggleAttivoView, TipoScadenzaPersonaleUpdateView
 )
 from .views import documento_create_step1_testata, documento_create_step2_righe, documento_create_step3_scadenze, get_anagrafiche_by_tipo
 
@@ -80,4 +80,9 @@ urlpatterns = [
     path('admin-panel/mezzi/nuovo/', MezzoAziendaleCreateView.as_view(), name='mezzo_aziendale_create'),
     path('admin-panel/mezzi/<int:pk>/modifica/', MezzoAziendaleUpdateView.as_view(), name='mezzo_aziendale_update'),
     path('admin-panel/mezzi/<int:pk>/toggle-attivo/', MezzoAziendaleToggleAttivoView.as_view(), name='mezzo_aziendale_toggle'),
+    # URLS PER TIPI SCADENZE PERSONALE
+    path('admin-panel/tipi-scadenze/', TipoScadenzaPersonaleListView.as_view(), name='tipo_scadenza_personale_list'),
+    path('admin-panel/tipi-scadenze/nuovo/', TipoScadenzaPersonaleCreateView.as_view(), name='tipo_scadenza_personale_create'),
+    path('admin-panel/tipi-scadenze/<int:pk>/modifica/', TipoScadenzaPersonaleUpdateView.as_view(), name='tipo_scadenza_personale_update'),
+    path('admin-panel/tipi-scadenze/<int:pk>/toggle-attivo/', TipoScadenzaPersonaleToggleAttivoView.as_view(), name='tipo_scadenza_personale_toggle'),
 ]
