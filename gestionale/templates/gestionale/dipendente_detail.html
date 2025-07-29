@@ -1,0 +1,62 @@
+{% extends "gestionale/base.html" %}
+{% load currency_filters %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h2 mb-0">{{ title }}</h1>
+    <div>
+        <!-- TODO: Aggiungere link utili, come "Torna a Dashboard HR" -->
+        <a href="{% url 'anagrafica_list' %}" class="btn btn-secondary">Torna a Elenco Anagrafiche</a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-4">
+        <!-- Card Dati Anagrafici -->
+        <div class="card mb-4">
+            <div class="card-header">Dati Anagrafici</div>
+            <div class="card-body">
+                <p><strong>Codice:</strong> {{ dipendente.codice }}</p>
+                <p><strong>Codice Fiscale:</strong> {{ dipendente.codice_fiscale|default_if_none:"" }}</p>
+                <p><strong>Indirizzo:</strong> {{ dipendente.indirizzo|default_if_none:"" }}</p>
+                <p><strong>Città:</strong> {{ dipendente.citta|default_if_none:"" }} ({{ dipendente.provincia }})</p>
+                <p><strong>Email:</strong> {{ dipendente.email|default_if_none:"" }}</p>
+                <p><strong>Telefono:</strong> {{ dipendente.telefono|default_if_none:"" }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-8">
+        <!-- Card Dati Contrattuali -->
+        <div class="card mb-4">
+            <div class="card-header">Dati Contrattuali e Operativi</div>
+            <div class="card-body">
+                {% with dettaglio=dipendente.dettaglio_dipendente %}
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Mansione:</strong> {{ dettaglio.mansione }}</p>
+                            <p><strong>Data Assunzione:</strong> {{ dettaglio.data_assunzione|date:"d/m/Y" }}</p>
+                            <p><strong>Data Fine Rapporto:</strong> {{ dettaglio.data_fine_rapporto|date:"d/m/Y"|default_if_none:"-" }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Costo Orario Standard:</strong> € {{ dettaglio.costo_orario|format_currency }}</p>
+                            <p><strong>Ore Contratto / Settimana:</strong> {{ dettaglio.ore_settimanali_contratto }}</p>
+                            <p><strong>Giorni Lavorativi / Settimana:</strong> {{ dettaglio.giorni_lavorativi_settimana }}</p>
+                        </div>
+                    </div>
+                    {% if dettaglio.note_generali %}
+                        <hr>
+                        <p><strong>Note:</strong> {{ dettaglio.note_generali|linebreaksbr }}</p>
+                    {% endif %}
+                {% endwith %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- TODO: Aggiungere tabelle per Storico Attività e Scadenze Personali -->
+<div class="alert alert-info">
+    Sezione Storico Attività e Scadenze Personali in costruzione.
+</div>
+
+{% endblock %}

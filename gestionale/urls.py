@@ -1,7 +1,7 @@
 # gestionale/urls.py
 from django.urls import path
 from .views import (
-    AdminDashboardView, AliquotaIVACreateView, AliquotaIVAListView, AliquotaIVAToggleAttivoView, AliquotaIVAUpdateView, AnagraficaListExportExcelView, AnagraficaListExportPdfView, AnagraficaPartitarioExportPdfView, CausaleCreateView, CausaleListView, CausaleToggleAttivoView, CausaleUpdateView, ContoFinanziarioCreateView, ContoFinanziarioListView, ContoFinanziarioToggleAttivoView, ContoFinanziarioUpdateView, ContoOperativoCreateView, ContoOperativoListView, ContoOperativoToggleAttivoView, ContoOperativoUpdateView, DashboardView, AnagraficaListView, AnagraficaCreateView, 
+    AdminDashboardView, AliquotaIVACreateView, AliquotaIVAListView, AliquotaIVAToggleAttivoView, AliquotaIVAUpdateView, AnagraficaListExportExcelView, AnagraficaListExportPdfView, AnagraficaPartitarioExportPdfView, CausaleCreateView, CausaleListView, CausaleToggleAttivoView, CausaleUpdateView, ContoFinanziarioCreateView, ContoFinanziarioListView, ContoFinanziarioToggleAttivoView, ContoFinanziarioUpdateView, ContoOperativoCreateView, ContoOperativoListView, ContoOperativoToggleAttivoView, ContoOperativoUpdateView, DashboardView, AnagraficaListView, AnagraficaCreateView, DipendenteDetailView, 
     DipendenteDettaglioCreateView, AnagraficaUpdateView, AnagraficaDetailView,
     AnagraficaToggleAttivoView, DocumentoListExportExcelView, DocumentoListExportPdfView, 
     DocumentoListView, DocumentoDetailView, MezzoAziendaleCreateView, MezzoAziendaleListView, MezzoAziendaleToggleAttivoView, MezzoAziendaleUpdateView, ModalitaPagamentoCreateView, ModalitaPagamentoListView, ModalitaPagamentoToggleAttivoView, ModalitaPagamentoUpdateView, PagamentoDeleteView, PagamentoUpdateView, PrimaNotaCreateView, PrimaNotaListExportExcelView, PrimaNotaListExportPdfView, PrimaNotaListView,RegistraPagamentoView, SalvaAttivitaDiarioView, ScadenzarioExportPdfView,
@@ -85,4 +85,6 @@ urlpatterns = [
     path('admin-panel/tipi-scadenze/nuovo/', TipoScadenzaPersonaleCreateView.as_view(), name='tipo_scadenza_personale_create'),
     path('admin-panel/tipi-scadenze/<int:pk>/modifica/', TipoScadenzaPersonaleUpdateView.as_view(), name='tipo_scadenza_personale_update'),
     path('admin-panel/tipi-scadenze/<int:pk>/toggle-attivo/', TipoScadenzaPersonaleToggleAttivoView.as_view(), name='tipo_scadenza_personale_toggle'),
+    # NUOVO URL SPECIFICO PER IL FASCICOLO
+    path('dipendenti/<int:pk>/', DipendenteDetailView.as_view(), name='dipendente_detail'),
 ]

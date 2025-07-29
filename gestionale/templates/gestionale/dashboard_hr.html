@@ -34,7 +34,10 @@
                 <tbody>
                     {% for dipendente in dipendenti %}
                     <tr>
-                        <td>{{ dipendente.nome_cognome_ragione_sociale }}</td>
+                        <td>
+                        <!-- MODIFICA QUI -->
+                        <a href="{% url 'dipendente_detail' dipendente.pk %}">{{ dipendente.nome_cognome_ragione_sociale }}</a>
+                        </td>
                         <td>{{ dipendente.dettaglio_dipendente.mansione }}</td>
                         <td>
                             {% if dipendente.attivita %}

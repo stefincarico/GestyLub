@@ -2375,4 +2375,25 @@ class TipoScadenzaPersonaleToggleAttivoView(TenantRequiredMixin, AdminRequiredMi
         messages.success(request, f"Stato di '{obj.descrizione}' aggiornato.")
         return redirect('tipo_scadenza_personale_list')
     
+class DipendenteDetailView(TenantRequiredMixin, DetailView):
+    """
+    Mostra il "Fascicolo del Dipendente", la pagina di dettaglio completa
+    per un'anagrafica di tipo Dipendente.
+    """
+    model = Anagrafica
+    template_name = 'gestionale/dipendente_detail.html'
+    context_object_name = 'dipendente'
+
+    def get_queryset(self):
+        """
+        Assicuriamoci di poter visualizzare solo anagrafiche di tipo Dipendente.
+        """
+        queryset = super().get_queryset()
+        return queryset.filter(tipo=Anagrafica.Tipo.DIPENDENTE)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = f"Fascicolo Dipendente: {self.object.nome_cognome_ragione_sociale}"
+        # TODO: Aggiungere qui i dati delle tabelle collegate (attività, scadenze)
+        return context
     
