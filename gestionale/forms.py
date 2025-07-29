@@ -5,7 +5,7 @@ from django.db import models
 from django.db.models import Sum, Value
 from django.db.models.functions import Coalesce
 from .models import (Anagrafica, Cantiere, Causale, ContoOperativo, 
-        DipendenteDettaglio, DocumentoRiga, DocumentoTestata, AliquotaIVA, PrimaNota,
+        DipendenteDettaglio, DocumentoRiga, DocumentoTestata, AliquotaIVA, ModalitaPagamento, PrimaNota,
         Scadenza, ContoFinanziario, DiarioAttivita, MezzoAziendale)
 
 class AnagraficaForm(forms.ModelForm):
@@ -603,3 +603,20 @@ class PagamentoUpdateForm(forms.ModelForm):
         
         return importo_nuovo
     
+class ModalitaPagamentoForm(forms.ModelForm):
+    """
+    Form per la creazione e modifica delle Modalità di Pagamento.
+    """
+    class Meta:
+        model = ModalitaPagamento
+        fields = ['descrizione', 'giorni_scadenza', 'attivo']
+        widgets = {
+            'descrizione': forms.TextInput(attrs={'class': 'form-control'}),
+            'giorni_scadenza': forms.NumberInput(attrs={'class': 'form-control'}),
+            'attivo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+    def clean_descrizione(self):
+        # Applichiamo la sanificazione per coerenza
+        data = self.cleaned_data.get('descrizione')
+        return data.upper() if data else data

@@ -1,0 +1,50 @@
+{% extends "gestionale/base.html" %}
+{% block title %}Pannello di Amministrazione{% endblock %}
+
+{% block content %}
+<h1 class="h2 mb-2">Pannello di Amministrazione</h1>
+<p class="text-muted mb-4">Da questa sezione puoi configurare le tabelle di base e le impostazioni per l'azienda {{ request.session.active_tenant_name }}.</p>
+
+<div class="row">
+    <!-- Card Contabilità -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">Contabilità</div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    <!-- Attiveremo questo link per primo -->
+                    <li class="list-group-item"><a href="{% url 'modalita_pagamento_list' %}">Modalità di Pagamento</a></li>
+                    <li class="list-group-item"><a href="#">Aliquote IVA</a></li>
+                    <li class="list-group-item"><a href="#">Causali Contabili</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Card Piano dei Conti -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">Piano dei Conti</div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item"><a href="#">Conti Finanziari (Casse/Banche)</a></li>
+                    <li class="list-group-item"><a href="#">Conti Operativi (Costi/Ricavi)</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Card Flotta e Personale -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">Gestione Flotta e Personale</div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item"><a href="#">Gestione Flotta Mezzi</a></li>
+                    <li class="list-group-item"><a href="#">Tipi Scadenze del Personale</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -27,6 +27,7 @@ from django.utils import timezone
 from django.views import View
 from django.views.generic import DetailView, ListView
 from django.views.generic.edit import CreateView, UpdateView, DeleteView
+from django.contrib.auth.mixins import AccessMixin
 
 # Librerie di terze parti
 import openpyxl
@@ -37,7 +38,7 @@ from weasyprint import HTML
 # Importazioni delle app locali
 from .forms import (
     AnagraficaForm, DiarioAttivitaForm, DipendenteDettaglioForm,
-    DocumentoFilterForm, DocumentoRigaForm, DocumentoTestataForm,
+    DocumentoFilterForm, DocumentoRigaForm, DocumentoTestataForm, ModalitaPagamentoForm,
     PagamentoForm, PartitarioFilterForm, PrimaNotaFilterForm, PrimaNotaForm,
     ScadenzarioFilterForm, ScadenzaWizardForm,PrimaNotaUpdateForm,PagamentoUpdateForm
 )
@@ -1964,4 +1965,81 @@ class TesoreriaExportPdfView(TesoreriaDashboardView):
             'gestionale/tesoreria_dashboard_pdf.html', 
             context
         )
+    
+# === NUOVO MIXIN PER CONTROLLO RUOLO ADMIN ===
+class AdminRequiredMixin(AccessMixin):
+    """
+    Mixin per verificare che l'utente loggato abbia il ruolo 'admin'.
+    """
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return self.handle_no_permission()
+        if request.session.get('user_company_role') != 'admin':
+            messages.error(request, "Non hai i permessi per accedere a questa sezione.")
+            return redirect(reverse('dashboard'))
+        return super().dispatch(request, *args, **kwargs)
+
+# ==============================================================================
+# === VISTE PANNELLO AMMINISTRAZIONE                                        ===
+# ==============================================================================
+
+class AdminDashboardView(TenantRequiredMixin, AdminRequiredMixin, View):
+    """
+    Mostra la pagina principale del pannello di amministrazione del tenant.
+    """
+    template_name = 'gestionale/admin_dashboard.html'
+
+    def get(self, request, *args, **kwargs):
+        return render(request, self.template_name)
+    
+# --- VISTE CRUD PER MODALITA' DI PAGAMENTO ---
+
+class ModalitaPagamentoListView(TenantRequiredMixin, AdminRequiredMixin, ListView):
+    model = ModalitaPagamento
+    template_name = 'gestionale/config_list_base.html' # Useremo un template generico
+    context_object_name = 'oggetti'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = 'Modalità di Pagamento'
+        context['create_url'] = reverse_lazy('modalita_pagamento_create')
+        return context
+
+class ModalitaPagamentoCreateView(TenantRequiredMixin, AdminRequiredMixin, CreateView):
+    model = ModalitaPagamento
+    form_class = ModalitaPagamentoForm
+    template_name = 'gestionale/config_form_base.html' # Template generico
+    success_url = reverse_lazy('modalita_pagamento_list')
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = 'Nuova Modalità di Pagamento'
+        return context
+        
+    def form_valid(self, form):
+        messages.success(self.request, "Modalità di pagamento creata con successo.")
+        return super().form_valid(form)
+
+class ModalitaPagamentoUpdateView(TenantRequiredMixin, AdminRequiredMixin, UpdateView):
+    model = ModalitaPagamento
+    form_class = ModalitaPagamentoForm
+    template_name = 'gestionale/config_form_base.html' # Template generico
+    success_url = reverse_lazy('modalita_pagamento_list')
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = 'Modifica Modalità di Pagamento'
+        return context
+
+    def form_valid(self, form):
+        messages.success(self.request, "Modalità di pagamento aggiornata con successo.")
+        return super().form_valid(form)
+
+class ModalitaPagamentoToggleAttivoView(TenantRequiredMixin, AdminRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        obj = get_object_or_404(ModalitaPagamento, pk=kwargs.get('pk'))
+        obj.attivo = not obj.attivo
+        obj.save()
+        messages.success(request, f"Stato di '{obj.descrizione}' aggiornato.")
+        return redirect('modalita_pagamento_list')
     

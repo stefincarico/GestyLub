@@ -1,10 +1,10 @@
 # gestionale/urls.py
 from django.urls import path
 from .views import (
-    AnagraficaListExportExcelView, AnagraficaListExportPdfView, AnagraficaPartitarioExportPdfView, DashboardView, AnagraficaListView, AnagraficaCreateView, 
+    AdminDashboardView, AnagraficaListExportExcelView, AnagraficaListExportPdfView, AnagraficaPartitarioExportPdfView, DashboardView, AnagraficaListView, AnagraficaCreateView, 
     DipendenteDettaglioCreateView, AnagraficaUpdateView, AnagraficaDetailView,
     AnagraficaToggleAttivoView, DocumentoListExportExcelView, DocumentoListExportPdfView, 
-    DocumentoListView, DocumentoDetailView, PagamentoDeleteView, PagamentoUpdateView, PrimaNotaCreateView, PrimaNotaListExportExcelView, PrimaNotaListExportPdfView, PrimaNotaListView,RegistraPagamentoView, SalvaAttivitaDiarioView, ScadenzarioExportPdfView,
+    DocumentoListView, DocumentoDetailView, ModalitaPagamentoCreateView, ModalitaPagamentoListView, ModalitaPagamentoToggleAttivoView, ModalitaPagamentoUpdateView, PagamentoDeleteView, PagamentoUpdateView, PrimaNotaCreateView, PrimaNotaListExportExcelView, PrimaNotaListExportPdfView, PrimaNotaListView,RegistraPagamentoView, SalvaAttivitaDiarioView, ScadenzarioExportPdfView,
     ScadenzarioListView, ScadenzarioExportExcelView, AnagraficaPartitarioExportExcelView,
     DashboardHRView, PrimaNotaCreateView, PrimaNotaUpdateView, PrimaNotaDeleteView, DocumentoDetailExportPdfView, TesoreriaDashboardView, TesoreriaExportExcelView, TesoreriaExportPdfView
 )
@@ -49,4 +49,10 @@ urlpatterns = [
     path('tesoreria/', TesoreriaDashboardView.as_view(), name='tesoreria_dashboard'),
     path('tesoreria/export/excel/', TesoreriaExportExcelView.as_view(), name='tesoreria_export_excel'),
     path('tesoreria/export/pdf/', TesoreriaExportPdfView.as_view(), name='tesoreria_export_pdf'),
+    path('admin-panel/', AdminDashboardView.as_view(), name='admin_dashboard'),
+    # URLS PER MODALITA' DI PAGAMENTO
+    path('admin-panel/modalita-pagamento/', ModalitaPagamentoListView.as_view(), name='modalita_pagamento_list'),
+    path('admin-panel/modalita-pagamento/nuova/', ModalitaPagamentoCreateView.as_view(), name='modalita_pagamento_create'),
+    path('admin-panel/modalita-pagamento/<int:pk>/modifica/', ModalitaPagamentoUpdateView.as_view(), name='modalita_pagamento_update'),
+    path('admin-panel/modalita-pagamento/<int:pk>/toggle-attivo/', ModalitaPagamentoToggleAttivoView.as_view(), name='modalita_pagamento_toggle'),
 ]
