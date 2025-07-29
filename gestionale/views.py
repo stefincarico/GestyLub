@@ -909,7 +909,6 @@ class AnagraficaPartitarioExportPdfView(AnagraficaDetailView):
             context
         )
 
-
 class AnagraficaListExportExcelView(AnagraficaListView):
     """
     Esporta la lista delle anagrafiche (non paginata) in formato Excel.
