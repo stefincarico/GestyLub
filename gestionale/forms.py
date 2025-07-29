@@ -654,3 +654,21 @@ class CausaleForm(forms.ModelForm):
     def clean_descrizione(self):
         data = self.cleaned_data.get('descrizione')
         return data.upper() if data else data
+
+class ContoFinanziarioForm(forms.ModelForm):
+    """
+    Form per la creazione e modifica dei Conti Finanziari.
+    """
+    class Meta:
+        model = ContoFinanziario
+        fields = ['nome_conto', 'attivo']
+        widgets = {
+            'nome_conto': forms.TextInput(attrs={'class': 'form-control'}),
+            'attivo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+    def clean_nome_conto(self):
+        data = self.cleaned_data.get('nome_conto')
+        return data.upper() if data else data
+    
+    

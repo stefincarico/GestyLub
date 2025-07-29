@@ -37,7 +37,7 @@ from weasyprint import HTML
 
 # Importazioni delle app locali
 from .forms import (
-    AliquotaIVAForm, AnagraficaForm, CausaleForm, DiarioAttivitaForm, DipendenteDettaglioForm,
+    AliquotaIVAForm, AnagraficaForm, CausaleForm, ContoFinanziarioForm, DiarioAttivitaForm, DipendenteDettaglioForm,
     DocumentoFilterForm, DocumentoRigaForm, DocumentoTestataForm, ModalitaPagamentoForm,
     PagamentoForm, PartitarioFilterForm, PrimaNotaFilterForm, PrimaNotaForm,
     ScadenzarioFilterForm, ScadenzaWizardForm,PrimaNotaUpdateForm,PagamentoUpdateForm
@@ -2149,3 +2149,57 @@ class CausaleToggleAttivoView(TenantRequiredMixin, AdminRequiredMixin, View):
         obj.save()
         messages.success(request, f"Stato di '{obj.descrizione}' aggiornato.")
         return redirect('causale_list')
+
+# --- VISTE CRUD PER CONTI FINANZIARI ---
+
+class ContoFinanziarioListView(TenantRequiredMixin, AdminRequiredMixin, ListView):
+    model = ContoFinanziario
+    template_name = 'gestionale/conto_finanziario_list.html'
+    context_object_name = 'oggetti'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = 'Conti Finanziari (Casse/Banche)'
+        context['create_url'] = reverse_lazy('conto_finanziario_create')
+        return context
+
+class ContoFinanziarioCreateView(TenantRequiredMixin, AdminRequiredMixin, CreateView):
+    model = ContoFinanziario
+    form_class = ContoFinanziarioForm
+    template_name = 'gestionale/config_form_base.html'
+    success_url = reverse_lazy('conto_finanziario_list')
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = 'Nuovo Conto Finanziario'
+        context['cancel_url'] = reverse_lazy('conto_finanziario_list')
+        return context
+        
+    def form_valid(self, form):
+        messages.success(self.request, "Conto Finanziario creato con successo.")
+        return super().form_valid(form)
+
+class ContoFinanziarioUpdateView(TenantRequiredMixin, AdminRequiredMixin, UpdateView):
+    model = ContoFinanziario
+    form_class = ContoFinanziarioForm
+    template_name = 'gestionale/config_form_base.html'
+    success_url = reverse_lazy('conto_finanziario_list')
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = 'Modifica Conto Finanziario'
+        context['cancel_url'] = reverse_lazy('conto_finanziario_list')
+        return context
+
+    def form_valid(self, form):
+        messages.success(self.request, "Conto Finanziario aggiornato con successo.")
+        return super().form_valid(form)
+
+class ContoFinanziarioToggleAttivoView(TenantRequiredMixin, AdminRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        obj = get_object_or_404(ContoFinanziario, pk=kwargs.get('pk'))
+        obj.attivo = not obj.attivo
+        obj.save()
+        messages.success(request, f"Stato di '{obj.nome_conto}' aggiornato.")
+        return redirect('conto_finanziario_list')
+    

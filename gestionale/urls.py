@@ -1,7 +1,7 @@
 # gestionale/urls.py
 from django.urls import path
 from .views import (
-    AdminDashboardView, AliquotaIVACreateView, AliquotaIVAListView, AliquotaIVAToggleAttivoView, AliquotaIVAUpdateView, AnagraficaListExportExcelView, AnagraficaListExportPdfView, AnagraficaPartitarioExportPdfView, CausaleCreateView, CausaleListView, CausaleToggleAttivoView, CausaleUpdateView, DashboardView, AnagraficaListView, AnagraficaCreateView, 
+    AdminDashboardView, AliquotaIVACreateView, AliquotaIVAListView, AliquotaIVAToggleAttivoView, AliquotaIVAUpdateView, AnagraficaListExportExcelView, AnagraficaListExportPdfView, AnagraficaPartitarioExportPdfView, CausaleCreateView, CausaleListView, CausaleToggleAttivoView, CausaleUpdateView, ContoFinanziarioCreateView, ContoFinanziarioListView, ContoFinanziarioToggleAttivoView, ContoFinanziarioUpdateView, DashboardView, AnagraficaListView, AnagraficaCreateView, 
     DipendenteDettaglioCreateView, AnagraficaUpdateView, AnagraficaDetailView,
     AnagraficaToggleAttivoView, DocumentoListExportExcelView, DocumentoListExportPdfView, 
     DocumentoListView, DocumentoDetailView, ModalitaPagamentoCreateView, ModalitaPagamentoListView, ModalitaPagamentoToggleAttivoView, ModalitaPagamentoUpdateView, PagamentoDeleteView, PagamentoUpdateView, PrimaNotaCreateView, PrimaNotaListExportExcelView, PrimaNotaListExportPdfView, PrimaNotaListView,RegistraPagamentoView, SalvaAttivitaDiarioView, ScadenzarioExportPdfView,
@@ -65,4 +65,9 @@ urlpatterns = [
     path('admin-panel/causali/nuova/', CausaleCreateView.as_view(), name='causale_create'),
     path('admin-panel/causali/<int:pk>/modifica/', CausaleUpdateView.as_view(), name='causale_update'),
     path('admin-panel/causali/<int:pk>/toggle-attivo/', CausaleToggleAttivoView.as_view(), name='causale_toggle'),
+        # URLS PER CONTI FINANZIARI
+    path('admin-panel/conti-finanziari/', ContoFinanziarioListView.as_view(), name='conto_finanziario_list'),
+    path('admin-panel/conti-finanziari/nuovo/', ContoFinanziarioCreateView.as_view(), name='conto_finanziario_create'),
+    path('admin-panel/conti-finanziari/<int:pk>/modifica/', ContoFinanziarioUpdateView.as_view(), name='conto_finanziario_update'),
+    path('admin-panel/conti-finanziari/<int:pk>/toggle-attivo/', ContoFinanziarioToggleAttivoView.as_view(), name='conto_finanziario_toggle'),
 ]
