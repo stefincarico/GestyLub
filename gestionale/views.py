@@ -47,7 +47,7 @@ from .models import (
     ContoOperativo, DiarioAttivita, DipendenteDettaglio, DocumentoRiga,
     DocumentoTestata, MezzoAziendale, ModalitaPagamento, PrimaNota, Scadenza, TipoScadenzaPersonale
 )
-from .report_utils import generate_excel_report, generate_pdf_report
+from .report_utils import build_filters_string, generate_excel_report, generate_pdf_report
 
 
 # ==============================================================================
@@ -913,11 +913,7 @@ class AnagraficaPartitarioExportPdfView(AnagraficaDetailView):
         )
 
 class AnagraficaListExportExcelView(AnagraficaListView):
-    """
-    Esporta la lista delle anagrafiche (non paginata) in formato Excel.
-    """
     def get(self, request, *args, **kwargs):
-        # get_queryset() è un metodo di ListView che restituisce il queryset di base
         anagrafiche_qs = self.get_queryset()
         
         tenant_name = request.session.get('active_tenant_name', 'GestionaleDjango')
@@ -928,17 +924,21 @@ class AnagraficaListExportExcelView(AnagraficaListView):
         data_rows = []
         for anag in anagrafiche_qs:
             data_rows.append([
-                anag.codice,
-                anag.get_tipo_display(),
-                anag.nome_cognome_ragione_sociale,
-                anag.p_iva,
-                anag.codice_fiscale,
-                anag.citta,
-                "Attivo" if anag.attivo else "Non Attivo"
+                anag.codice, anag.get_tipo_display(), anag.nome_cognome_ragione_sociale,
+                anag.p_iva, anag.codice_fiscale, anag.citta, "Attivo" if anag.attivo else "Non Attivo"
             ])
             
+        # === CORREZIONE ===
+        # Creiamo la lista di sezioni, anche se ne contiene solo una.
+        report_sections = [{'title': 'Elenco Anagrafiche', 'headers': headers, 'rows': data_rows}]
+        
+        # Ora la chiamata è corretta.
         return generate_excel_report(
-            tenant_name, report_title, "Nessun filtro applicato", None, headers, data_rows,
+            tenant_name=tenant_name,
+            report_title=report_title,
+            filters_string="Nessun filtro applicato",
+            kpi_data=None,
+            report_sections=report_sections, # Passiamo la lista di sezioni
             filename_prefix=filename_prefix
         )
 
@@ -1258,37 +1258,14 @@ class ScadenzarioListView(TenantRequiredMixin, View):
         return render(request, self.template_name, context)
 
 class ScadenzarioExportExcelView(ScadenzarioListView):
-    """
-    Esporta i dati dello scadenziario in Excel, usando la utility centralizzata.
-    """
     def get(self, request, *args, **kwargs):
-        # 1. Recupera i dati filtrati e i KPI.
         scadenze_qs, kpi_data, filter_form, today = self._get_filtered_data(request)
-
-        # 2. Prepara i dati per la funzione di utility.
+        
         tenant_name = request.session.get('active_tenant_name', 'GestionaleDjango')
         report_title = 'Report Scadenziario Aperto'
         filename_prefix = 'Scadenziario_Aperto'
+        filtri_str = build_filters_string(filter_form)
         
-        # Costruisci la stringa dei filtri (logica che abbiamo già)
-        filtri_attivi = []
-        if filter_form.is_valid():
-            for name, value in filter_form.cleaned_data.items():
-                if value:
-                    field = filter_form.fields.get(name)
-                    if not field: continue
-                    label = field.label or name.replace('_', ' ').title()
-                    display_value = value
-                    if hasattr(field, 'choices'):
-                        display_value = dict(field.choices).get(value, value)
-                    if isinstance(value, date):
-                        display_value = value.strftime('%d/%m/%Y')
-                    if isinstance(field, forms.ModelChoiceField):
-                        display_value = str(value)
-                    filtri_attivi.append(f"{label}: {display_value}")
-        filtri_str = " | ".join(filtri_attivi) if filtri_attivi else "Tutti"
-        
-        # Prepara i KPI nel formato desiderato
         incassi_aperti = kpi_data['incassi_totali_rate'] - kpi_data['incassi_pagati']
         pagamenti_aperti = kpi_data['pagamenti_totali_rate'] - kpi_data['pagamenti_pagati']
         kpi_report = {
@@ -1296,32 +1273,29 @@ class ScadenzarioExportExcelView(ScadenzarioListView):
             'Pagamenti Aperti': pagamenti_aperti,
             'Saldo Circolante': incassi_aperti - pagamenti_aperti
         }
-
-        # Definisci le intestazioni della tabella
-        headers = [
-            "Data Scad.", "Tipo", "Cliente/Fornitore", "Rif. Doc.", 
-            "Importo Rata", "Residuo", "Stato Rata"
-        ]
         
-        # Prepara le righe di dati
+        # === CORREZIONE ===
+        headers = ["Data Scad.", "Tipo", "Cliente/Fornitore", "Rif. Doc.", "Importo Rata", "Residuo", "Stato Rata"]
         data_rows = []
         scadenze_con_pagato = scadenze_qs.annotate(
             pagato=Coalesce(Sum('pagamenti__importo'), Value(0), output_field=models.DecimalField())
         )
         for scadenza in scadenze_con_pagato:
             data_rows.append([
-                scadenza.data_scadenza,
-                scadenza.get_tipo_scadenza_display(),
-                scadenza.anagrafica.nome_cognome_ragione_sociale,
-                scadenza.documento.numero_documento,
-                scadenza.importo_rata,
-                scadenza.importo_rata - scadenza.pagato,
+                scadenza.data_scadenza, scadenza.get_tipo_scadenza_display(),
+                scadenza.anagrafica.nome_cognome_ragione_sociale, scadenza.documento.numero_documento,
+                scadenza.importo_rata, scadenza.importo_rata - scadenza.pagato,
                 scadenza.get_stato_display()
             ])
             
-        # 3. Chiama la funzione di utility e restituisci il risultato.
+        report_sections = [{'title': 'Dettaglio Scadenze', 'headers': headers, 'rows': data_rows}]
+        
         return generate_excel_report(
-            tenant_name, report_title, filtri_str, kpi_report, headers, data_rows,
+            tenant_name=tenant_name,
+            report_title=report_title,
+            filters_string=filtri_str,
+            kpi_data=kpi_report,
+            report_sections=report_sections, # Passiamo la lista di sezioni
             filename_prefix=filename_prefix
         )
 
@@ -1342,22 +1316,7 @@ class ScadenzarioExportPdfView(ScadenzarioListView):
             scadenza.residuo = scadenza.importo_rata - scadenza.pagato
             
         # Costruisci la stringa dei filtri.
-        filtri_attivi = []
-        if filter_form.is_valid():
-            for name, value in filter_form.cleaned_data.items():
-                if value:
-                    field = filter_form.fields.get(name)
-                    if not field: continue
-                    label = field.label or name.replace('_', ' ').title()
-                    display_value = value
-                    if hasattr(field, 'choices'):
-                         display_value = dict(field.choices).get(value, value)
-                    if isinstance(value, date):
-                         display_value = value.strftime('%d/%m/%Y')
-                    if isinstance(field, forms.ModelChoiceField):
-                        display_value = str(value)
-                    filtri_attivi.append(f"{label}: {display_value}")
-        filtri_str = " | ".join(filtri_attivi) if filtri_attivi else "Tutti"
+        filtri_str = build_filters_string(filter_form)
 
         # Calcola i valori finali dei KPI.
         incassi_aperti = kpi_data['incassi_totali_rate'] - kpi_data['incassi_pagati']

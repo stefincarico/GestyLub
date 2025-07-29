@@ -26,7 +26,7 @@
         <div class="col-md-6">
             <p><strong>Cliente/Fornitore:</strong> {{ documento.anagrafica.nome_cognome_ragione_sociale }}</p>
             <p><strong>Imponibile:</strong> € {{ documento.imponibile|floatformat:2 }}</p>
-            <p><strong>Totale Documento:</strong> € {{ documento.totale|floatformat:2 }}</p>
+            <p class="text-primary fw-bold fs-5"><strong>Totale Documento: € {{ documento.totale|format_currency }}</strong></p>
             <p><strong>Note:</strong> {{ documento.note|default:"-" }}</p>
         </div>
         <div class="col-md-6">

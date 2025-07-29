@@ -1,5 +1,7 @@
 # gestionale/report_utils.py
 
+from datetime import date
+from django import forms
 from django.http import HttpResponse
 from django.utils import timezone
 from openpyxl import Workbook
@@ -124,7 +126,6 @@ def generate_excel_report(tenant_name, report_title, filters_string, kpi_data, r
     return response
 
 
-
 # ==============================================================================
 # === UTILITY PER EXPORT PDF                                              ===
 # ==============================================================================
@@ -160,3 +161,39 @@ def generate_pdf_report(request, template_name, context, filename=None):
     return response
 
 
+def build_filters_string(filter_form):
+    """
+    Costruisce una stringa leggibile che riassume i filtri attivi in un form.
+
+    Args:
+        filter_form: Un'istanza di un form Django (già validato).
+
+    Returns:
+        str: Una stringa come "Tipo: Incassi | Stato: Scadute".
+    """
+    filtri_attivi = []
+    if filter_form.is_valid() and filter_form.cleaned_data:
+        for name, value in filter_form.cleaned_data.items():
+            if value:
+                field = filter_form.fields.get(name)
+                if not field: continue
+                
+                label = field.label or name.replace('_', ' ').title()
+                display_value = value
+
+                # Gestisce i campi ChoiceField per mostrare l'etichetta leggibile
+                if hasattr(field, 'choices'):
+                    # Cerca il valore nella lista delle choices
+                    display_value = dict(field.choices).get(value, value)
+                
+                # Formatta le date in formato italiano
+                if isinstance(value, date):
+                    display_value = value.strftime('%d/%m/%Y')
+                
+                # Per i ModelChoiceField, l'oggetto ha già una buona rappresentazione in stringa
+                if isinstance(field, forms.ModelChoiceField):
+                    display_value = str(value)
+                
+                filtri_attivi.append(f"{label}: {display_value}")
+    
+    return " | ".join(filtri_attivi) if filtri_attivi else "Nessun filtro applicato"
