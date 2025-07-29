@@ -482,18 +482,17 @@ def get_documento_dettaglio_context(pk):
     documento = get_object_or_404(DocumentoTestata, pk=pk)
 
     # Recupera i queryset completi e annota le scadenze con l'importo già pagato
+    # Codice OTTIMIZZATO
     scadenze_qs = Scadenza.objects.filter(documento=documento).annotate(
-        pagato=Coalesce(Sum('pagamenti__importo'), Value(0), output_field=models.DecimalField())
+        pagato=Coalesce(Sum('pagamenti__importo'), Value(0), output_field=models.DecimalField()),
+        # Aggiungiamo il calcolo del residuo direttamente nella query
+        residuo=models.F('importo_rata') - models.F('pagato')
     ).order_by('data_scadenza')
 
     cronologia_pagamenti_qs = PrimaNota.objects.filter(
         scadenza_collegata__documento=documento
     ).select_related('scadenza_collegata', 'conto_finanziario').order_by('-data_registrazione')
 
-    # Calcola il residuo per ogni scadenza nel queryset completo
-    # Questo è importante per il calcolo del saldo totale.
-    for s in scadenze_qs:
-        s.residuo = s.importo_rata - s.pagato
 
     # Calcola il saldo totale del documento
     saldo_residuo = documento.totale - sum(s.pagato for s in scadenze_qs)
@@ -744,14 +743,17 @@ class AnagraficaDetailView(TenantRequiredMixin, View):
         
         # Applica ordinamenti e annotazioni
         documenti = documenti_qs.order_by('-data_documento')
+
+        # Codice OTTIMIZZATO
         scadenze_aperte = scadenze_qs.annotate(
-            pagato=Coalesce(Sum('pagamenti__importo'), Value(0), output_field=models.DecimalField())
+        pagato=Coalesce(Sum('pagamenti__importo'), Value(0), output_field=models.DecimalField()),
+        residuo=models.F('importo_rata') - models.F('pagato')
         ).order_by('data_scadenza')
+
         movimenti = movimenti_qs.order_by('-data_registrazione')
         
-        # Calcola KPI e residui
-        for s in scadenze_aperte:
-            s.residuo = s.importo_rata - s.pagato
+
+
         esposizione_documenti = sum(doc.totale if 'V' in doc.tipo_doc else -doc.totale for doc in documenti)
         netto_movimenti = sum(mov.importo if mov.tipo_movimento == PrimaNota.TipoMovimento.ENTRATA else -mov.importo for mov in movimenti)
         saldo_finale = esposizione_documenti - netto_movimenti
