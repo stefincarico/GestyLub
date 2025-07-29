@@ -1874,17 +1874,16 @@ class PrimaNotaListExportPdfView(PrimaNotaListView):
 
 class TesoreriaDashboardView(TenantRequiredMixin, View):
     """
-    Mostra la dashboard di Tesoreria con l'elenco dei conti finanziari
-    e i loro saldi calcolati in tempo reale.
+    Gestisce la visualizzazione della Dashboard di Tesoreria.
+    Contiene la logica di calcolo dei saldi riutilizzabile dagli export.
     """
     template_name = 'gestionale/tesoreria_dashboard.html'
 
-    def get(self, request, *args, **kwargs):
-        # 1. Recuperiamo tutti i conti finanziari attivi.
-        #    Usiamo 'annotate' per calcolare il saldo per ogni conto in una sola query.
+    def _get_tesoreria_data(self):
+        """
+        Metodo helper che calcola i saldi per tutti i conti finanziari.
+        """
         conti_finanziari = ContoFinanziario.objects.filter(attivo=True).annotate(
-            # Sommiamo gli importi, ma con un segno: positivo per le entrate, negativo per le uscite.
-            # Usiamo Case/When per applicare questa logica condizionale a livello di database.
             saldo=Coalesce(
                 Sum(
                     models.Case(
@@ -1899,13 +1898,70 @@ class TesoreriaDashboardView(TenantRequiredMixin, View):
             )
         ).order_by('nome_conto')
         
-        # 2. Calcoliamo la liquidità totale sommando i saldi calcolati.
         liquidita_totale = sum(conto.saldo for conto in conti_finanziari)
+        
+        return conti_finanziari, liquidita_totale
 
-        # 3. Prepariamo il contesto per il template.
+    def get(self, request, *args, **kwargs):
+        conti_finanziari, liquidita_totale = self._get_tesoreria_data()
+        
         context = {
+            'conti_finanziari': conti_finanziari,
+            'liquidita_totale': liquidita_totale,
+            'today': date.today(), # Aggiungiamo 'today' che serve nel template
+        }
+        
+        return render(request, self.template_name, context)
+    
+class TesoreriaExportExcelView(TesoreriaDashboardView):
+    """
+    Esporta i saldi di tesoreria in formato Excel.
+    """
+    def get(self, request, *args, **kwargs):
+        conti_finanziari, liquidita_totale = self._get_tesoreria_data()
+        
+        tenant_name = request.session.get('active_tenant_name', 'GestionaleDjango')
+        report_title = 'Report Saldi di Tesoreria'
+        filename_prefix = 'Saldi_Tesoreria'
+        
+        kpi_report = {
+            'Liquidità Totale': liquidita_totale
+        }
+        
+        headers = ["Conto Finanziario", "Saldo"]
+        data_rows = []
+        for conto in conti_finanziari:
+            data_rows.append([
+                conto.nome_conto,
+                conto.saldo
+            ])
+            
+        report_sections = [{'title': 'Dettaglio Saldi', 'headers': headers, 'rows': data_rows}]
+        
+        return generate_excel_report(
+            tenant_name, report_title, "Dati al " + timezone.now().strftime('%d/%m/%Y'), 
+            kpi_report, report_sections, filename_prefix=filename_prefix
+        )
+
+class TesoreriaExportPdfView(TesoreriaDashboardView):
+    """
+    Esporta i saldi di tesoreria in formato PDF.
+    """
+    def get(self, request, *args, **kwargs):
+        conti_finanziari, liquidita_totale = self._get_tesoreria_data()
+        
+        context = {
+            'tenant_name': request.session.get('active_tenant_name'),
+            'report_title': 'Report Saldi di Tesoreria',
+            'timestamp': timezone.now().strftime('%d/%m/%Y %H:%M:%S'),
+            'filtri_str': "Dati al " + timezone.now().strftime('%d/%m/%Y'),
             'conti_finanziari': conti_finanziari,
             'liquidita_totale': liquidita_totale,
         }
         
-        return render(request, self.template_name, context)
+        return generate_pdf_report(
+            request, 
+            'gestionale/tesoreria_dashboard_pdf.html', 
+            context
+        )
+    

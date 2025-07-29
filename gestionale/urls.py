@@ -6,7 +6,7 @@ from .views import (
     AnagraficaToggleAttivoView, DocumentoListExportExcelView, DocumentoListExportPdfView, 
     DocumentoListView, DocumentoDetailView, PagamentoDeleteView, PagamentoUpdateView, PrimaNotaCreateView, PrimaNotaListExportExcelView, PrimaNotaListExportPdfView, PrimaNotaListView,RegistraPagamentoView, SalvaAttivitaDiarioView, ScadenzarioExportPdfView,
     ScadenzarioListView, ScadenzarioExportExcelView, AnagraficaPartitarioExportExcelView,
-    DashboardHRView, PrimaNotaCreateView, PrimaNotaUpdateView, PrimaNotaDeleteView, DocumentoDetailExportPdfView, TesoreriaDashboardView
+    DashboardHRView, PrimaNotaCreateView, PrimaNotaUpdateView, PrimaNotaDeleteView, DocumentoDetailExportPdfView, TesoreriaDashboardView, TesoreriaExportExcelView, TesoreriaExportPdfView
 )
 from .views import documento_create_step1_testata, documento_create_step2_righe, documento_create_step3_scadenze, get_anagrafiche_by_tipo
 
@@ -47,4 +47,6 @@ urlpatterns = [
     path('pagamenti/<int:pk>/modifica/', PagamentoUpdateView.as_view(), name='pagamento_update'),
     path('documenti/<int:pk>/export/pdf/', DocumentoDetailExportPdfView.as_view(), name='documento_detail_export_pdf'),
     path('tesoreria/', TesoreriaDashboardView.as_view(), name='tesoreria_dashboard'),
+    path('tesoreria/export/excel/', TesoreriaExportExcelView.as_view(), name='tesoreria_export_excel'),
+    path('tesoreria/export/pdf/', TesoreriaExportPdfView.as_view(), name='tesoreria_export_pdf'),
 ]
