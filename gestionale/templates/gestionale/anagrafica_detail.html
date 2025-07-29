@@ -35,13 +35,38 @@
 <!-- Riepilogo Contabile -->
 <div class="card mb-4">
     <div class="card-header">Riepilogo Contabile</div>
-    <div class="card-body">
-        <div class="row text-center">
-            <div class="col-md-4"><h6 class="text-muted">Esposizione Documenti</h6><h4>€ {{ esposizione_documenti|format_currency }}</h4></div>
-            <div class="col-md-4"><h6 class="text-muted">Netto Incassato/Pagato</h6><h4>€ {{ netto_movimenti|format_currency }}</h4></div>
-            <div class="col-md-4"><h6 class="text-muted">Saldo Aperto Finale</h6><h4 class="{% if saldo_finale > 0 %}text-danger{% elif saldo_finale < 0 %}text-success{% endif %}">€ {{ saldo_finale|format_currency }}</h4></div>
+<div class="card-body">
+            {% if data_da_filtrata %}
+                <!-- Layout 2x2 per la vista filtrata -->
+                <div class="row text-center">
+                    <div class="col-md-6 mb-3">
+                        <h6 class="text-muted">SALDO AL {{ data_da_filtrata|date:"d/m/Y" }}</h6>
+                        <h4>€ {{ saldo_precedente|format_currency }}</h4>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <h6 class="text-muted">SALDO FINALE</h6>
+                        <h4 class="{% if saldo_finale > 0 %}text-danger{% elif saldo_finale < 0 %}text-success{% endif %}">
+                            € {{ saldo_finale|format_currency }}
+                        </h4>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-muted">ESPOSIZIONE (PERIODO)</h6>
+                        <h4>€ {{ esposizione_documenti|format_currency }}</h4>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-muted">NETTO MOV. (PERIODO)</h6>
+                        <h4>€ {{ netto_movimenti|format_currency }}</h4>
+                    </div>
+                </div>
+            {% else %}
+                <!-- Layout originale per la vista non filtrata -->
+                <div class="row text-center">
+                    <div class="col-md-4"><h6 class="text-muted">Esposizione Documenti</h6><h4>€ {{ esposizione_documenti|format_currency }}</h4></div>
+                    <div class="col-md-4"><h6 class="text-muted">Netto Incassato/Pagato</h6><h4>€ {{ netto_movimenti|format_currency }}</h4></div>
+                    <div class="col-md-4"><h6 class="text-muted">Saldo Aperto Finale</h6><h4 class="{% if saldo_finale > 0 %}text-danger{% elif saldo_finale < 0 %}text-success{% endif %}">€ {{ saldo_finale|format_currency }}</h4></div>
+                </div>
+            {% endif %}
         </div>
-    </div>
 </div>
 
 <!-- Storico Documenti (invariato) -->
