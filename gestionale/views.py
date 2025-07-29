@@ -37,7 +37,7 @@ from weasyprint import HTML
 
 # Importazioni delle app locali
 from .forms import (
-    AliquotaIVAForm, AnagraficaForm, DiarioAttivitaForm, DipendenteDettaglioForm,
+    AliquotaIVAForm, AnagraficaForm, CausaleForm, DiarioAttivitaForm, DipendenteDettaglioForm,
     DocumentoFilterForm, DocumentoRigaForm, DocumentoTestataForm, ModalitaPagamentoForm,
     PagamentoForm, PartitarioFilterForm, PrimaNotaFilterForm, PrimaNotaForm,
     ScadenzarioFilterForm, ScadenzaWizardForm,PrimaNotaUpdateForm,PagamentoUpdateForm
@@ -2097,3 +2097,55 @@ class AliquotaIVAToggleAttivoView(TenantRequiredMixin, AdminRequiredMixin, View)
         messages.success(request, f"Stato di '{obj.descrizione}' aggiornato.")
         return redirect('aliquota_iva_list')
 
+# --- VISTE CRUD PER CAUSALI CONTABILI ---
+
+class CausaleListView(TenantRequiredMixin, AdminRequiredMixin, ListView):
+    model = Causale
+    template_name = 'gestionale/causale_list.html' # Template specifico per la lista
+    context_object_name = 'oggetti'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = 'Causali Contabili'
+        context['create_url'] = reverse_lazy('causale_create')
+        return context
+
+class CausaleCreateView(TenantRequiredMixin, AdminRequiredMixin, CreateView):
+    model = Causale
+    form_class = CausaleForm
+    template_name = 'gestionale/config_form_base.html' # Riutilizziamo il form generico
+    success_url = reverse_lazy('causale_list')
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = 'Nuova Causale Contabile'
+        context['cancel_url'] = reverse_lazy('causale_list')
+        return context
+        
+    def form_valid(self, form):
+        messages.success(self.request, "Causale creata con successo.")
+        return super().form_valid(form)
+
+class CausaleUpdateView(TenantRequiredMixin, AdminRequiredMixin, UpdateView):
+    model = Causale
+    form_class = CausaleForm
+    template_name = 'gestionale/config_form_base.html' # Riutilizziamo il form generico
+    success_url = reverse_lazy('causale_list')
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = 'Modifica Causale Contabile'
+        context['cancel_url'] = reverse_lazy('causale_list')
+        return context
+
+    def form_valid(self, form):
+        messages.success(self.request, "Causale aggiornata con successo.")
+        return super().form_valid(form)
+
+class CausaleToggleAttivoView(TenantRequiredMixin, AdminRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        obj = get_object_or_404(Causale, pk=kwargs.get('pk'))
+        obj.attivo = not obj.attivo
+        obj.save()
+        messages.success(request, f"Stato di '{obj.descrizione}' aggiornato.")
+        return redirect('causale_list')

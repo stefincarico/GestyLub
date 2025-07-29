@@ -1,7 +1,7 @@
 # gestionale/urls.py
 from django.urls import path
 from .views import (
-    AdminDashboardView, AliquotaIVACreateView, AliquotaIVAListView, AliquotaIVAToggleAttivoView, AliquotaIVAUpdateView, AnagraficaListExportExcelView, AnagraficaListExportPdfView, AnagraficaPartitarioExportPdfView, DashboardView, AnagraficaListView, AnagraficaCreateView, 
+    AdminDashboardView, AliquotaIVACreateView, AliquotaIVAListView, AliquotaIVAToggleAttivoView, AliquotaIVAUpdateView, AnagraficaListExportExcelView, AnagraficaListExportPdfView, AnagraficaPartitarioExportPdfView, CausaleCreateView, CausaleListView, CausaleToggleAttivoView, CausaleUpdateView, DashboardView, AnagraficaListView, AnagraficaCreateView, 
     DipendenteDettaglioCreateView, AnagraficaUpdateView, AnagraficaDetailView,
     AnagraficaToggleAttivoView, DocumentoListExportExcelView, DocumentoListExportPdfView, 
     DocumentoListView, DocumentoDetailView, ModalitaPagamentoCreateView, ModalitaPagamentoListView, ModalitaPagamentoToggleAttivoView, ModalitaPagamentoUpdateView, PagamentoDeleteView, PagamentoUpdateView, PrimaNotaCreateView, PrimaNotaListExportExcelView, PrimaNotaListExportPdfView, PrimaNotaListView,RegistraPagamentoView, SalvaAttivitaDiarioView, ScadenzarioExportPdfView,
@@ -60,4 +60,9 @@ urlpatterns = [
     path('admin-panel/aliquote-iva/nuova/', AliquotaIVACreateView.as_view(), name='aliquota_iva_create'),
     path('admin-panel/aliquote-iva/<int:pk>/modifica/', AliquotaIVAUpdateView.as_view(), name='aliquota_iva_update'),
     path('admin-panel/aliquote-iva/<int:pk>/toggle-attivo/', AliquotaIVAToggleAttivoView.as_view(), name='aliquota_iva_toggle'),
+    # URLS PER CAUSALI CONTABILI
+    path('admin-panel/causali/', CausaleListView.as_view(), name='causale_list'),
+    path('admin-panel/causali/nuova/', CausaleCreateView.as_view(), name='causale_create'),
+    path('admin-panel/causali/<int:pk>/modifica/', CausaleUpdateView.as_view(), name='causale_update'),
+    path('admin-panel/causali/<int:pk>/toggle-attivo/', CausaleToggleAttivoView.as_view(), name='causale_toggle'),
 ]

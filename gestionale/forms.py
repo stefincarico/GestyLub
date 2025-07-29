@@ -638,3 +638,19 @@ class AliquotaIVAForm(forms.ModelForm):
         data = self.cleaned_data.get('descrizione')
         return data.upper() if data else data
     
+class CausaleForm(forms.ModelForm):
+    """
+    Form per la creazione e modifica delle Causali Contabili.
+    """
+    class Meta:
+        model = Causale
+        fields = ['descrizione', 'tipo_movimento', 'attivo']
+        widgets = {
+            'descrizione': forms.TextInput(attrs={'class': 'form-control'}),
+            'tipo_movimento': forms.TextInput(attrs={'class': 'form-control'}),
+            'attivo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+    def clean_descrizione(self):
+        data = self.cleaned_data.get('descrizione')
+        return data.upper() if data else data
