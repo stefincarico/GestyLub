@@ -671,4 +671,20 @@ class ContoFinanziarioForm(forms.ModelForm):
         data = self.cleaned_data.get('nome_conto')
         return data.upper() if data else data
     
-    
+class ContoOperativoForm(forms.ModelForm):
+    """
+    Form per la creazione e modifica dei Conti Operativi.
+    """
+    class Meta:
+        model = ContoOperativo
+        fields = ['nome_conto', 'tipo', 'attivo']
+        widgets = {
+            'nome_conto': forms.TextInput(attrs={'class': 'form-control'}),
+            'tipo': forms.Select(attrs={'class': 'form-select'}),
+            'attivo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+    def clean_nome_conto(self):
+        data = self.cleaned_data.get('nome_conto')
+        return data.upper() if data else data
+

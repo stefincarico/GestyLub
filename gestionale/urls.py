@@ -1,7 +1,7 @@
 # gestionale/urls.py
 from django.urls import path
 from .views import (
-    AdminDashboardView, AliquotaIVACreateView, AliquotaIVAListView, AliquotaIVAToggleAttivoView, AliquotaIVAUpdateView, AnagraficaListExportExcelView, AnagraficaListExportPdfView, AnagraficaPartitarioExportPdfView, CausaleCreateView, CausaleListView, CausaleToggleAttivoView, CausaleUpdateView, ContoFinanziarioCreateView, ContoFinanziarioListView, ContoFinanziarioToggleAttivoView, ContoFinanziarioUpdateView, DashboardView, AnagraficaListView, AnagraficaCreateView, 
+    AdminDashboardView, AliquotaIVACreateView, AliquotaIVAListView, AliquotaIVAToggleAttivoView, AliquotaIVAUpdateView, AnagraficaListExportExcelView, AnagraficaListExportPdfView, AnagraficaPartitarioExportPdfView, CausaleCreateView, CausaleListView, CausaleToggleAttivoView, CausaleUpdateView, ContoFinanziarioCreateView, ContoFinanziarioListView, ContoFinanziarioToggleAttivoView, ContoFinanziarioUpdateView, ContoOperativoCreateView, ContoOperativoListView, ContoOperativoToggleAttivoView, ContoOperativoUpdateView, DashboardView, AnagraficaListView, AnagraficaCreateView, 
     DipendenteDettaglioCreateView, AnagraficaUpdateView, AnagraficaDetailView,
     AnagraficaToggleAttivoView, DocumentoListExportExcelView, DocumentoListExportPdfView, 
     DocumentoListView, DocumentoDetailView, ModalitaPagamentoCreateView, ModalitaPagamentoListView, ModalitaPagamentoToggleAttivoView, ModalitaPagamentoUpdateView, PagamentoDeleteView, PagamentoUpdateView, PrimaNotaCreateView, PrimaNotaListExportExcelView, PrimaNotaListExportPdfView, PrimaNotaListView,RegistraPagamentoView, SalvaAttivitaDiarioView, ScadenzarioExportPdfView,
@@ -70,4 +70,9 @@ urlpatterns = [
     path('admin-panel/conti-finanziari/nuovo/', ContoFinanziarioCreateView.as_view(), name='conto_finanziario_create'),
     path('admin-panel/conti-finanziari/<int:pk>/modifica/', ContoFinanziarioUpdateView.as_view(), name='conto_finanziario_update'),
     path('admin-panel/conti-finanziari/<int:pk>/toggle-attivo/', ContoFinanziarioToggleAttivoView.as_view(), name='conto_finanziario_toggle'),
+    # URLS PER CONTI OPERATIVI
+    path('admin-panel/conti-operativi/', ContoOperativoListView.as_view(), name='conto_operativo_list'),
+    path('admin-panel/conti-operativi/nuovo/', ContoOperativoCreateView.as_view(), name='conto_operativo_create'),
+    path('admin-panel/conti-operativi/<int:pk>/modifica/', ContoOperativoUpdateView.as_view(), name='conto_operativo_update'),
+    path('admin-panel/conti-operativi/<int:pk>/toggle-attivo/', ContoOperativoToggleAttivoView.as_view(), name='conto_operativo_toggle'),
 ]

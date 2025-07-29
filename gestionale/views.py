@@ -37,7 +37,7 @@ from weasyprint import HTML
 
 # Importazioni delle app locali
 from .forms import (
-    AliquotaIVAForm, AnagraficaForm, CausaleForm, ContoFinanziarioForm, DiarioAttivitaForm, DipendenteDettaglioForm,
+    AliquotaIVAForm, AnagraficaForm, CausaleForm, ContoFinanziarioForm, ContoOperativoForm, DiarioAttivitaForm, DipendenteDettaglioForm,
     DocumentoFilterForm, DocumentoRigaForm, DocumentoTestataForm, ModalitaPagamentoForm,
     PagamentoForm, PartitarioFilterForm, PrimaNotaFilterForm, PrimaNotaForm,
     ScadenzarioFilterForm, ScadenzaWizardForm,PrimaNotaUpdateForm,PagamentoUpdateForm
@@ -2202,4 +2202,59 @@ class ContoFinanziarioToggleAttivoView(TenantRequiredMixin, AdminRequiredMixin, 
         obj.save()
         messages.success(request, f"Stato di '{obj.nome_conto}' aggiornato.")
         return redirect('conto_finanziario_list')
+    
+# --- VISTE CRUD PER CONTI OPERATIVI ---
+
+class ContoOperativoListView(TenantRequiredMixin, AdminRequiredMixin, ListView):
+    model = ContoOperativo
+    template_name = 'gestionale/conto_operativo_list.html'
+    context_object_name = 'oggetti'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = 'Conti Operativi (Costi/Ricavi)'
+        context['create_url'] = reverse_lazy('conto_operativo_create')
+        return context
+
+class ContoOperativoCreateView(TenantRequiredMixin, AdminRequiredMixin, CreateView):
+    model = ContoOperativo
+    form_class = ContoOperativoForm
+    template_name = 'gestionale/config_form_base.html'
+    success_url = reverse_lazy('conto_operativo_list')
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = 'Nuovo Conto Operativo'
+        context['cancel_url'] = reverse_lazy('conto_operativo_list')
+        return context
+        
+    def form_valid(self, form):
+        messages.success(self.request, "Conto Operativo creato con successo.")
+        return super().form_valid(form)
+
+class ContoOperativoUpdateView(TenantRequiredMixin, AdminRequiredMixin, UpdateView):
+    
+    model = ContoOperativo
+    form_class = ContoOperativoForm
+    template_name = 'gestionale/config_form_base.html'
+    success_url = reverse_lazy('conto_operativo_list')
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = 'Modifica Conto Operativo'
+        context['cancel_url'] = reverse_lazy('conto_operativo_list')
+        return context
+
+    def form_valid(self, form):
+        messages.success(self.request, "Conto Operativo aggiornato con successo.")
+        return super().form_valid(form)
+
+class ContoOperativoToggleAttivoView(TenantRequiredMixin, AdminRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        obj = get_object_or_404(ContoOperativo, pk=kwargs.get('pk'))
+        obj.attivo = not obj.attivo
+        obj.save()
+        messages.success(request, f"Stato di '{obj.nome_conto}' aggiornato.")
+        return redirect('conto_operativo_list')
+    
     
