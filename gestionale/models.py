@@ -420,8 +420,25 @@ class DiarioAttivita(models.Model):
     costo_orario_consuntivo = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True, help_text="Costo orario del giorno, se diverso dallo standard")
     note_giornaliere = models.TextField(blank=True, null=True)
 
+    # === CAMPI DI TRACCIABILITÀ AGGIUNTI/COMPLETATI ===
+    created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        related_name='diario_creati', 
+        on_delete=models.SET_NULL, 
+        null=True, blank=True,
+        # editable=False per non mostrarlo nei form
+        editable=False 
+    )
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        related_name='diario_aggiornati',
+        on_delete=models.SET_NULL, 
+        null=True, blank=True,
+        editable=False
+    )
+    # === FINE CAMPI  ===
 
     def __str__(self):
         return f"Diario del {self.data} per {self.dipendente.nome_cognome_ragione_sociale}"
