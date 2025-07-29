@@ -1868,3 +1868,44 @@ class PrimaNotaListExportPdfView(PrimaNotaListView):
             context
         )
     
+# ==============================================================================
+# === VISTE TESORERIA                                                       ===
+# ==============================================================================
+
+class TesoreriaDashboardView(TenantRequiredMixin, View):
+    """
+    Mostra la dashboard di Tesoreria con l'elenco dei conti finanziari
+    e i loro saldi calcolati in tempo reale.
+    """
+    template_name = 'gestionale/tesoreria_dashboard.html'
+
+    def get(self, request, *args, **kwargs):
+        # 1. Recuperiamo tutti i conti finanziari attivi.
+        #    Usiamo 'annotate' per calcolare il saldo per ogni conto in una sola query.
+        conti_finanziari = ContoFinanziario.objects.filter(attivo=True).annotate(
+            # Sommiamo gli importi, ma con un segno: positivo per le entrate, negativo per le uscite.
+            # Usiamo Case/When per applicare questa logica condizionale a livello di database.
+            saldo=Coalesce(
+                Sum(
+                    models.Case(
+                        models.When(movimenti__tipo_movimento='E', then=models.F('movimenti__importo')),
+                        models.When(movimenti__tipo_movimento='U', then=-models.F('movimenti__importo')),
+                        default=Value(0),
+                        output_field=models.DecimalField()
+                    )
+                ), 
+                Value(0),
+                output_field=models.DecimalField()
+            )
+        ).order_by('nome_conto')
+        
+        # 2. Calcoliamo la liquidità totale sommando i saldi calcolati.
+        liquidita_totale = sum(conto.saldo for conto in conti_finanziari)
+
+        # 3. Prepariamo il contesto per il template.
+        context = {
+            'conti_finanziari': conti_finanziari,
+            'liquidita_totale': liquidita_totale,
+        }
+        
+        return render(request, self.template_name, context)
