@@ -1,13 +1,13 @@
 {% extends "gestionale/base.html" %}
 {% load currency_filters %}
+
 {% block title %}{{ title }}{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1 class="h2 mb-0">{{ title }}</h1>
     <div>
-        <!-- TODO: Aggiungere link utili, come "Torna a Dashboard HR" -->
-        <a href="{% url 'anagrafica_list' %}" class="btn btn-secondary">Torna a Elenco Anagrafiche</a>
+        <a href="{% url 'dashboard_hr' %}" class="btn btn-secondary">Torna alla Dashboard HR</a>
     </div>
 </div>
 
@@ -17,12 +17,12 @@
         <div class="card mb-4">
             <div class="card-header">Dati Anagrafici</div>
             <div class="card-body">
-                <p><strong>Codice:</strong> {{ dipendente.codice }}</p>
-                <p><strong>Codice Fiscale:</strong> {{ dipendente.codice_fiscale|default_if_none:"" }}</p>
-                <p><strong>Indirizzo:</strong> {{ dipendente.indirizzo|default_if_none:"" }}</p>
-                <p><strong>Città:</strong> {{ dipendente.citta|default_if_none:"" }} ({{ dipendente.provincia }})</p>
-                <p><strong>Email:</strong> {{ dipendente.email|default_if_none:"" }}</p>
-                <p><strong>Telefono:</strong> {{ dipendente.telefono|default_if_none:"" }}</p>
+                <p class="mb-2"><strong>Codice:</strong> {{ dipendente.codice }}</p>
+                <p class="mb-2"><strong>Codice Fiscale:</strong> {{ dipendente.codice_fiscale|default_if_none:"" }}</p>
+                <p class="mb-2"><strong>Indirizzo:</strong> {{ dipendente.indirizzo|default_if_none:"" }}</p>
+                <p class="mb-2"><strong>Città:</strong> {{ dipendente.citta|default_if_none:"" }} ({{ dipendente.provincia }})</p>
+                <p class="mb-2"><strong>Email:</strong> {{ dipendente.email|default_if_none:"" }}</p>
+                <p class="mb-0"><strong>Telefono:</strong> {{ dipendente.telefono|default_if_none:"" }}</p>
             </div>
         </div>
     </div>
@@ -34,19 +34,19 @@
                 {% with dettaglio=dipendente.dettaglio_dipendente %}
                     <div class="row">
                         <div class="col-md-6">
-                            <p><strong>Mansione:</strong> {{ dettaglio.mansione }}</p>
-                            <p><strong>Data Assunzione:</strong> {{ dettaglio.data_assunzione|date:"d/m/Y" }}</p>
-                            <p><strong>Data Fine Rapporto:</strong> {{ dettaglio.data_fine_rapporto|date:"d/m/Y"|default_if_none:"-" }}</p>
+                            <p class="mb-2"><strong>Mansione:</strong> {{ dettaglio.mansione }}</p>
+                            <p class="mb-2"><strong>Data Assunzione:</strong> {{ dettaglio.data_assunzione|date:"d/m/Y" }}</p>
+                            <p class="mb-0"><strong>Data Fine Rapporto:</strong> {{ dettaglio.data_fine_rapporto|date:"d/m/Y"|default_if_none:"-" }}</p>
                         </div>
                         <div class="col-md-6">
-                            <p><strong>Costo Orario Standard:</strong> € {{ dettaglio.costo_orario|format_currency }}</p>
-                            <p><strong>Ore Contratto / Settimana:</strong> {{ dettaglio.ore_settimanali_contratto }}</p>
-                            <p><strong>Giorni Lavorativi / Settimana:</strong> {{ dettaglio.giorni_lavorativi_settimana }}</p>
+                            <p class="mb-2"><strong>Costo Orario Standard:</strong> € {{ dettaglio.costo_orario|format_currency }}</p>
+                            <p class="mb-2"><strong>Ore Contratto / Settimana:</strong> {{ dettaglio.ore_settimanali_contratto }}</p>
+                            <p class="mb-0"><strong>Giorni Lavorativi / Settimana:</strong> {{ dettaglio.giorni_lavorativi_settimana }}</p>
                         </div>
                     </div>
                     {% if dettaglio.note_generali %}
                         <hr>
-                        <p><strong>Note:</strong> {{ dettaglio.note_generali|linebreaksbr }}</p>
+                        <p class="mb-0"><strong>Note:</strong> {{ dettaglio.note_generali|linebreaksbr }}</p>
                     {% endif %}
                 {% endwith %}
             </div>
@@ -54,9 +54,132 @@
     </div>
 </div>
 
-<!-- TODO: Aggiungere tabelle per Storico Attività e Scadenze Personali -->
-<div class="alert alert-info">
-    Sezione Storico Attività e Scadenze Personali in costruzione.
+<!-- Storico Attività Giornaliere -->
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Storico Attività Giornaliere</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-striped table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Data</th>
+                        <th>Stato</th>
+                        <th>Dettagli Assegnazione</th>
+                        <th class="text-end">Ore Ord.</th>
+                        <th class="text-end">Ore Straord.</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for attivita in storico_attivita %}
+                    <tr>
+                        <td>{{ attivita.data|date:"d/m/Y" }}</td>
+                        <td>
+                            {% if attivita.stato_presenza == 'Presente' %}<span class="badge bg-success">PRESENTE</span>
+                            {% elif attivita.stato_presenza %}<span class="badge bg-danger">ASSENTE</span>
+                            {% elif attivita.cantiere_pianificato %}<span class="badge bg-primary">ASSEGNATO</span>
+                            {% else %}<span class="badge bg-secondary">LIBERO / PIAN. ALTRO</span>{% endif %}
+                        </td>
+                        <td>
+                            {% if attivita.cantiere_pianificato %}
+                                @ {{ attivita.cantiere_pianificato.codice_cantiere }}
+                            {% elif attivita.tipo_assenza_giustificata %}
+                                {{ attivita.tipo_assenza_giustificata }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td class="text-end">{{ attivita.ore_ordinarie|default_if_none:"-" }}</td>
+                        <td class="text-end">{{ attivita.ore_straordinarie|default_if_none:"-" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" class="text-center">Nessuna attività registrata.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <!-- Paginazione Attività -->
+    {% with page_obj=storico_attivita %}
+    {% if page_obj.has_other_pages %}
+    <div class="card-footer bg-light">
+        <nav aria-label="Paginazione attività">
+            <ul class="pagination justify-content-center mb-0">
+                <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+                    <a class="page-link" href="?pagina_attivita={{ page_obj.previous_page_number }}&pagina_scadenze={{ scadenze_personali.number }}">Precedente</a>
+                </li>
+                <li class="page-item active"><span class="page-link">Pagina {{ page_obj.number }} di {{ page_obj.paginator.num_pages }}</span></li>
+                <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+                    <a class="page-link" href="?pagina_attivita={{ page_obj.next_page_number }}&pagina_scadenze={{ scadenze_personali.number }}">Successiva</a>
+                </li>
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+    {% endwith %}
 </div>
+
+<!-- Scadenze Personali -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Scadenze Personali</span>
+        <!-- TODO: Aggiungere pulsante "+ Nuova Scadenza" che apre una modale -->
+        <a href="#" class="btn btn-primary btn-sm">+ Nuova Scadenza</a>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Tipo Scadenza</th>
+                        <th>Data Esecuzione</th>
+                        <th>Data Scadenza</th>
+                        <th>Stato</th>
+                        <th>Note</th>
+                        <th>Azioni</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for scadenza in scadenze_personali %}
+                    <tr class="{% if scadenza.data_scadenza < today %}table-danger{% endif %}">
+                        <td>{{ scadenza.tipo_scadenza.descrizione }}</td>
+                        <td>{{ scadenza.data_esecuzione|date:"d/m/Y" }}</td>
+                        <td>{{ scadenza.data_scadenza|date:"d/m/Y" }}</td>
+                        <td>{{ scadenza.get_stato_display }}</td>
+                        <td>{{ scadenza.note|default_if_none:"" }}</td>
+                        <td>
+                            <!-- TODO: Pulsanti Modifica/Elimina -->
+                            <a href="#" class="btn btn-sm btn-outline-primary">Modifica</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="text-center">Nessuna scadenza personale registrata.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <!-- Paginazione Scadenze Personali -->
+    {% with page_obj=scadenze_personali %}
+    {% if page_obj.has_other_pages %}
+    <div class="card-footer bg-light">
+        <nav aria-label="Paginazione scadenze personali">
+            <ul class="pagination justify-content-center mb-0">
+                <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+                    <a class="page-link" href="?pagina_scadenze={{ page_obj.previous_page_number }}&pagina_attivita={{ storico_attivita.number }}">Precedente</a>
+                </li>
+                <li class="page-item active"><span class="page-link">Pagina {{ page_obj.number }} di {{ page_obj.paginator.num_pages }}</span></li>
+                <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+                    <a class="page-link" href="?pagina_scadenze={{ page_obj.next_page_number }}&pagina_attivita={{ storico_attivita.number }}">Successiva</a>
+                </li>
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+    {% endwith %}
+</div>
+
+<!-- TODO: Aggiungere la modale per la creazione/modifica di una scadenza personale -->
 
 {% endblock %}

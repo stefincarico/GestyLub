@@ -45,7 +45,7 @@ from .forms import (
 from .models import (
     AliquotaIVA, Anagrafica, Cantiere, Causale, ContoFinanziario,
     ContoOperativo, DiarioAttivita, DipendenteDettaglio, DocumentoRiga,
-    DocumentoTestata, MezzoAziendale, ModalitaPagamento, PrimaNota, Scadenza, TipoScadenzaPersonale
+    DocumentoTestata, MezzoAziendale, ModalitaPagamento, PrimaNota, Scadenza, TipoScadenzaPersonale, ScadenzaPersonale
 )
 from .report_utils import build_filters_string, generate_excel_report, generate_pdf_report
 
@@ -2397,25 +2397,47 @@ class TipoScadenzaPersonaleToggleAttivoView(TenantRequiredMixin, AdminRequiredMi
         messages.success(request, f"Stato di '{obj.descrizione}' aggiornato.")
         return redirect('tipo_scadenza_personale_list')
     
-class DipendenteDetailView(TenantRequiredMixin, DetailView):
+class DipendenteDetailView(TenantRequiredMixin, View): # Cambia da DetailView a View
     """
     Mostra il "Fascicolo del Dipendente", la pagina di dettaglio completa
-    per un'anagrafica di tipo Dipendente.
+    per un'anagrafica di tipo Dipendente, con tabelle paginate.
     """
-    model = Anagrafica
     template_name = 'gestionale/dipendente_detail.html'
-    context_object_name = 'dipendente'
 
-    def get_queryset(self):
-        """
-        Assicuriamoci di poter visualizzare solo anagrafiche di tipo Dipendente.
-        """
-        queryset = super().get_queryset()
-        return queryset.filter(tipo=Anagrafica.Tipo.DIPENDENTE)
+    def get(self, request, *args, **kwargs):
+        # Usiamo get_object_or_404 per recuperare il dipendente in modo sicuro
+        dipendente = get_object_or_404(
+            Anagrafica, 
+            pk=kwargs['pk'], 
+            tipo=Anagrafica.Tipo.DIPENDENTE
+        )
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['title'] = f"Fascicolo Dipendente: {self.object.nome_cognome_ragione_sociale}"
-        # TODO: Aggiungere qui i dati delle tabelle collegate (attività, scadenze)
-        return context
+        # Recupera lo storico completo delle attività
+        storico_attivita_qs = DiarioAttivita.objects.filter(
+            dipendente=dipendente
+        ).select_related('cantiere_pianificato').order_by('-data')
+        
+        # Recupera le scadenze personali
+        scadenze_personali_qs = ScadenzaPersonale.objects.filter(
+            dipendente=dipendente
+        ).select_related('tipo_scadenza').order_by('data_scadenza')
+
+        # Paginazione per lo Storico Attività
+        paginator_attivita = Paginator(storico_attivita_qs, 10) # 10 attività per pagina
+        page_number_attivita = request.GET.get('pagina_attivita', 1)
+        page_obj_attivita = paginator_attivita.get_page(page_number_attivita)
+
+        # Paginazione per le Scadenze Personali
+        paginator_scadenze = Paginator(scadenze_personali_qs, 5) # 5 scadenze per pagina
+        page_number_scadenze = request.GET.get('pagina_scadenze', 1)
+        page_obj_scadenze = paginator_scadenze.get_page(page_number_scadenze)
+
+        context = {
+            'title': f"Fascicolo Dipendente: {dipendente.nome_cognome_ragione_sociale}",
+            'dipendente': dipendente,
+            'storico_attivita': page_obj_attivita,
+            'scadenze_personali': page_obj_scadenze,
+        }
+        
+        return render(request, self.template_name, context)
     
