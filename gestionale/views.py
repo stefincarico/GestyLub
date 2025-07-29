@@ -1408,47 +1408,69 @@ class DashboardHRView(TenantRequiredMixin, View):
     template_name = 'gestionale/dashboard_hr.html'
 
     def get(self, request, *args, **kwargs):
-        # 1. Determina la data di riferimento
-        # Leggiamo l'anno, mese e giorno dall'URL. Se non ci sono, usiamo oggi.
+        # 1. Determina la data di riferimento (invariato)
+        today = date.today()
         year = kwargs.get('year', today.year)
         month = kwargs.get('month', today.month)
         day = kwargs.get('day', today.day)
         try:
             data_riferimento = date(year, month, day)
         except ValueError:
-            # Se la data nell'URL non è valida, usa oggi
-            data_riferimento = date.today()
+            data_riferimento = today
             
-        # 2. Recupera tutti i dipendenti attivi
+        # 2. Recupera tutti i dipendenti attivi (invariato)
         dipendenti_attivi = Anagrafica.objects.filter(
             tipo=Anagrafica.Tipo.DIPENDENTE,
             attivo=True
         ).select_related('dettaglio_dipendente').order_by('nome_cognome_ragione_sociale')
         
-        # 3. Recupera le attività del diario per la data di riferimento
+        # 3. Recupera le attività del diario per la data di riferimento (invariato)
         diario_del_giorno = DiarioAttivita.objects.filter(data=data_riferimento).select_related('cantiere_pianificato', 'mezzo_pianificato')
         
-        # 4. Mappiamo le attività ai dipendenti per un accesso veloce
+        # 4. Mappiamo le attività ai dipendenti per un accesso veloce (invariato)
         mappa_diario = {d.dipendente_id: d for d in diario_del_giorno}
         
-        # 5. Combiniamo i dati: per ogni dipendente, determiniamo il suo stato
+        # 5. Combiniamo i dati e calcoliamo i KPI
         lista_dipendenti_con_stato = []
+        # === INIZIO LOGICA KPI ===
+        kpi = {
+            'presenti': 0,
+            'assenti': 0,
+            'assegnati': 0,
+            'liberi': 0,
+            'totale_dipendenti': len(dipendenti_attivi)
+        }
+        
         for dip in dipendenti_attivi:
             attivita_giornaliera = mappa_diario.get(dip.pk)
-            dip.attivita = attivita_giornaliera # Aggiungiamo l'attività all'oggetto dipendente
+            dip.attivita = attivita_giornaliera
             lista_dipendenti_con_stato.append(dip)
             
-        # TODO: Calcolare i KPI
+            # Aggiorniamo i contatori dei KPI in base allo stato
+            if attivita_giornaliera:
+                if attivita_giornaliera.stato_presenza == DiarioAttivita.StatoPresenza.PRESENTE:
+                    kpi['presenti'] += 1
+                elif attivita_giornaliera.stato_presenza in [DiarioAttivita.StatoPresenza.ASSENTE_G, DiarioAttivita.StatoPresenza.ASSENTE_I]:
+                    kpi['assenti'] += 1
+                elif attivita_giornaliera.cantiere_pianificato:
+                    kpi['assegnati'] += 1
+                # Se c'è una voce di diario ma non rientra nei casi sopra (es. malattia non ancora confermata)
+                # la contiamo comunque per non perderla, ma non la classifichiamo come "libera".
+            else:
+                kpi['liberi'] += 1
+        
+        kpi['disponibili'] = kpi['liberi'] # KPI "Disponibili" come da mockup è uguale a "Liberi"
+        # === FINE LOGICA KPI ===
 
         context = {
             'data_riferimento': data_riferimento,
             'giorno_precedente': data_riferimento - timedelta(days=1),
             'giorno_successivo': data_riferimento + timedelta(days=1),
             'dipendenti': lista_dipendenti_con_stato,
-            # Passiamo anche i queryset per i futuri form di pianificazione
             'cantieri_disponibili': Cantiere.objects.filter(stato=Cantiere.Stato.APERTO),
             'mezzi_disponibili': MezzoAziendale.objects.filter(attivo=True),
             'attivita_form': DiarioAttivitaForm(),
+            'kpi': kpi, # Aggiungiamo il dizionario dei KPI al contesto
         }
         
         return render(request, self.template_name, context)

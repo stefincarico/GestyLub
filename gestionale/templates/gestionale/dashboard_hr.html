@@ -11,7 +11,46 @@
     </div>
 </div>
 
-<!-- TODO: KPI Cards -->
+    <!-- ======================= KPI CARDS ======================= -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h6 class="card-title text-muted">Disponibili</h6>
+                    <h2 class="display-5 fw-bold">{{ kpi.disponibili }}</h2>
+                    <small class="text-muted">Dipendenti liberi</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h6 class="card-title text-muted">Assegnati</h6>
+                    <h2 class="display-5 fw-bold">{{ kpi.assegnati }}</h2>
+                    <small class="text-muted">Pianificati su cantiere</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h6 class="card-title text-muted">Presenti</h6>
+                    <h2 class="display-5 fw-bold text-success">{{ kpi.presenti }}</h2>
+                    <small class="text-muted">Con ore consuntivate</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h6 class="card-title text-muted">Assenti</h6>
+                    <h2 class="display-5 fw-bold text-danger">{{ kpi.assenti }}</h2>
+                    <small class="text-muted">Ferie, malattia, etc.</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- ===================== FINE KPI CARDS ===================== -->
 
 <!-- Tabella Stato Dipendenti -->
 <div class="card">
