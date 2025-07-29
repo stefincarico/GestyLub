@@ -667,6 +667,43 @@ class DocumentoListExportPdfView(DocumentoListView):
             'gestionale/documento_list_pdf.html', 
             context
         )
+
+class DocumentoDetailExportPdfView(TenantRequiredMixin, View):
+   """
+   Gestisce la generazione e il download del PDF per il dettaglio di un documento.
+   """
+   def get(self, request, *args, **kwargs):
+       # 1. Recupera tutti i dati necessari usando la funzione helper esistente.
+       # Nota: la funzione helper restituisce i queryset completi, non paginati.
+       context = get_documento_dettaglio_context(kwargs['pk'])
+
+       # 2. Prepara il contesto specifico per il template PDF.
+       context.update({
+           'tenant_name': request.session.get('active_tenant_name', 'Gestionale'),
+           'timestamp': timezone.now().strftime('%d/%m/%Y %H:%M:%S'),
+           # Passiamo i queryset completi al template PDF
+           'scadenze': context['scadenze_qs'],
+           'cronologia_pagamenti': context['cronologia_pagamenti_qs'],
+       })
+
+       # 3. Costruisce il nome del file secondo le specifiche.
+       doc = context['documento']
+       timestamp_str = timezone.now().strftime('%Y%m%d%H%M%S')
+       doc_year = doc.data_documento.year
+       # Pulisce il numero documento da eventuali caratteri non validi per un nome file
+       safe_doc_number = doc.numero_documento.replace('/', '_').replace('\\', '_')
+
+       filename = f"{timestamp_str}-Dettaglio_Ft_{doc_year}_{safe_doc_number}.pdf"
+
+       # 4. Chiama la funzione di utility per generare il PDF.
+       return generate_pdf_report(
+           request,
+           'gestionale/documento_detail_pdf.html',
+           context,
+           filename=filename  # Passiamo il nome file personalizzato
+       )
+
+
 # ==============================================================================
 # === VISTE PARTITARIO ANAGRAFICA (DETAIL + EXPORTS)                        ===
 # ==============================================================================

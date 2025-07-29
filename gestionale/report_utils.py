@@ -129,35 +129,33 @@ def generate_excel_report(tenant_name, report_title, filters_string, kpi_data, r
 # === UTILITY PER EXPORT PDF                                              ===
 # ==============================================================================
 
-def generate_pdf_report(request, template_name, context):
+def generate_pdf_report(request, template_name, context, filename=None):
     """
     Funzione generica per creare un report PDF da un template HTML.
 
     Args:
-        request: L'oggetto richiesta di Django (necessario per render_to_string).
-        template_name (str): Il percorso del template HTML da usare per il report.
-        context (dict): Il dizionario di contesto con i dati da passare al template.
+        request: L'oggetto richiesta di Django.
+        template_name (str): Il percorso del template HTML da usare.
+        context (dict): Il dizionario di contesto con i dati.
+        filename (str, optional): Il nome file desiderato per il download.
+                                  Se non fornito, ne viene generato uno di default.
 
     Returns:
         HttpResponse: La risposta HTTP con il file PDF da scaricare.
     """
-    # 1. PREPARAZIONE DELLA RISPOSTA HTTP
     response = HttpResponse(content_type='application/pdf')
-    report_title = context.get('report_title', 'report')
-    timestamp = timezone.now().strftime('%Y%m%d')
-    filename = f"{report_title.replace(' ', '_').lower()}_{timestamp}.pdf"
+    
+    # Se un nome file non è fornito, ne crea uno di default.
+    if not filename:
+        report_title = context.get('report_title', 'report')
+        timestamp = timezone.now().strftime('%Y%m%d')
+        filename = f"{report_title.replace(' ', '_').lower()}_{timestamp}.pdf"
+    
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
 
-    # 2. RENDERIZZAZIONE DEL TEMPLATE HTML IN UNA STRINGA
-    # render_to_string fa esattamente come render, ma invece di restituire
-    # una HttpResponse, restituisce il puro HTML come stringa.
     html_string = render_to_string(template_name, context, request=request)
-
-    # 3. CONVERSIONE DA HTML A PDF
-    # WeasyPrint prende la stringa HTML e la converte in un file PDF in memoria.
     pdf_file = HTML(string=html_string, base_url=request.build_absolute_uri()).write_pdf()
 
-    # 4. SCRITTURA DEL PDF NELLA RISPOSTA E RESTITUZIONE
     response.write(pdf_file)
     return response
 

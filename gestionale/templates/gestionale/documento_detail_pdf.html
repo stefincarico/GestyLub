@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>Dettaglio Documento: {{ documento.numero_documento }}</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 1.5cm;
+        }
+        body {
+            font-family: 'Helvetica', 'Arial', sans-serif;
+            font-size: 10pt;
+            color: #333;
+        }
+        .header, .footer {
+            width: 100%;
+            text-align: center;
+            position: fixed;
+        }
+        .header { top: -1.2cm; }
+        .footer { bottom: -1.2cm; }
+        .footer .page-number:after {
+            content: counter(page);
+        }
+        h1, h2, h3 {
+            color: #2c3e50;
+            margin-bottom: 0.5em;
+        }
+        h1 { font-size: 18pt; text-align: center; margin-bottom: 1cm; }
+        h2 { font-size: 14pt; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-top: 1cm; }
+
+        /* Regola generale per le tabelle */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1em;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+            vertical-align: top;
+            word-wrap: break-word;
+        }
+        th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        .text-end { text-align: right; }
+        .summary-box {
+            border: 1px solid #ccc;
+            padding: 15px;
+            margin-bottom: 1cm;
+            background-color: #f9f9f9;
+        }
+        .summary-box p { margin: 0 0 5px 0; }
+        .total-summary { margin-top: 1cm; }
+        .total-summary td { font-weight: bold; font-size: 11pt; }
+        .text-success { color: #28a745; }
+        .text-danger { color: #dc3545; }
+
+        /* Stili specifici SOLO per la tabella cronologia */
+        .cronologia-table .col-data { width: 15%; }
+        .cronologia-table .col-desc { width: 50%; }
+        .cronologia-table .col-conto { width: 20%; }
+        .cronologia-table .col-importo { width: 15%; }
+
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        {{ tenant_name|default:'Gestionale' }} - Dettaglio Documento
+    </div>
+
+    <div class="footer">
+        Generato il {{ timestamp }} - Pagina <span class="page-number"></span>
+    </div>
+
+    <!-- Contenitore principale che rispetta i margini -->
+    <main>
+        <h1>{{ documento.get_tipo_doc_display }} N. {{ documento.numero_documento }}</h1>
+
+        <div class="summary-box">
+            <h2>Riepilogo Documento</h2>
+            <table>
+                <tr>
+                    <td><strong>Cliente/Fornitore:</strong></td>
+                    <td>{{ documento.anagrafica.nome_cognome_ragione_sociale }}</td>
+                    <td><strong>Data Documento:</strong></td>
+                    <td>{{ documento.data_documento|date:"d/m/Y" }}</td>
+                </tr>
+                <tr>
+                    <td><strong>Stato:</strong></td>
+                    <td>{{ documento.get_stato_display }}</td>
+                    <td><strong>Note:</strong></td>
+                    <td>{{ documento.note|default:"-" }}</td>
+                </tr>
+            </table>
+        </div>
+
+        <h2>Righe del Documento</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Descrizione</th>
+                    <th class="text-end">Q.tà</th>
+                    <th class="text-end">Prezzo Unit.</th>
+                    <th class="text-end">IVA %</th>
+                    <th class="text-end">Imponibile</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for riga in documento.righe.all %}
+                <tr>
+                    <td>{{ riga.descrizione }}</td>
+                    <td class="text-end">{{ riga.quantita|floatformat:2 }}</td>
+                    <td class="text-end">€ {{ riga.prezzo_unitario|floatformat:2 }}</td>
+                    <td class="text-end">{{ riga.aliquota_iva.valore_percentuale|floatformat:2 }}%</td>
+                    <td class="text-end">€ {{ riga.imponibile_riga|floatformat:2 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <table class="total-summary">
+            <tr>
+                <td>Imponibile</td>
+                <td class="text-end">€ {{ documento.imponibile|floatformat:2 }}</td>
+            </tr>
+            <tr>
+                <td>IVA</td>
+                <td class="text-end">€ {{ documento.iva|floatformat:2 }}</td>
+            </tr>
+            <tr>
+                <td>Totale Documento</td>
+                <td class="text-end">€ {{ documento.totale|floatformat:2 }}</td>
+            </tr>
+            <tr>
+                <td>Saldo Residuo</td>
+                <td class="text-end text-danger">€ {{ saldo_residuo|floatformat:2 }}</td>
+            </tr>
+        </table>
+
+        <h2>Scadenze</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Data Scadenza</th>
+                    <th class="text-end">Importo Rata</th>
+                    <th class="text-end">Residuo</th>
+                    <th>Stato</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for scadenza in scadenze %}
+                <tr>
+                    <td>{{ scadenza.data_scadenza|date:"d/m/Y" }}</td>
+                    <td class="text-end">€ {{ scadenza.importo_rata|floatformat:2 }}</td>
+                    <td class="text-end">€ {{ scadenza.residuo|floatformat:2 }}</td>
+                    <td>{{ scadenza.get_stato_display }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" style="text-align:center;">Nessuna scadenza associata.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <h2>Cronologia Pagamenti / Incassi</h2>
+        <table class="cronologia-table">
+            <thead>
+                <tr>
+                    <th class="col-data">Data Pagamento</th>
+                    <th class="col-desc">Descrizione</th>
+                    <th class="col-conto">Conto</th>
+                    <th class="text-end col-importo">Importo</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for pagamento in cronologia_pagamenti %}
+                <tr>
+                    <td>{{ pagamento.data_registrazione|date:"d/m/Y" }}</td>
+                    <td>{{ pagamento.descrizione }}</td>
+                    <td>{{ pagamento.conto_finanziario.nome_conto }}</td>
+                    <td class="text-end {% if pagamento.tipo_movimento == 'E' %}text-success{% else %}text-danger{% endif %}">
+                        € {{ pagamento.importo|floatformat:2 }}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" style="text-align:center;">Nessun pagamento registrato.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </main>
+
+</body>
+</html>

@@ -7,10 +7,13 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1 class="h2">Dettaglio: {{ documento.get_tipo_doc_display }} N. {{ documento.numero_documento }}</h1>
     <div>
+        <a href="{% url 'documento_detail_export_pdf' pk=documento.pk %}" class="btn btn-danger">
+            <i class="bi bi-file-earmark-pdf-fill"></i> Esporta PDF
+        </a>
         <a href="{% url 'documento_list' %}" class="btn btn-secondary">Torna alla Lista</a>
-        <!-- TODO: Aggiungere pulsanti Export -->
     </div>
 </div>
+
 
 <!-- Riepilogo Documento -->
 <div class="card mb-4">
