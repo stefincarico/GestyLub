@@ -2402,41 +2402,64 @@ class DipendenteDetailView(TenantRequiredMixin, View): # Cambia da DetailView a 
     template_name = 'gestionale/dipendente_detail.html'
 
     def get(self, request, *args, **kwargs):
-        # Usiamo get_object_or_404 per recuperare il dipendente in modo sicuro
+        """
+        Gestisce la richiesta GET per la pagina del Fascicolo Dipendente.
+        """
+        # 1. RECUPERO DELL'OGGETTO PRINCIPALE
+        # Usiamo get_object_or_404 per recuperare il dipendente in modo sicuro,
+        # assicurandoci che esista e che sia effettivamente di tipo 'Dipendente'.
         dipendente = get_object_or_404(
             Anagrafica, 
             pk=kwargs['pk'], 
             tipo=Anagrafica.Tipo.DIPENDENTE
         )
 
-        # Recupera lo storico completo delle attività
+        # 2. RECUPERO DEI DATI COLLEGATI
+        # Recupera lo storico completo delle attività, pre-caricando i dati
+        # del cantiere per ottimizzare le query.
         storico_attivita_qs = DiarioAttivita.objects.filter(
             dipendente=dipendente
         ).select_related('cantiere_pianificato').order_by('-data')
         
-        # Recupera le scadenze personali
+        # Recupera le scadenze personali, pre-caricando i dati del tipo di scadenza.
         scadenze_personali_qs = ScadenzaPersonale.objects.filter(
             dipendente=dipendente
         ).select_related('tipo_scadenza').order_by('data_scadenza')
 
+        # 3. PREPARAZIONE DATI PER LOGICA JAVASCRIPT
+        # Creiamo un dizionario che mappa {id_tipo_scadenza: validita_mesi}
+        # per la logica di auto-calcolo della data di scadenza.
+        # Includiamo solo i tipi che hanno una validità in mesi definita e > 0.
+        tipi_scadenza_attivi = TipoScadenzaPersonale.objects.filter(attivo=True)
+        tipi_scadenza_data = {
+            tipo.id: tipo.validita_mesi 
+            for tipo in tipi_scadenza_attivi 
+            if tipo.validita_mesi is not None and tipo.validita_mesi > 0
+        }
+
+        # 4. GESTIONE DELLA PAGINAZIONE INDIPENDENTE
         # Paginazione per lo Storico Attività
-        paginator_attivita = Paginator(storico_attivita_qs, 10) # 10 attività per pagina
+        paginator_attivita = Paginator(storico_attivita_qs, 10)
         page_number_attivita = request.GET.get('pagina_attivita', 1)
         page_obj_attivita = paginator_attivita.get_page(page_number_attivita)
 
         # Paginazione per le Scadenze Personali
-        paginator_scadenze = Paginator(scadenze_personali_qs, 5) # 5 scadenze per pagina
+        paginator_scadenze = Paginator(scadenze_personali_qs, 5)
         page_number_scadenze = request.GET.get('pagina_scadenze', 1)
         page_obj_scadenze = paginator_scadenze.get_page(page_number_scadenze)
 
+        # 5. PREPARAZIONE DEL CONTESTO FINALE
         context = {
             'title': f"Fascicolo Dipendente: {dipendente.nome_cognome_ragione_sociale}",
             'dipendente': dipendente,
             'storico_attivita': page_obj_attivita,
             'scadenze_personali': page_obj_scadenze,
-            'scadenza_personale_form': ScadenzaPersonaleForm(),
+            'today': date.today(), # Utile per evidenziare le scadenze scadute
+            'scadenza_personale_form': ScadenzaPersonaleForm(), # Form per la modale di creazione
+            'tipi_scadenza_data_json': json.dumps(tipi_scadenza_data), # Dati per lo script JS
         }
         
+        # 6. RENDERIZZAZIONE DEL TEMPLATE
         return render(request, self.template_name, context)
     
 # ==============================================================================
@@ -2466,10 +2489,24 @@ class ScadenzaPersonaleUpdateView(TenantRequiredMixin, AdminRequiredMixin, Updat
     """
     model = ScadenzaPersonale
     form_class = ScadenzaPersonaleForm
-    template_name = 'gestionale/scadenza_personale_form.html' # Useremo un template dedicato per la modifica
+    template_name = 'gestionale/scadenza_personale_form.html'
     
     def get_success_url(self):
         return reverse_lazy('dipendente_detail', kwargs={'pk': self.object.dipendente.pk})
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = f"Modifica Scadenza per {self.object.dipendente.nome_cognome_ragione_sociale}"
+        
+        tipi_scadenza_attivi = TipoScadenzaPersonale.objects.filter(attivo=True)
+        tipi_scadenza_data = {
+            tipo.id: tipo.validita_mesi 
+            for tipo in tipi_scadenza_attivi
+            if tipo.validita_mesi is not None and tipo.validita_mesi > 0
+        }
+        context['tipi_scadenza_data_json'] = json.dumps(tipi_scadenza_data)
+        
+        return context
 
     def form_valid(self, form):
         messages.success(self.request, "Scadenza personale aggiornata con successo.")

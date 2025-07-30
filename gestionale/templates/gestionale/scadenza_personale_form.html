@@ -13,3 +13,33 @@
     </form>
 </div></div>
 {% endblock %}
+{% block scripts %}
+<script>
+// Funzione helper riutilizzabile per calcolare la data
+function calcolaDataScadenza(dataEsecuzione, validitaMesi, campoDataScadenza) {
+    if (!dataEsecuzione || !validitaMesi) {
+        return;
+    }
+    const dataInizio = new Date(dataEsecuzione);
+    dataInizio.setMonth(dataInizio.getMonth() + parseInt(validitaMesi));
+    campoDataScadenza.value = dataInizio.toISOString().split('T')[0];
+}
+
+// Logica per la pagina di MODIFICA
+document.addEventListener('DOMContentLoaded', function() {
+    const tipiScadenzaData = JSON.parse('{{ tipi_scadenza_data_json|safe }}');
+    const tipoSelect = document.getElementById('id_tipo_scadenza');
+    const dataEsecuzioneInput = document.getElementById('id_data_esecuzione');
+    const dataScadenzaInput = document.getElementById('id_data_scadenza');
+
+    function updateScadenza() {
+        const tipoId = tipoSelect.value;
+        const validitaMesi = tipiScadenzaData[tipoId];
+        calcolaDataScadenza(dataEsecuzioneInput.value, validitaMesi, dataScadenzaInput);
+    }
+
+    tipoSelect.addEventListener('change', updateScadenza);
+    dataEsecuzioneInput.addEventListener('change', updateScadenza);
+});
+</script>
+{% endblock %}

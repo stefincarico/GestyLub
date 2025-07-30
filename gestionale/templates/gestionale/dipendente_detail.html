@@ -183,22 +183,68 @@
 </div>
 <!-- Modale per Nuova Scadenza Personale -->
 <div class="modal fade" id="nuovaScadenzaModal" tabindex="-1">
-    <div class="modal-dialog"><div class="modal-content">
-        <div class="modal-header">
-            <h5 class="modal-title">Nuova Scadenza per {{ dipendente.nome_cognome_ragione_sociale }}</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Nuova Scadenza per {{ dipendente.nome_cognome_ragione_sociale }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{% url 'scadenza_personale_create' dipendente.pk %}" method="post">
+                {% csrf_token %}
+                <div class="modal-body">
+                    {{ scadenza_personale_form.as_p }}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-primary">Crea Scadenza</button>
+                </div>
+            </form>
         </div>
-        <form action="{% url 'scadenza_personale_create' dipendente.pk %}" method="post">
-            {% csrf_token %}
-            <div class="modal-body">
-                {{ scadenza_personale_form.as_p }}
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
-                <button type="submit" class="btn btn-primary">Crea Scadenza</button>
-            </div>
-        </form>
-    </div></div>
+    </div>
 </div>
+<script>
+    // Selezioniamo gli elementi del form della modale
+    const tipoSelectModal = document.querySelector('#nuovaScadenzaModal #id_tipo_scadenza');
+    const dataEsecuzioneInputModal = document.querySelector('#nuovaScadenzaModal #id_data_esecuzione');
+    const dataScadenzaInputModal = document.querySelector('#nuovaScadenzaModal #id_data_scadenza');
 
-{% endblock %}
+    // La mappa dei dati JSON che ci arriva dalla vista
+        // 1. Recuperiamo la stringa JSON dal template.
+    const tipiScadenzaDataJson = '{{ tipi_scadenza_data_json|safe|default:"{}" }}';
+    
+    // 2. Inizializziamo un oggetto vuoto di default.
+    let tipiScadenzaData = {};
+    
+    // 3. Proviamo a fare il "parse" solo se la stringa non è vuota.
+    try {
+        if (tipiScadenzaDataJson) {
+            tipiScadenzaData = JSON.parse(tipiScadenzaDataJson);
+        }
+    } catch (e) {
+        console.error("Errore nel parsing del JSON tipi_scadenza_data_json:", e);
+    }
+
+
+    // La funzione che fa il calcolo
+    function updateScadenzaModal() {
+        const tipoId = tipoSelectModal.value;
+        const dataEsecuzione = dataEsecuzioneInputModal.value;
+        const validitaMesi = tipiScadenzaData[tipoId];
+
+        // Debug in console
+        console.log("Evento change nella MODALE:", { tipoId, dataEsecuzione, validitaMesi });
+
+        if (dataEsecuzione && validitaMesi) {
+            const dataInizio = new Date(dataEsecuzione);
+            dataInizio.setMonth(dataInizio.getMonth() + parseInt(validitaMesi));
+            dataScadenzaInputModal.value = dataInizio.toISOString().split('T')[0];
+        }
+    }
+
+    // Aggiungiamo gli "ascoltatori"
+    tipoSelectModal.addEventListener('change', updateScadenzaModal);
+    dataEsecuzioneInputModal.addEventListener('change', updateScadenzaModal);
+
+</script>
+{% endblock content %}
+
