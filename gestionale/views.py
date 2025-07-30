@@ -39,7 +39,7 @@ from weasyprint import HTML
 from .forms import (
     AliquotaIVAForm, AnagraficaForm, CausaleForm, ContoFinanziarioForm, ContoOperativoForm, DiarioAttivitaForm, DipendenteDettaglioForm,
     DocumentoFilterForm, DocumentoRigaForm, DocumentoTestataForm, MezzoAziendaleForm, ModalitaPagamentoForm,
-    PagamentoForm, PartitarioFilterForm, PrimaNotaFilterForm, PrimaNotaForm,
+    PagamentoForm, PartitarioFilterForm, PrimaNotaFilterForm, PrimaNotaForm, ScadenzaPersonaleForm,
     ScadenzarioFilterForm, ScadenzaWizardForm,PrimaNotaUpdateForm,PagamentoUpdateForm, TipoScadenzaPersonaleForm
 )
 from .models import (
@@ -2341,9 +2341,6 @@ class MezzoAziendaleToggleAttivoView(TenantRequiredMixin, AdminRequiredMixin, Vi
         messages.success(request, f"Stato di '{obj.targa}' aggiornato.")
         return redirect('mezzo_aziendale_list')
    
-
-
-
 # --- VISTE CRUD PER TIPI SCADENZE PERSONALE ---
 
 class TipoScadenzaPersonaleListView(TenantRequiredMixin, AdminRequiredMixin, ListView):
@@ -2437,7 +2434,54 @@ class DipendenteDetailView(TenantRequiredMixin, View): # Cambia da DetailView a 
             'dipendente': dipendente,
             'storico_attivita': page_obj_attivita,
             'scadenze_personali': page_obj_scadenze,
+            'scadenza_personale_form': ScadenzaPersonaleForm(),
         }
         
         return render(request, self.template_name, context)
     
+# ==============================================================================
+# === VISTE CRUD SCADENZE PERSONALI (per il Fascicolo Dipendente)           ===
+# ==============================================================================
+
+class ScadenzaPersonaleCreateView(TenantRequiredMixin, AdminRequiredMixin, View):
+    """
+    Gestisce la creazione di una nuova scadenza personale.
+    """
+    def post(self, request, *args, **kwargs):
+        dipendente = get_object_or_404(Anagrafica, pk=kwargs['dipendente_pk'])
+        form = ScadenzaPersonaleForm(request.POST)
+        if form.is_valid():
+            scadenza = form.save(commit=False)
+            scadenza.dipendente = dipendente
+            scadenza.created_by = request.user
+            scadenza.save()
+            messages.success(request, "Scadenza personale creata con successo.")
+        else:
+            messages.error(request, f"Errore nella creazione della scadenza: {form.errors.as_text()}")
+        return redirect('dipendente_detail', pk=dipendente.pk)
+
+class ScadenzaPersonaleUpdateView(TenantRequiredMixin, AdminRequiredMixin, UpdateView):
+    """
+    Gestisce la modifica di una scadenza personale esistente.
+    """
+    model = ScadenzaPersonale
+    form_class = ScadenzaPersonaleForm
+    template_name = 'gestionale/scadenza_personale_form.html' # Useremo un template dedicato per la modifica
+    
+    def get_success_url(self):
+        return reverse_lazy('dipendente_detail', kwargs={'pk': self.object.dipendente.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, "Scadenza personale aggiornata con successo.")
+        return super().form_valid(form)
+
+class ScadenzaPersonaleDeleteView(TenantRequiredMixin, AdminRequiredMixin, DeleteView):
+    """
+    Gestisce l'eliminazione di una scadenza personale.
+    """
+    model = ScadenzaPersonale
+    template_name = 'gestionale/generic_confirm_delete.html' # Un template di conferma generico
+    
+    def get_success_url(self):
+        messages.success(self.request, "Scadenza personale eliminata con successo.")
+        return reverse_lazy('dipendente_detail', kwargs={'pk': self.object.dipendente.pk})

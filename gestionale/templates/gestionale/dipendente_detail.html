@@ -125,7 +125,9 @@
     <div class="card-header d-flex justify-content-between align-items-center">
         <span>Scadenze Personali</span>
         <!-- TODO: Aggiungere pulsante "+ Nuova Scadenza" che apre una modale -->
-        <a href="#" class="btn btn-primary btn-sm">+ Nuova Scadenza</a>
+        <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#nuovaScadenzaModal">
+            + Nuova Scadenza
+        </button>
     </div>
     <div class="card-body p-0">
         <div class="table-responsive">
@@ -149,8 +151,8 @@
                         <td>{{ scadenza.get_stato_display }}</td>
                         <td>{{ scadenza.note|default_if_none:"" }}</td>
                         <td>
-                            <!-- TODO: Pulsanti Modifica/Elimina -->
-                            <a href="#" class="btn btn-sm btn-outline-primary">Modifica</a>
+                            <a href="{% url 'scadenza_personale_update' scadenza.pk %}" class="btn btn-sm btn-outline-primary">Modifica</a>
+                            <a href="{% url 'scadenza_personale_delete' scadenza.pk %}" class="btn btn-sm btn-outline-danger">Elimina</a>
                         </td>
                     </tr>
                     {% empty %}
@@ -179,7 +181,24 @@
     {% endif %}
     {% endwith %}
 </div>
-
-<!-- TODO: Aggiungere la modale per la creazione/modifica di una scadenza personale -->
+<!-- Modale per Nuova Scadenza Personale -->
+<div class="modal fade" id="nuovaScadenzaModal" tabindex="-1">
+    <div class="modal-dialog"><div class="modal-content">
+        <div class="modal-header">
+            <h5 class="modal-title">Nuova Scadenza per {{ dipendente.nome_cognome_ragione_sociale }}</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <form action="{% url 'scadenza_personale_create' dipendente.pk %}" method="post">
+            {% csrf_token %}
+            <div class="modal-body">
+                {{ scadenza_personale_form.as_p }}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                <button type="submit" class="btn btn-primary">Crea Scadenza</button>
+            </div>
+        </form>
+    </div></div>
+</div>
 
 {% endblock %}

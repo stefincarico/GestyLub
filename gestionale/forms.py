@@ -6,7 +6,7 @@ from django.db.models import Sum, Value
 from django.db.models.functions import Coalesce
 from .models import (Anagrafica, Cantiere, Causale, ContoOperativo, 
         DipendenteDettaglio, DocumentoRiga, DocumentoTestata, AliquotaIVA, ModalitaPagamento, PrimaNota,
-        Scadenza, ContoFinanziario, DiarioAttivita, MezzoAziendale, TipoScadenzaPersonale)
+        Scadenza, ContoFinanziario, DiarioAttivita, MezzoAziendale, ScadenzaPersonale, TipoScadenzaPersonale)
 
 class AnagraficaForm(forms.ModelForm):
     """
@@ -732,3 +732,24 @@ class TipoScadenzaPersonaleForm(forms.ModelForm):
         data = self.cleaned_data.get('descrizione')
         return data.upper() if data else data
     
+class ScadenzaPersonaleForm(forms.ModelForm):
+    """
+    Form per la creazione e modifica delle Scadenze Personali.
+    """
+    class Meta:
+        model = ScadenzaPersonale
+        # Escludiamo i campi gestiti automaticamente (dipendente, created_by, etc.)
+        fields = ['tipo_scadenza', 'data_esecuzione', 'data_scadenza', 'stato', 'note']
+        widgets = {
+            'tipo_scadenza': forms.Select(attrs={'class': 'form-select'}),
+            'data_esecuzione': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'data_scadenza': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'stato': forms.Select(attrs={'class': 'form-select'}),
+            'note': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Popoliamo il queryset con i tipi di scadenza attivi
+        self.fields['tipo_scadenza'].queryset = TipoScadenzaPersonale.objects.filter(attivo=True)
+

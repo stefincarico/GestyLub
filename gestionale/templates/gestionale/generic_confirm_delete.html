@@ -1,0 +1,16 @@
+{% extends "gestionale/base.html" %}
+{% block title %}Conferma Eliminazione{% endblock %}
+{% block content %}
+<h1 class="h2 mb-4">Conferma Eliminazione</h1>
+<div class="card"><div class="card-body">
+    <p>Sei sicuro di voler eliminare questo elemento?</p>
+    <div class="alert alert-danger">
+        <strong>ATTENZIONE:</strong> L'azione è irreversibile.
+    </div>
+    <form method="post" class="mt-4">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger">Sì, elimina</button>
+        <a href="{{ request.META.HTTP_REFERER }}" class="btn btn-secondary">Annulla</a>
+    </form>
+</div></div>
+{% endblock %}

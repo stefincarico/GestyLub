@@ -1,0 +1,15 @@
+{% extends "gestionale/base.html" %}
+{% block title %}Modifica Scadenza Personale{% endblock %}
+{% block content %}
+<h1 class="h2 mb-4">Modifica Scadenza per {{ object.dipendente.nome_cognome_ragione_sociale }}</h1>
+<div class="card"><div class="card-body">
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <div class="mt-4">
+            <button type="submit" class="btn btn-primary">Salva Modifiche</button>
+            <a href="{% url 'dipendente_detail' object.dipendente.pk %}" class="btn btn-secondary">Annulla</a>
+        </div>
+    </form>
+</div></div>
+{% endblock %}
