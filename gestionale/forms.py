@@ -749,7 +749,23 @@ class ScadenzaPersonaleForm(forms.ModelForm):
         }
     
     def __init__(self, *args, **kwargs):
+        """
+        Inizializzazione personalizzata per:
+        - Popolare il queryset del tipo scadenza.
+        - Formattare correttamente le date iniziali per il widget HTML.
+        """
         super().__init__(*args, **kwargs)
         # Popoliamo il queryset con i tipi di scadenza attivi
         self.fields['tipo_scadenza'].queryset = TipoScadenzaPersonale.objects.filter(attivo=True)
+
+        # === INIZIO CORREZIONE ===
+        # Se il form è legato a un'istanza esistente (siamo in modalità modifica)...
+        if self.instance and self.instance.pk:
+            # ...e se i campi data hanno un valore...
+            if self.instance.data_esecuzione:
+                # ...impostiamo il valore iniziale del form con la data formattata in ISO.
+                self.initial['data_esecuzione'] = self.instance.data_esecuzione.strftime('%Y-%m-%d')
+            if self.instance.data_scadenza:
+                self.initial['data_scadenza'] = self.instance.data_scadenza.strftime('%Y-%m-%d')
+        # === FINE CORREZIONE ===
 
