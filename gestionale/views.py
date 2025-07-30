@@ -61,6 +61,16 @@ class TenantRequiredMixin(LoginRequiredMixin, View):
             return redirect(reverse('tenant_selection'))
         return super().dispatch(request, *args, **kwargs)
 
+
+class AdminRequiredMixin(AccessMixin):
+    """Verifica che l'utente abbia il ruolo di 'admin' in sessione."""
+    def dispatch(self, request, *args, **kwargs):
+        if request.session.get('user_company_role') != 'admin':
+            messages.error(request, "Accesso negato. È richiesta l'autorizzazione di un amministratore.")
+            # Reindirizza a una pagina sicura, come la dashboard
+            return redirect(reverse_lazy('dashboard'))
+        return super().dispatch(request, *args, **kwargs)
+
 def clear_doc_wizard_session(session):
     """Pulisce i dati del wizard dalla sessione."""
     session.pop('doc_testata_data', None)
@@ -1475,14 +1485,39 @@ class DashboardHRView(TenantRequiredMixin, View):
         
         return render(request, self.template_name, context)
     
-class SalvaAttivitaDiarioView(TenantRequiredMixin, View):
+# gestionale/views.py
+
+class SalvaAttivitaDiarioView(TenantRequiredMixin, AdminRequiredMixin, View): # Aggiunto AdminRequiredMixin per sicurezza
+    """
+    Gestisce il salvataggio (creazione o modifica) di una voce
+    del DiarioAttivita tramite una richiesta POST dalla modale.
+    Accessibile solo agli admin.
+    """
     def post(self, request, *args, **kwargs):
+        # 1. RECUPERO E VALIDAZIONE INPUT DI BASE
         data_str = request.POST.get('data')
         dipendente_id = request.POST.get('dipendente_id')
         
-        data = date.fromisoformat(data_str)
+        # Costruiamo un URL di fallback a cui tornare in caso di errore grave
+        fallback_url = reverse('dashboard_hr')
+
+        # Se i dati essenziali mancano, non possiamo procedere.
+        if not data_str or not dipendente_id:
+            messages.error(request, "Dati mancanti o corrotti. Impossibile salvare.")
+            return redirect(fallback_url)
+            
+        try:
+            # Proviamo a convertire la stringa in una data.
+            data = date.fromisoformat(data_str)
+        except ValueError:
+            # Se la stringa non è una data valida, blocchiamo l'operazione.
+            messages.error(request, "Formato data non valido. Impossibile salvare.")
+            return redirect(fallback_url)
+
+        # Ora che 'data' è valida, possiamo costruire l'URL di reindirizzamento corretto.
         redirect_url = reverse('dashboard_hr_data', kwargs={'year': data.year, 'month': data.month, 'day': data.day})
         
+        # 2. GET OR CREATE E VALIDAZIONE FORM (logica quasi invariata)
         attivita, created = DiarioAttivita.objects.get_or_create(
             data=data,
             dipendente_id=dipendente_id,
@@ -1492,30 +1527,21 @@ class SalvaAttivitaDiarioView(TenantRequiredMixin, View):
         form = DiarioAttivitaForm(request.POST, instance=attivita)
 
         if form.is_valid():
+            # ... (tutta la logica di 'form_valid' rimane identica a prima) ...
             istanza_salvata = form.save(commit=False)
-            istanza_salvata.updated_by = request.user
+            istanza_salvata.updated_by = self.request.user
             
-            # === INIZIO CORREZIONE ===
-            # Garantiamo che i campi numerici non siano mai None prima di salvare.
-            # Se il form li restituisce come None, li impostiamo al loro valore di default (0).
-            if istanza_salvata.ore_ordinarie is None:
-                istanza_salvata.ore_ordinarie = 0
-            if istanza_salvata.ore_straordinarie is None:
-                istanza_salvata.ore_straordinarie = 0
+            if istanza_salvata.ore_ordinarie is None: istanza_salvata.ore_ordinarie = 0
+            if istanza_salvata.ore_straordinarie is None: istanza_salvata.ore_straordinarie = 0
             
-            # Logica di business (ora più semplice)
             if istanza_salvata.ore_ordinarie > 0 or istanza_salvata.ore_straordinarie > 0:
                 if not istanza_salvata.stato_presenza:
                     istanza_salvata.stato_presenza = DiarioAttivita.StatoPresenza.PRESENTE
             
-            stati_assenza = [
-                DiarioAttivita.StatoPresenza.ASSENTE_G,
-                DiarioAttivita.StatoPresenza.ASSENTE_I
-            ]
+            stati_assenza = [DiarioAttivita.StatoPresenza.ASSENTE_G, DiarioAttivita.StatoPresenza.ASSENTE_I]
             if istanza_salvata.stato_presenza in stati_assenza:
                 istanza_salvata.ore_ordinarie = 0
                 istanza_salvata.ore_straordinarie = 0
-            # === FINE CORREZIONE ===
 
             istanza_salvata.save()
             messages.success(request, f"Attività per {attivita.dipendente.nome_cognome_ragione_sociale} salvata con successo.")
@@ -1997,19 +2023,6 @@ class TesoreriaExportPdfView(TesoreriaDashboardView):
             context
         )
     
-# === NUOVO MIXIN PER CONTROLLO RUOLO ADMIN ===
-class AdminRequiredMixin(AccessMixin):
-    """
-    Mixin per verificare che l'utente loggato abbia il ruolo 'admin'.
-    """
-    def dispatch(self, request, *args, **kwargs):
-        if not request.user.is_authenticated:
-            return self.handle_no_permission()
-        if request.session.get('user_company_role') != 'admin':
-            messages.error(request, "Non hai i permessi per accedere a questa sezione.")
-            return redirect(reverse('dashboard'))
-        return super().dispatch(request, *args, **kwargs)
-
 # ==============================================================================
 # === VISTE PANNELLO AMMINISTRAZIONE                                        ===
 # ==============================================================================
@@ -2408,11 +2421,11 @@ class DipendenteDetailView(TenantRequiredMixin, View): # Cambia da DetailView a 
         # 1. RECUPERO DELL'OGGETTO PRINCIPALE
         # Usiamo get_object_or_404 per recuperare il dipendente in modo sicuro,
         # assicurandoci che esista e che sia effettivamente di tipo 'Dipendente'.
-        dipendente = get_object_or_404(
-            Anagrafica, 
-            pk=kwargs['pk'], 
-            tipo=Anagrafica.Tipo.DIPENDENTE
-        )
+        dipendente = get_object_or_404(Anagrafica, pk=kwargs['pk'], tipo=Anagrafica.Tipo.DIPENDENTE)
+        dettaglio = dipendente.dettaglio_dipendente
+        ore_default = 0
+        if dettaglio and dettaglio.giorni_lavorativi_settimana > 0:
+            ore_default = round(dettaglio.ore_settimanali_contratto / dettaglio.giorni_lavorativi_settimana, 1)
 
         # 2. RECUPERO DEI DATI COLLEGATI
         # Recupera lo storico completo delle attività, pre-caricando i dati
@@ -2457,6 +2470,8 @@ class DipendenteDetailView(TenantRequiredMixin, View): # Cambia da DetailView a 
             'today': date.today(), # Utile per evidenziare le scadenze scadute
             'scadenza_personale_form': ScadenzaPersonaleForm(), # Form per la modale di creazione
             'tipi_scadenza_data_json': json.dumps(tipi_scadenza_data), # Dati per lo script JS
+            'attivita_form': DiarioAttivitaForm(),
+            'ore_giornaliere_default': ore_default,
         }
         
         # 6. RENDERIZZAZIONE DEL TEMPLATE

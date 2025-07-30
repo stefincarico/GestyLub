@@ -1,5 +1,6 @@
 {% extends "gestionale/base.html" %}
 {% load currency_filters %}
+{% load l10n %} {# Necessario per il filtro 'unlocalize' #}
 
 {% block title %}{{ title }}{% endblock %}
 
@@ -69,6 +70,7 @@
                         <th>Dettagli Assegnazione</th>
                         <th class="text-end">Ore Ord.</th>
                         <th class="text-end">Ore Straord.</th>
+                        <th>Azioni</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -82,19 +84,39 @@
                             {% else %}<span class="badge bg-secondary">LIBERO / PIAN. ALTRO</span>{% endif %}
                         </td>
                         <td>
-                            {% if attivita.cantiere_pianificato %}
-                                @ {{ attivita.cantiere_pianificato.codice_cantiere }}
-                            {% elif attivita.tipo_assenza_giustificata %}
-                                {{ attivita.tipo_assenza_giustificata }}
+                            {% if attivita.cantiere_pianificato %}@ {{ attivita.cantiere_pianificato.codice_cantiere }}
+                            {% elif attivita.tipo_assenza_giustificata %}{{ attivita.tipo_assenza_giustificata }}
+                            {% else %}-{% endif %}
+                        </td>
+                        <td class="text-end">{{ attivita.ore_ordinarie|default_if_none:"-" }}</td>
+                        <td class="text-end">{{ attivita.ore_straordinarie|default_if_none:"-" }}</td>
+                        <td>
+                            {% if request.session.user_company_role == 'admin' %}
+                                <button type="button" class="btn btn-sm btn-outline-primary"
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#attivitaModal"
+                                        data-dipendente-id="{{ dipendente.pk }}"
+                                        data-dipendente-nome="{{ dipendente.nome_cognome_ragione_sociale }}"
+                                        data-data="{{ attivita.data|date:"Y-m-d" }}"
+                                        data-ore-default="{{ ore_giornaliere_default }}"
+                                        data-attivita-json='{
+                                            "cantiere_id": "{{ attivita.cantiere_pianificato.pk|default_if_none:"" }}",
+                                            "mezzo_id": "{{ attivita.mezzo_pianificato.pk|default_if_none:"" }}",
+                                            "stato_presenza": "{{ attivita.stato_presenza|default_if_none:"" }}",
+                                            "tipo_assenza": "{{ attivita.tipo_assenza_giustificata|default_if_none:"" }}",
+                                            "ore_ord": "{{ attivita.ore_ordinarie|unlocalize|default_if_none:"0.00" }}",
+                                            "ore_str": "{{ attivita.ore_straordinarie|unlocalize|default_if_none:"0.00" }}",
+                                            "note": "{{ attivita.note_giornaliere|escapejs|default_if_none:"" }}"
+                                        }'>
+                                    Modifica
+                                </button>
                             {% else %}
                                 -
                             {% endif %}
                         </td>
-                        <td class="text-end">{{ attivita.ore_ordinarie|default_if_none:"-" }}</td>
-                        <td class="text-end">{{ attivita.ore_straordinarie|default_if_none:"-" }}</td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="5" class="text-center">Nessuna attività registrata.</td></tr>
+                    <tr><td colspan="6" class="text-center">Nessuna attività registrata.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -124,10 +146,11 @@
 <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">
         <span>Scadenze Personali</span>
-        <!-- TODO: Aggiungere pulsante "+ Nuova Scadenza" che apre una modale -->
+        {% if request.session.user_company_role == 'admin' %}
         <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#nuovaScadenzaModal">
             + Nuova Scadenza
         </button>
+        {% endif %}
     </div>
     <div class="card-body p-0">
         <div class="table-responsive">
@@ -151,8 +174,10 @@
                         <td>{{ scadenza.get_stato_display }}</td>
                         <td>{{ scadenza.note|default_if_none:"" }}</td>
                         <td>
-                            <a href="{% url 'scadenza_personale_update' scadenza.pk %}" class="btn btn-sm btn-outline-primary">Modifica</a>
-                            <a href="{% url 'scadenza_personale_delete' scadenza.pk %}" class="btn btn-sm btn-outline-danger">Elimina</a>
+                            {% if request.session.user_company_role == 'admin' %}
+                                <a href="{% url 'scadenza_personale_update' scadenza.pk %}" class="btn btn-sm btn-outline-primary">Modifica</a>
+                                <a href="{% url 'scadenza_personale_delete' scadenza.pk %}" class="btn btn-sm btn-outline-danger">Elimina</a>
+                            {% endif %}
                         </td>
                     </tr>
                     {% empty %}
@@ -181,70 +206,56 @@
     {% endif %}
     {% endwith %}
 </div>
-<!-- Modale per Nuova Scadenza Personale -->
+
+<!-- La modale per la nuova scadenza personale (il suo codice è in base.html) -->
+<!-- Il suo form 'scadenza_personale_form' viene passato dal contesto della vista -->
 <div class="modal fade" id="nuovaScadenzaModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Nuova Scadenza per {{ dipendente.nome_cognome_ragione_sociale }}</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <form action="{% url 'scadenza_personale_create' dipendente.pk %}" method="post">
-                {% csrf_token %}
-                <div class="modal-body">
-                    {{ scadenza_personale_form.as_p }}
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
-                    <button type="submit" class="btn btn-primary">Crea Scadenza</button>
-                </div>
-            </form>
+    <div class="modal-dialog"><div class="modal-content">
+        <div class="modal-header">
+            <h5 class="modal-title">Nuova Scadenza per {{ dipendente.nome_cognome_ragione_sociale }}</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
-    </div>
+        <form action="{% url 'scadenza_personale_create' dipendente.pk %}" method="post">
+            {% csrf_token %}
+            <div class="modal-body">
+                {{ scadenza_personale_form.as_p }}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                <button type="submit" class="btn btn-primary">Crea Scadenza</button>
+            </div>
+        </form>
+    </div></div>
 </div>
-<script>
-    // Selezioniamo gli elementi del form della modale
-    const tipoSelectModal = document.querySelector('#nuovaScadenzaModal #id_tipo_scadenza');
-    const dataEsecuzioneInputModal = document.querySelector('#nuovaScadenzaModal #id_data_esecuzione');
-    const dataScadenzaInputModal = document.querySelector('#nuovaScadenzaModal #id_data_scadenza');
 
-    // La mappa dei dati JSON che ci arriva dalla vista
-        // 1. Recuperiamo la stringa JSON dal template.
-    const tipiScadenzaDataJson = '{{ tipi_scadenza_data_json|safe|default:"{}" }}';
-    
-    // 2. Inizializziamo un oggetto vuoto di default.
-    let tipiScadenzaData = {};
-    
-    // 3. Proviamo a fare il "parse" solo se la stringa non è vuota.
-    try {
-        if (tipiScadenzaDataJson) {
-            tipiScadenzaData = JSON.parse(tipiScadenzaDataJson);
-        }
-    } catch (e) {
-        console.error("Errore nel parsing del JSON tipi_scadenza_data_json:", e);
-    }
-
-
-    // La funzione che fa il calcolo
-    function updateScadenzaModal() {
-        const tipoId = tipoSelectModal.value;
-        const dataEsecuzione = dataEsecuzioneInputModal.value;
-        const validitaMesi = tipiScadenzaData[tipoId];
-
-        // Debug in console
-        console.log("Evento change nella MODALE:", { tipoId, dataEsecuzione, validitaMesi });
-
-        if (dataEsecuzione && validitaMesi) {
-            const dataInizio = new Date(dataEsecuzione);
-            dataInizio.setMonth(dataInizio.getMonth() + parseInt(validitaMesi));
-            dataScadenzaInputModal.value = dataInizio.toISOString().split('T')[0];
-        }
-    }
-
-    // Aggiungiamo gli "ascoltatori"
-    tipoSelectModal.addEventListener('change', updateScadenzaModal);
-    dataEsecuzioneInputModal.addEventListener('change', updateScadenzaModal);
-
-</script>
 {% endblock content %}
 
+{% block scripts %}
+    {# Aggiungiamo anche lo script per la modale di NUOVA scadenza qui, #}
+    {# perché i dati JSON sono specifici di questa pagina. #}
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const nuovaScadenzaModal = document.getElementById('nuovaScadenzaModal');
+        if (nuovaScadenzaModal) {
+            const tipiScadenzaData = JSON.parse('{{ tipi_scadenza_data_json|safe|default:"{}" }}');
+            const tipoSelect = nuovaScadenzaModal.querySelector('#id_tipo_scadenza');
+            const dataEsecuzioneInput = nuovaScadenzaModal.querySelector('#id_data_esecuzione');
+            const dataScadenzaInput = nuovaScadenzaModal.querySelector('#id_data_scadenza');
+
+            function updateScadenza() {
+                const tipoId = tipoSelect.value;
+                const dataEsecuzione = dataEsecuzioneInput.value;
+                const validitaMesi = tipiScadenzaData[tipoId];
+                if (dataEsecuzione && validitaMesi) {
+                    const dataInizio = new Date(dataEsecuzione);
+                    dataInizio.setMonth(dataInizio.getMonth() + parseInt(validitaMesi));
+                    dataScadenzaInput.value = dataInizio.toISOString().split('T')[0];
+                }
+            }
+
+            tipoSelect.addEventListener('change', updateScadenza);
+            dataEsecuzioneInput.addEventListener('change', updateScadenza);
+        }
+    });
+    </script>
+{% endblock %}
