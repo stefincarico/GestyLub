@@ -706,7 +706,6 @@ class DocumentoDetailExportPdfView(TenantRequiredMixin, View):
            filename=filename  # Passiamo il nome file personalizzato
        )
 
-
 # ==============================================================================
 # === VISTE PARTITARIO ANAGRAFICA (DETAIL + EXPORTS)                        ===
 # ==============================================================================
@@ -802,8 +801,6 @@ class AnagraficaDetailView(TenantRequiredMixin, View):
         context['movimenti'] = paginator_movimenti.get_page(page_number_movimenti)
         context['pagamento_form'] = PagamentoForm()
         return render(request, self.template_name, context)
-
-# gestionale/views.py
 
 class AnagraficaPartitarioExportExcelView(AnagraficaDetailView):
     """
@@ -917,8 +914,6 @@ class AnagraficaPartitarioExportExcelView(AnagraficaDetailView):
             filename_prefix=filename_prefix
         )  
 
-
-# gestionale/views.py
 
 class AnagraficaPartitarioExportPdfView(AnagraficaDetailView):
     """
@@ -1478,7 +1473,6 @@ class DashboardHRView(TenantRequiredMixin, View):
         
         return render(request, self.template_name, context)
     
-# gestionale/views.py
 
 class SalvaAttivitaDiarioView(TenantRequiredMixin, AdminRequiredMixin, View): # Aggiunto AdminRequiredMixin per sicurezza
     """
@@ -1547,8 +1541,6 @@ class SalvaAttivitaDiarioView(TenantRequiredMixin, AdminRequiredMixin, View): # 
 # ==============================================================================
 # === VISTE PRIMA NOTA                                                      ===
 # ==============================================================================
-
-# gestionale/views.py
 
 class PrimaNotaListView(TenantRequiredMixin, View):
     """
@@ -2765,3 +2757,59 @@ class ExportTabelleContabiliView(TenantRequiredMixin, AdminRequiredMixin, View):
         workbook.save(response)
         return response
     
+class DipendenteUpdateView(TenantRequiredMixin, AdminRequiredMixin, View):
+    """
+    Gestisce la modifica di un dipendente, che coinvolge due modelli:
+    Anagrafica e DipendenteDettaglio.
+    """
+    template_name = 'gestionale/dipendente_update_form.html'
+
+    def get(self, request, *args, **kwargs):
+        # Recuperiamo l'anagrafica del dipendente
+        dipendente = get_object_or_404(Anagrafica, pk=kwargs['pk'], tipo=Anagrafica.Tipo.DIPENDENTE)
+        
+        # Creiamo le istanze dei due form, popolandole con i dati esistenti
+        anagrafica_form = AnagraficaForm(instance=dipendente)
+        dettaglio_form = DipendenteDettaglioForm(instance=dipendente.dettaglio_dipendente)
+
+        context = {
+            'title': f"Modifica Dipendente: {dipendente.nome_cognome_ragione_sociale}",
+            'dipendente': dipendente,
+            'anagrafica_form': anagrafica_form,
+            'dettaglio_form': dettaglio_form
+        }
+        return render(request, self.template_name, context)
+
+    def post(self, request, *args, **kwargs):
+        dipendente = get_object_or_404(Anagrafica, pk=kwargs['pk'], tipo=Anagrafica.Tipo.DIPENDENTE)
+
+        # Creiamo le istanze dei form con i dati POST e le istanze originali
+        anagrafica_form = AnagraficaForm(request.POST, instance=dipendente)
+        dettaglio_form = DipendenteDettaglioForm(request.POST, instance=dipendente.dettaglio_dipendente)
+
+        # Validiamo entrambi i form
+        if anagrafica_form.is_valid() and dettaglio_form.is_valid():
+            with transaction.atomic():
+                # Salviamo il primo form
+                anagrafica_aggiornata = anagrafica_form.save(commit=False)
+                anagrafica_aggiornata.updated_by = request.user
+                anagrafica_aggiornata.save()
+
+                # Salviamo il secondo form
+                dettaglio_aggiornato = dettaglio_form.save(commit=False)
+                # Il metodo save() del dettaglio si occuperà di aggiornare lo stato 'attivo'
+                dettaglio_aggiornato.save()
+
+            messages.success(request, "Dati del dipendente aggiornati con successo.")
+            return redirect('dipendente_detail', pk=dipendente.pk)
+        else:
+            # Se uno dei due form non è valido, ripresentiamo la pagina con gli errori
+            context = {
+                'title': f"Modifica Dipendente: {dipendente.nome_cognome_ragione_sociale}",
+                'dipendente': dipendente,
+                'anagrafica_form': anagrafica_form,
+                'dettaglio_form': dettaglio_form
+            }
+            messages.error(request, "Correggi gli errori nel form.")
+            return render(request, self.template_name, context)
+        

@@ -8,6 +8,9 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1 class="h2 mb-0">{{ title }}</h1>
     <div>
+        {% if request.session.user_company_role == 'admin' %}
+        <a href="{% url 'dipendente_update' dipendente.pk %}" class="btn btn-outline-primary">Modifica Dati</a>
+        {% endif %}
         <a href="{% url 'dashboard_hr' %}" class="btn btn-secondary">Torna alla Dashboard HR</a>
     </div>
 </div>

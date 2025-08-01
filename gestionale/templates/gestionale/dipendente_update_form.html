@@ -1,0 +1,33 @@
+{% extends "gestionale/base.html" %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<h1 class="h2 mb-4">{{ title }}</h1>
+
+<form method="post">
+    {% csrf_token %}
+    <div class="row">
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">Dati Anagrafici</div>
+                <div class="card-body">
+                    {{ anagrafica_form.as_p }}
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">Dati Contrattuali</div>
+                <div class="card-body">
+                    {{ dettaglio_form.as_p }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-4">
+        <button type="submit" class="btn btn-primary">Salva Modifiche</button>
+        <a href="{% url 'dipendente_detail' dipendente.pk %}" class="btn btn-secondary">Annulla</a>
+    </div>
+</form>
+{% endblock %}
