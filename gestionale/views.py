@@ -6,7 +6,7 @@
 # Standard Library
 from dataclasses import field
 import json
-from datetime import date, timedelta
+from datetime import date, timedelta,datetime
 today = date.today()
 from decimal import Decimal
 
@@ -28,6 +28,7 @@ from django.views import View
 from django.views.generic import DetailView, ListView
 from django.views.generic.edit import CreateView, UpdateView, DeleteView
 from django.contrib.auth.mixins import AccessMixin
+from django.apps import apps
 
 # Librerie di terze parti
 import openpyxl
@@ -2543,7 +2544,6 @@ class DashboardView(TenantRequiredMixin, View):
         context = {'active_tenant_name': active_tenant_name, 'user_company_role': user_company_role}
         return render(request, 'gestionale/dashboard.html', context)
 
-# gestionale/views.py
 
 class DashboardView(TenantRequiredMixin, View):
     """
@@ -2622,3 +2622,79 @@ class DashboardView(TenantRequiredMixin, View):
         }
         
         return render(request, self.template_name, context)
+    
+# ==============================================================================
+# === EXPORT TABELLE DI SISTEMA                                              ===
+# ==============================================================================
+class ExportTabelleSistemaView(TenantRequiredMixin, AdminRequiredMixin, View):
+    """
+    Gestisce l'esportazione di tutte le tabelle dell'app 'gestionale'
+    in un unico file Excel, con un foglio per ogni tabella.
+    """
+    def get(self, request, *args, **kwargs):
+        # 1. PREPARAZIONE DELLA RISPOSTA E DEL FILE EXCEL
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+        local_time = timezone.localtime(timezone.now())
+        timestamp = local_time.strftime('%Y%m%d%H%M')
+        filename = f"{timestamp}_Esportazione_Tabelle_di_Sistema_GestiLub.xlsx"
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+
+        workbook = Workbook()
+        workbook.remove(workbook.active) # Rimuoviamo il foglio di default
+        header_font = Font(bold=True)
+
+        # 2. IDENTIFICAZIONE DEI MODELLI DA ESPORTARE
+        # Usiamo il registro delle app di Django per trovare dinamicamente
+        # tutti i modelli definiti nella nostra app 'gestionale'.
+        app_models = apps.get_app_config('gestionale').get_models()
+
+        # 3. CICLO DI ESPORTAZIONE PER OGNI MODELLO
+        for model in app_models:
+            model_name = model.__name__
+            queryset = model.objects.all()
+            
+            # Se non ci sono dati, non creiamo il foglio
+            if not queryset.exists():
+                continue
+
+            # Crea un nuovo foglio di lavoro per questo modello
+            worksheet = workbook.create_sheet(title=model_name[:31]) # Titolo foglio max 31 chars
+
+            # Scrivi le intestazioni (i nomi dei campi del modello)
+            headers = [field.name for field in model._meta.fields]
+            worksheet.append(headers)
+            for cell in worksheet[1]:
+                cell.font = header_font
+
+            # Scrivi le righe di dati
+            for obj in queryset:
+                row_data = []
+                for field_name in headers:
+                    cell_value = getattr(obj, field_name)
+
+                    # Controlla se il valore è un oggetto datetime
+                    if isinstance(cell_value, datetime):
+                        # Se è timezone-aware, convertilo nel fuso orario locale
+                        if timezone.is_aware(cell_value):
+                            cell_value = timezone.localtime(cell_value)
+                        # Rendi l'oggetto datetime "naive" (senza tzinfo)
+                        cell_value = cell_value.replace(tzinfo=None)
+                    
+                    # Gestisci i campi ForeignKey
+                    elif isinstance(cell_value, models.Model):
+                        cell_value = str(cell_value)
+
+                    row_data.append(cell_value)
+                worksheet.append(row_data)
+
+        # Se non abbiamo esportato nessun foglio, creane uno vuoto di avviso
+        if not workbook.sheetnames:
+            worksheet = workbook.create_sheet(title="NessunDato")
+            worksheet.append(["Nessun dato trovato in nessuna tabella dell'applicazione."])
+
+        # 4. SALVATAGGIO E RESTITUZIONE
+        workbook.save(response)
+        return response
+
