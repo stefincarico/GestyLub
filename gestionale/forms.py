@@ -134,14 +134,11 @@ class DipendenteDettaglioForm(forms.ModelForm):
     """
     class Meta:
         model = DipendenteDettaglio
-        # Includiamo tutti i campi del modello tranne 'anagrafica',
-        # perché la collegheremo noi automaticamente nella vista.
         fields = [
             'mansione', 'data_assunzione', 'data_fine_rapporto', 
-            'ore_settimanali_contratto', 'giorni_lavorativi_settimana', 
-            'costo_orario'
+            'ore_settimanali_contratto', 'giorni_lavorativi_settimana',
+            'costo_orario', 'note_generali'
         ]
-
         widgets = {
             'mansione': forms.TextInput(attrs={'class': 'form-control'}),
             'data_assunzione': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
@@ -149,21 +146,27 @@ class DipendenteDettaglioForm(forms.ModelForm):
             'ore_settimanali_contratto': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'giorni_lavorativi_settimana': forms.NumberInput(attrs={'class': 'form-control', 'step': '1'}),
             'costo_orario': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'note_generali': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
         }
-        
-        # Rendiamo esplicito che data_fine_rapporto non è obbligatorio
-        # sovrascrivendo le impostazioni di default del modello se necessario.
-        # In questo caso, il modello ha già null=True, blank=True, quindi non è
-        # strettamente necessario, ma è una buona pratica per chiarezza.
-        required = {
-            'data_fine_rapporto': False,
-        }
+
+    def __init__(self, *args, **kwargs):
+        """
+        Inizializzazione personalizzata per formattare le date
+        per i widget HTML di tipo 'date'.
+        """
+        super().__init__(*args, **kwargs)
+        # Se il form è legato a un'istanza esistente (modalità modifica)...
+        if self.instance and self.instance.pk:
+            # ...e se i campi data hanno un valore...
+            if self.instance.data_assunzione:
+                # ...impostiamo il valore iniziale del form con la data formattata in ISO.
+                self.initial['data_assunzione'] = self.instance.data_assunzione.strftime('%Y-%m-%d')
+            if self.instance.data_fine_rapporto:
+                self.initial['data_fine_rapporto'] = self.instance.data_fine_rapporto.strftime('%Y-%m-%d')
 
     def clean_mansione(self):
         data = self.cleaned_data.get('mansione')
-        if data:
-            return data.upper()
-        return data
+        return data.upper() if data else data
     
 class DocumentoTestataForm(forms.ModelForm):
     # === IL CAMPO DEVE ESSERE DEFINITO QUI, FUORI DALLA CLASSE META ===
