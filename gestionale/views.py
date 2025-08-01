@@ -2588,16 +2588,15 @@ class DashboardView(TenantRequiredMixin, View):
         
         liquidita_totale = sum(c.saldo for c in conti_finanziari)
 
-        trenta_giorni_da_oggi = today + timedelta(days=30)
         # Usiamo il queryset annotato per il residuo, che è più efficiente
+        trenta_giorni_da_oggi = today + timedelta(days=60)
         scadenze_imminenti = scadenze_aperte_qs.filter(
-            tipo_scadenza=Scadenza.Tipo.INCASSO,
             data_scadenza__gte=today,
             data_scadenza__lte=trenta_giorni_da_oggi
         ).annotate(
             pagato=Coalesce(Sum('pagamenti__importo'), Value(0), output_field=models.DecimalField()),
             residuo=F('importo_rata') - F('pagato')
-        )[:5]
+        ).order_by('data_scadenza')[:5] # Aggiungiamo un ordinamento esplicito
 
         dipendenti_presenti = DiarioAttivita.objects.filter(data=today, stato_presenza=DiarioAttivita.StatoPresenza.PRESENTE).count()
         totale_dipendenti_attivi = Anagrafica.objects.filter(tipo=Anagrafica.Tipo.DIPENDENTE, attivo=True).count()

@@ -71,19 +71,39 @@
     </div>
     <div class="col-lg-6 mb-4">
         <div class="card h-100">
-            <div class="card-header">Scadenze Incassi Imminenti (30 gg)</div>
+            <div class="card-header">Scadenze Incassi Imminenti (60 gg)</div>
             <div class="card-body">
-                <table class="table">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Tipo</th>
+                            <th>Anagrafica</th>
+                            <th class="text-end">Residuo</th>
+                        </tr>
+                    </thead>
                     <tbody>
                         {% for scadenza in scadenze_imminenti %}
                         <tr>
                             <td>{{ scadenza.data_scadenza|date:"d/m" }}</td>
-                            <td><a href="{% url 'anagrafica_detail' scadenza.anagrafica.pk %}">{{ scadenza.anagrafica.nome_cognome_ragione_sociale|truncatechars:25 }}</a></td>
-                            <td><a href="{{ scadenza.documento.get_absolute_url }}">{{ scadenza.documento.numero_documento }}</a></td>
-                            <td class="text-end text-danger">€ {{ scadenza.residuo|format_currency }}</td>
+                            <td>
+                                {% if scadenza.tipo_scadenza == 'Incasso' %}
+                                    <span class="badge bg-success-subtle text-success-emphasis">Incasso</span>
+                                {% else %}
+                                    <span class="badge bg-danger-subtle text-danger-emphasis">Pagamento</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{% url 'anagrafica_detail' scadenza.anagrafica.pk %}">
+                                    {{ scadenza.anagrafica.nome_cognome_ragione_sociale|truncatechars:20 }}
+                                </a>
+                            </td>
+                            <td class="text-end fw-bold {% if scadenza.tipo_scadenza == 'Pagamento' %}text-danger{% endif %}">
+                                € {{ scadenza.residuo|format_currency }}
+                            </td>
                         </tr>
                         {% empty %}
-                        <tr><td colspan="4" class="text-center text-muted">Nessuna scadenza in arrivo.</td></tr>
+                        <tr><td colspan="4" class="text-center text-muted">Nessuna scadenza nei prossimi 30 giorni.</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
