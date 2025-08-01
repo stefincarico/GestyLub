@@ -6,13 +6,13 @@
 <p class="text-muted mb-4">Da questa sezione puoi configurare le tabelle di base e le impostazioni per l'azienda {{ request.session.active_tenant_name }}.</p>
 
 <div class="row">
-    <!-- Card Contabilità -->
-    <div class="col-lg-3 col-md-6 mb-4">
+    <!-- Prima riga -->
+    <div class="col-lg-6 col-md-6 mb-4">
+        <!-- Card Contabilità -->
         <div class="card h-100">
-            <div class="card-header">Contabilità</div>
+            <div class="card-header fw-bold">Contabilità</div>
             <div class="card-body">
                 <ul class="list-group list-group-flush">
-                    <!-- Attiveremo questo link per primo -->
                     <li class="list-group-item"><a href="{% url 'modalita_pagamento_list' %}">Modalità di Pagamento</a></li>
                     <li class="list-group-item"><a href="{% url 'aliquota_iva_list' %}">Aliquote IVA</a></li>
                     <li class="list-group-item"><a href="{% url 'causale_list' %}">Causali Contabili</a></li>
@@ -21,10 +21,10 @@
         </div>
     </div>
 
-    <!-- Card Piano dei Conti -->
-    <div class="col-lg-3 col-md-6 mb-4">
+    <div class="col-lg-6 col-md-6 mb-4">
+        <!-- Card Piano dei Conti -->
         <div class="card h-100">
-            <div class="card-header">Piano dei Conti</div>
+            <div class="card-header fw-bold">Piano dei Conti</div>
             <div class="card-body">
                 <ul class="list-group list-group-flush">
                     <li class="list-group-item"><a href="{% url 'conto_finanziario_list' %}">Conti Finanziari (Casse/Banche)</a></li>
@@ -34,10 +34,11 @@
         </div>
     </div>
 
-    <!-- Card Flotta e Personale -->
-    <div class="col-lg-3 col-md-6 mb-4">
+    <!-- Seconda riga -->
+    <div class="col-lg-6 col-md-6 mb-4">
+        <!-- Card Flotta e Personale -->
         <div class="card h-100">
-            <div class="card-header">Gestione Flotta e Personale</div>
+            <div class="card-header fw-bold">Gestione Flotta e Personale</div>
             <div class="card-body">
                 <ul class="list-group list-group-flush">
                     <li class="list-group-item"><a href="{% url 'mezzo_aziendale_list' %}">Gestione Flotta Mezzi</a></li>
@@ -46,18 +47,25 @@
             </div>
         </div>
     </div>
-    <!-- === Card Export tabelle di Sisitema === -->
-    <div class="col-lg-3 col-md-6 mb-4">
+
+    <div class="col-lg-6 col-md-6 mb-4">
+        <!-- Card Export tabelle di Sistema -->
         <div class="card h-100">
-            <div class="card-header">Amministrazione Sistema</div>
+            <div class="card-header fw-bold">Amministrazione Sistema</div>
             <div class="card-body">
-                <ul class="list-group list-group-flush">
-                    <li class="list-group-item">
-                        <a href="{% url 'export_tabelle_sistema' %}">Esportazione Tabelle di Sistema</a>
-                    </li>
-                </ul>
+            <ul class="list-group list-group-flush">
+                <li class="list-group-item">
+                    <a href="{% url 'export_tabelle_sistema' %}">Esportazione Completa di Configurazione</a>
+                </li>
+                <!-- NUOVA VOCE DI MENU -->
+                <li class="list-group-item">
+                    <a href="{% url 'export_tabelle_contabili' %}">Esportazione Tabelle Contabili Azienda Corrente</a>
+                </li>
+            </ul>
             </div>
         </div>
-    </div>   
+    </div>
 </div>
+
+
 {% endblock %}

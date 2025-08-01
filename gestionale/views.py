@@ -2698,3 +2698,70 @@ class ExportTabelleSistemaView(TenantRequiredMixin, AdminRequiredMixin, View):
         workbook.save(response)
         return response
 
+class ExportTabelleContabiliView(TenantRequiredMixin, AdminRequiredMixin, View):
+    """
+    Gestisce l'esportazione di tutte le tabelle operative/contabili
+    dell'azienda corrente in un unico file Excel.
+    """
+    def get(self, request, *args, **kwargs):
+        # 1. PREPARAZIONE DELLA RISPOSTA E DEL FILE EXCEL
+        tenant_name = request.session.get('active_tenant_name', 'Gestionale')
+        safe_tenant_name = "".join(c for c in tenant_name if c.isalnum() or c in " _-").rstrip()
+
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+        local_time = timezone.localtime(timezone.now())
+        timestamp = local_time.strftime('%Y%m%d%H%M')
+        filename = f"{timestamp}_Esportazione_Tabelle_Contabili_{safe_tenant_name}.xlsx"
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+
+        workbook = Workbook()
+        workbook.remove(workbook.active)
+        header_font = Font(bold=True)
+
+        # 2. DEFINIZIONE ESPLICITA DEI MODELLI DA ESPORTARE
+        # A differenza dell'export di sistema, qui selezioniamo a mano i modelli.
+        models_to_export = [
+            Anagrafica, Cantiere, DocumentoTestata, DocumentoRiga, Scadenza,
+            PrimaNota, DipendenteDettaglio, DiarioAttivita, ScadenzaPersonale
+        ]
+
+        # 3. CICLO DI ESPORTAZIONE (identico alla vista precedente)
+        for model in models_to_export:
+            model_name = model.__name__
+            queryset = model.objects.all()
+            
+            if not queryset.exists():
+                continue
+
+            worksheet = workbook.create_sheet(title=model_name[:31])
+            headers = [field.name for field in model._meta.fields]
+            worksheet.append(headers)
+            for cell in worksheet[1]:
+                cell.font = header_font
+
+            for obj in queryset:
+                row_data = []
+                for field_name in headers:
+                    cell_value = getattr(obj, field_name)
+
+                    if isinstance(cell_value, datetime):
+                        if timezone.is_aware(cell_value):
+                            cell_value = timezone.localtime(cell_value)
+                        cell_value = cell_value.replace(tzinfo=None)
+                    
+                    elif isinstance(cell_value, models.Model):
+                        cell_value = str(cell_value)
+
+                    row_data.append(cell_value)
+                worksheet.append(row_data)
+
+        if not workbook.sheetnames:
+            worksheet = workbook.create_sheet(title="NessunDato")
+            worksheet.append(["Nessun dato trovato nelle tabelle contabili."])
+
+        # 4. SALVATAGGIO E RESTITUZIONE
+        workbook.save(response)
+        return response
+    

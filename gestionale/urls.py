@@ -4,7 +4,7 @@ from .views import (
     AdminDashboardView, AliquotaIVACreateView, AliquotaIVAListView, AliquotaIVAToggleAttivoView, AliquotaIVAUpdateView, AnagraficaListExportExcelView, AnagraficaListExportPdfView, AnagraficaPartitarioExportPdfView, CausaleCreateView, CausaleListView, CausaleToggleAttivoView, CausaleUpdateView, ContoFinanziarioCreateView, ContoFinanziarioListView, ContoFinanziarioToggleAttivoView, ContoFinanziarioUpdateView, ContoOperativoCreateView, ContoOperativoListView, ContoOperativoToggleAttivoView, ContoOperativoUpdateView, DashboardView, AnagraficaListView, AnagraficaCreateView, DipendenteDetailView, 
     DipendenteDettaglioCreateView, AnagraficaUpdateView, AnagraficaDetailView,
     AnagraficaToggleAttivoView, DocumentoListExportExcelView, DocumentoListExportPdfView, 
-    DocumentoListView, DocumentoDetailView, ExportTabelleSistemaView, MezzoAziendaleCreateView, MezzoAziendaleListView, MezzoAziendaleToggleAttivoView, MezzoAziendaleUpdateView, ModalitaPagamentoCreateView, ModalitaPagamentoListView, ModalitaPagamentoToggleAttivoView, ModalitaPagamentoUpdateView, PagamentoDeleteView, PagamentoUpdateView, PrimaNotaCreateView, PrimaNotaListExportExcelView, PrimaNotaListExportPdfView, PrimaNotaListView,RegistraPagamentoView, SalvaAttivitaDiarioView, ScadenzaPersonaleCreateView, ScadenzaPersonaleDeleteView, ScadenzaPersonaleUpdateView, ScadenzarioExportPdfView,
+    DocumentoListView, DocumentoDetailView, ExportTabelleContabiliView, ExportTabelleSistemaView, MezzoAziendaleCreateView, MezzoAziendaleListView, MezzoAziendaleToggleAttivoView, MezzoAziendaleUpdateView, ModalitaPagamentoCreateView, ModalitaPagamentoListView, ModalitaPagamentoToggleAttivoView, ModalitaPagamentoUpdateView, PagamentoDeleteView, PagamentoUpdateView, PrimaNotaCreateView, PrimaNotaListExportExcelView, PrimaNotaListExportPdfView, PrimaNotaListView,RegistraPagamentoView, SalvaAttivitaDiarioView, ScadenzaPersonaleCreateView, ScadenzaPersonaleDeleteView, ScadenzaPersonaleUpdateView, ScadenzarioExportPdfView,
     ScadenzarioListView, ScadenzarioExportExcelView, AnagraficaPartitarioExportExcelView,
     DashboardHRView, PrimaNotaCreateView, PrimaNotaUpdateView, PrimaNotaDeleteView, DocumentoDetailExportPdfView, TesoreriaDashboardView, TesoreriaExportExcelView, TesoreriaExportPdfView, TipoScadenzaPersonaleCreateView, TipoScadenzaPersonaleListView, TipoScadenzaPersonaleToggleAttivoView, TipoScadenzaPersonaleUpdateView
 )
@@ -93,4 +93,5 @@ urlpatterns = [
     path('dipendenti/scadenze/<int:pk>/elimina/', ScadenzaPersonaleDeleteView.as_view(), name='scadenza_personale_delete'),
     # NUOVO URL PER EXPORT DI SISTEMA
     path('admin-panel/export-sistema/', ExportTabelleSistemaView.as_view(), name='export_tabelle_sistema'),
+    path('admin-panel/export-contabili/', ExportTabelleContabiliView.as_view(), name='export_tabelle_contabili'),
 ]
