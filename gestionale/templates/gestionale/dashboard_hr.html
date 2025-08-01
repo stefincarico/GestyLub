@@ -4,11 +4,18 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1 class="h2">Dashboard HR / Planning Giornaliero</h1>
     <!-- Navigazione Data -->
+<div>
     <div class="btn-group" role="group">
         <a href="{% url 'dashboard_hr_data' year=giorno_precedente.year month=giorno_precedente.month day=giorno_precedente.day %}" class="btn btn-outline-secondary">← Prec.</a>
-        <span class="btn btn-dark">{{ data_riferimento|date:"d M Y" }}</span>
+        
+        <!-- Il nostro selettore di data -->
+        <input type="date" id="datePicker" class="form-control" value="{{ data_riferimento|date:'Y-m-d' }}" style="border-radius: 0; max-width: 160px;">
+        
         <a href="{% url 'dashboard_hr_data' year=giorno_successivo.year month=giorno_successivo.month day=giorno_successivo.day %}" class="btn btn-outline-secondary">Succ. →</a>
     </div>
+    <!-- Il pulsante per tornare a oggi -->
+    <a href="{% url 'dashboard_hr' %}" class="btn btn-primary ms-2">Oggi</a>
+</div>
 </div>
 
     <!-- ======================= KPI CARDS ======================= -->
@@ -113,6 +120,7 @@
                                 data-dipendente-id="{{ dipendente.pk }}"
                                 data-dipendente-nome="{{ dipendente.nome_cognome_ragione_sociale }}"
                                 data-data="{{ data_riferimento|date:"Y-m-d" }}"
+                                data-ore-default="{{ dipendente.ore_default }}"
                                 data-attivita-json='{
                                     "cantiere_id": "{{ dipendente.attivita.cantiere_pianificato.pk|default_if_none:"" }}",
                                     "mezzo_id": "{{ dipendente.attivita.mezzo_pianificato.pk|default_if_none:"" }}",
@@ -253,5 +261,21 @@ if (attivitaModal) {
         // === FINE CORREZIONE ===
     });
 }
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const datePicker = document.getElementById('datePicker');
+    if(datePicker) {
+        datePicker.addEventListener('change', function() {
+            const selectedDate = this.value; // Formato YYYY-MM-DD
+            if (selectedDate) {
+                const [year, month, day] = selectedDate.split('-');
+                // Costruiamo l'URL dinamicamente
+                const url = `/app/hr/${year}/${month}/${day}/`; // Attenzione: questo è un URL "hardcoded"
+                window.location.href = url;
+            }
+        });
+    }
+});
 </script>
 {% endblock %}

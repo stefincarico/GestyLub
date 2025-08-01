@@ -150,6 +150,7 @@
             attivitaModal.querySelector('#attivitaDataDisplay').textContent = dataFormatted;
 
             // Popolamento campi del form
+            const oreDefault = button.getAttribute('data-ore-default');
             const statoSelect = attivitaModal.querySelector('#id_stato_presenza');
             const oreOrdInput = attivitaModal.querySelector('#id_ore_ordinarie');
 

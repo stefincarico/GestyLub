@@ -1423,23 +1423,33 @@ class DashboardHRView(TenantRequiredMixin, View):
         # 4. Mappiamo le attività ai dipendenti per un accesso veloce (invariato)
         mappa_diario = {d.dipendente_id: d for d in diario_del_giorno}
         
-        # 5. Combiniamo i dati e calcoliamo i KPI
+        # 5. Combiniamo i dati, calcoliamo i KPI e le ore di default
         lista_dipendenti_con_stato = []
-        # === INIZIO LOGICA KPI ===
         kpi = {
-            'presenti': 0,
-            'assenti': 0,
-            'assegnati': 0,
-            'liberi': 0,
+            'presenti': 0, 'assenti': 0, 'assegnati': 0, 'liberi': 0,
             'totale_dipendenti': len(dipendenti_attivi)
         }
         
         for dip in dipendenti_attivi:
             attivita_giornaliera = mappa_diario.get(dip.pk)
             dip.attivita = attivita_giornaliera
+
+            # === INIZIO LOGICA MANCANTE AGGIUNTA QUI ===
+            # Calcoliamo le ore giornaliere di default per QUESTO dipendente
+            dettaglio = dip.dettaglio_dipendente
+            ore_default = "0.00" # Default di sicurezza
+            if dettaglio and dettaglio.giorni_lavorativi_settimana and dettaglio.giorni_lavorativi_settimana > 0:
+                ore_calcolate = dettaglio.ore_settimanali_contratto / dettaglio.giorni_lavorativi_settimana
+                # Formattiamo come stringa con 2 decimali e punto
+                ore_default = f"{ore_calcolate:.2f}".replace(',', '.')
+            
+            # Aggiungiamo il valore calcolato come un nuovo attributo all'oggetto dipendente
+            dip.ore_default = ore_default
+            # === FINE LOGICA MANCANTE ===
+
             lista_dipendenti_con_stato.append(dip)
             
-            # Aggiorniamo i contatori dei KPI in base allo stato
+            # Aggiorniamo i contatori dei KPI (invariato)
             if attivita_giornaliera:
                 if attivita_giornaliera.stato_presenza == DiarioAttivita.StatoPresenza.PRESENTE:
                     kpi['presenti'] += 1
@@ -1447,13 +1457,10 @@ class DashboardHRView(TenantRequiredMixin, View):
                     kpi['assenti'] += 1
                 elif attivita_giornaliera.cantiere_pianificato:
                     kpi['assegnati'] += 1
-                # Se c'è una voce di diario ma non rientra nei casi sopra (es. malattia non ancora confermata)
-                # la contiamo comunque per non perderla, ma non la classifichiamo come "libera".
             else:
                 kpi['liberi'] += 1
         
-        kpi['disponibili'] = kpi['liberi'] # KPI "Disponibili" come da mockup è uguale a "Liberi"
-        # === FINE LOGICA KPI ===
+        kpi['disponibili'] = kpi['liberi']
 
         context = {
             'data_riferimento': data_riferimento,
@@ -1463,7 +1470,7 @@ class DashboardHRView(TenantRequiredMixin, View):
             'cantieri_disponibili': Cantiere.objects.filter(stato=Cantiere.Stato.APERTO),
             'mezzi_disponibili': MezzoAziendale.objects.filter(attivo=True),
             'attivita_form': DiarioAttivitaForm(),
-            'kpi': kpi, # Aggiungiamo il dizionario dei KPI al contesto
+            'kpi': kpi,
         }
         
         return render(request, self.template_name, context)
