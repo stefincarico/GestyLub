@@ -50,7 +50,6 @@ from .models import (
 )
 from .report_utils import build_filters_string, generate_excel_report, generate_pdf_report
 
-
 # ==============================================================================
 # === MIXINS E FUNZIONI HELPER GLOBALI                                      ===
 # ==============================================================================
@@ -77,7 +76,6 @@ def clear_doc_wizard_session(session):
     session.pop('doc_testata_data', None)
     session.pop('doc_righe_data', None)
     session.pop('doc_scadenze_data', None)
-
 
 # ==============================================================================
 # === VISTE PRINCIPALI, ANAGRAFICHE E DOCUMENTI                             ===
@@ -914,7 +912,6 @@ class AnagraficaPartitarioExportExcelView(AnagraficaDetailView):
             filename_prefix=filename_prefix
         )  
 
-
 class AnagraficaPartitarioExportPdfView(AnagraficaDetailView):
     """
     Gestisce la creazione e il download di un report PDF per il partitario
@@ -1178,8 +1175,7 @@ class PagamentoUpdateView(TenantRequiredMixin, UpdateView):
 
         messages.success(self.request, f"Pagamento N. {self.object.pk} aggiornato con successo.")
         return super().form_valid(form)
-    
-
+ 
 # ==============================================================================
 # === VISTE SCADENZIARIO                                                    ===
 # ==============================================================================
@@ -1393,7 +1389,6 @@ class ScadenzarioExportPdfView(ScadenzarioListView):
             context
         )
 
-
 # ==============================================================================
 # === VISTE HR (Human Resources)                                            ===
 # ==============================================================================
@@ -1472,7 +1467,6 @@ class DashboardHRView(TenantRequiredMixin, View):
         }
         
         return render(request, self.template_name, context)
-    
 
 class SalvaAttivitaDiarioView(TenantRequiredMixin, AdminRequiredMixin, View): # Aggiunto AdminRequiredMixin per sicurezza
     """
@@ -1614,7 +1608,6 @@ class PrimaNotaDeleteView(TenantRequiredMixin, DeleteView):
         """
         messages.success(self.request, f"Movimento N. {self.object.pk} eliminato con successo.")
         return super().form_valid(form)
-
 
 class PrimaNotaUpdateView(TenantRequiredMixin, UpdateView):
     """
@@ -2526,7 +2519,6 @@ class ScadenzaPersonaleDeleteView(TenantRequiredMixin, AdminRequiredMixin, Delet
 # ==============================================================================
 # === DASHBOARD PRINCIPALE                                                   ===
 # ==============================================================================
-
 
 class DashboardView(TenantRequiredMixin, View):
     """Mostra la dashboard principale."""
