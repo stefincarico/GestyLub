@@ -32,21 +32,24 @@
     <div class="col-md-6 col-xl-3 mb-4">
         <div class="card">
             <div class="card-body">
-                <h6 class="card-title text-muted">Liquidità Totale</h6>
-                <h3 class="fw-bold">€ {{ kpi_finanziari.liquidita_totale|format_currency }}</h3>
-                <small class="text-muted">(Somma saldi conti attivi)</small>
+                <h6 class="card-title text-muted">Saldo Circolante Netto</h6>
+                <h3 class="fw-bold {% if kpi_finanziari.saldo_netto < 0 %}text-danger{% endif %}">€ {{ kpi_finanziari.saldo_netto|format_currency }}
+                </h3>
+                <small class="text-muted">(Crediti - Debiti)</small>
             </div>
         </div>
     </div>
     <div class="col-md-6 col-xl-3 mb-4">
         <div class="card">
             <div class="card-body">
-                <h6 class="card-title text-muted">Saldo Circolante Netto</h6>
-                <h3 class="fw-bold">€ {{ kpi_finanziari.saldo_netto|format_currency }}</h3>
-                <small class="text-muted">(Crediti - Debiti)</small>
+                <h6 class="card-title text-muted">Liquidità Totale</h6>
+                <h3 class="fw-bold {% if kpi_finanziari.liquidita_totale < 0 %}text-danger{% endif %}">€ {{ kpi_finanziari.liquidita_totale|format_currency }}
+                </h3>
+                <small class="text-muted">(Somma saldi conti attivi)</small>
             </div>
         </div>
     </div>
+
 </div>
 
 <!-- Widget Saldi e Scadenze -->
