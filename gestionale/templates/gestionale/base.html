@@ -115,67 +115,82 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     
     <!-- BLOCCO PER GLI SCRIPT SPECIFICI DELLA PAGINA -->
-    {% block scripts %}
-    <script>
-    // Logica per la modale di pagamento (invariata)
-    const pagamentoModal = document.getElementById('pagamentoModal');
-    if (pagamentoModal) {
-        pagamentoModal.addEventListener('show.bs.modal', function (event) {
-            // ... (codice invariato)
-        });
-    }
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const attivitaModal = document.getElementById('attivitaModal');
+        if (!attivitaModal) {
+            return;
+        }
 
-    // --- SCRIPT GLOBALE PER MODALE ATTIVITÀ HR ---
-    const attivitaModal = document.getElementById('attivitaModal');
-    if (attivitaModal) {
+        let oreDefaultHandler;
+
         attivitaModal.addEventListener('show.bs.modal', function (event) {
             const button = event.relatedTarget;
-            
-            // Dati base
+            if (!button) {
+                return;
+            }
+
+            const oreDefault = button.getAttribute('data-ore-default') || '0.00';
             const dipendenteId = button.getAttribute('data-dipendente-id');
             const dipendenteNome = button.getAttribute('data-dipendente-nome');
-            const dataISO = button.getAttribute('data-data'); // Formato YYYY-MM-DD
-            const oreDefault = button.getAttribute('data-ore-default');
-            
-            // Dati dell'attività esistente
-            const attivitaCorrente = JSON.parse(button.getAttribute('data-attivita-json'));
+            const data = button.getAttribute('data-data');
+            const attivitaJson = button.getAttribute('data-attivita-json');
 
-            // Popolamento campi nascosti e display
-            attivitaModal.querySelector('#attivita_dipendente_id').value = dipendenteId;
-            attivitaModal.querySelector('#attivita_data').value = dataISO;
-            attivitaModal.querySelector('#dipendenteNome').textContent = dipendenteNome;
-            // Formattiamo la data per la visualizzazione
-            const dataObj = new Date(dataISO);
-            const dataFormatted = dataObj.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
-            attivitaModal.querySelector('#attivitaDataDisplay').textContent = dataFormatted;
+            document.getElementById('attivita_data').value = data;
+            document.getElementById('attivita_dipendente_id').value = dipendenteId;
+            document.getElementById('dipendenteNome').textContent = dipendenteNome;
+            document.getElementById('attivitaDataDisplay').textContent = new Date(data + 'T00:00:00').toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
-            // Popolamento campi del form
-            const oreDefault = button.getAttribute('data-ore-default');
             const statoSelect = attivitaModal.querySelector('#id_stato_presenza');
             const oreOrdInput = attivitaModal.querySelector('#id_ore_ordinarie');
+            const oreStrInput = attivitaModal.querySelector('#id_ore_straordinarie');
+            const tipoAssenzaSelect = attivitaModal.querySelector('#id_tipo_assenza_giustificata');
 
-            attivitaModal.querySelector('#id_cantiere_pianificato').value = attivitaCorrente.cantiere_id || "";
-            attivitaModal.querySelector('#id_mezzo_pianificato').value = attivitaCorrente.mezzo_id || "";
-            statoSelect.value = attivitaCorrente.stato_presenza || "";
-            attivitaModal.querySelector('#id_tipo_assenza_giustificata').value = attivitaCorrente.tipo_assenza || "";
-            oreOrdInput.value = attivitaCorrente.ore_ord;
-            attivitaModal.querySelector('#id_ore_straordinarie').value = attivitaCorrente.ore_str;
-            attivitaModal.querySelector('#id_note_giornaliere').value = attivitaCorrente.note || "";
+            if (!statoSelect || !oreOrdInput || !oreStrInput || !tipoAssenzaSelect) {
+                return;
+            }
 
-            // Funzione per l'aggiornamento automatico delle ore
-            function updateOreDefault() {
-                if (statoSelect.value === 'Presente' && (oreOrdInput.value === '0.00' || oreOrdInput.value === '' || oreOrdInput.value === '0')) {
-                    oreOrdInput.value = oreDefault.replace(',', '.');
+            attivitaModal.querySelector('form').reset();
+            
+            if (attivitaJson) {
+                try {
+                    const attivita = JSON.parse(attivitaJson);
+                    
+                    attivitaModal.querySelector('#id_cantiere_pianificato').value = attivita.cantiere_id || '';
+                    attivitaModal.querySelector('#id_mezzo_pianificato').value = attivita.mezzo_id || '';
+                    statoSelect.value = attivita.stato_presenza || '';
+                    tipoAssenzaSelect.value = attivita.tipo_assenza || '';
+                    oreOrdInput.value = attivita.ore_ord || '0.00';
+                    oreStrInput.value = attivita.ore_str || '0.00';
+                    attivitaModal.querySelector('#id_note_giornaliere').value = attivita.note || '';
+                } catch (e) {
+                    // Errore silenzioso se il JSON non è valido
                 }
             }
 
-            // Rimuoviamo vecchi listener per evitare duplicazioni
-            statoSelect.removeEventListener('change', updateOreDefault);
-            // Aggiungiamo il nuovo listener
-            statoSelect.addEventListener('change', updateOreDefault);
+            if (oreDefaultHandler) {
+                statoSelect.removeEventListener('change', oreDefaultHandler);
+            }
+
+            oreDefaultHandler = function() {
+                const statoSelezionato = this.value;
+                const oreAttuali = parseFloat(oreOrdInput.value.replace(',', '.')) || 0;
+                
+                if (statoSelezionato === 'Presente' && oreAttuali === 0) {
+                    oreOrdInput.value = oreDefault.replace(',', '.');
+                } else if (statoSelezionato.startsWith('Assente')) {
+                    oreOrdInput.value = '0.00';
+                    oreStrInput.value = '0.00';
+                }
+            };
+
+            statoSelect.addEventListener('change', oreDefaultHandler);
+            
+            statoSelect.dispatchEvent(new Event('change'));
         });
-    }
-    </script>
-    {% endblock %}
+    });
+</script>
+{% endblock %}
 </body>
 </html>

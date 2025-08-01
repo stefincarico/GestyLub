@@ -212,70 +212,24 @@
 
 {% endblock content %}
 {% block scripts %}
-<script>
-const attivitaModal = document.getElementById('attivitaModal');
-if (attivitaModal) {
-    attivitaModal.addEventListener('show.bs.modal', function (event) {
-        const button = event.relatedTarget;
-        
-        // Recupera i dati dal pulsante cliccato
-        const dipendenteId = button.getAttribute('data-dipendente-id');
-        const dipendenteNome = button.getAttribute('data-dipendente-nome');
-        const data = button.getAttribute('data-data');
+    {{ block.super }}
 
-        // Recupera la stringa JSON e la "analizza" per trasformarla in un oggetto JavaScript
-        const attivitaCorrente = JSON.parse(button.getAttribute('data-attivita-json'));
-
-        // Popola i campi nascosti (questi sono sempre necessari)
-        attivitaModal.querySelector('#attivita_dipendente_id').value = dipendenteId;
-        attivitaModal.querySelector('#attivita_data').value = data;
-        
-        // Popola gli elementi visibili per l'utente
-        attivitaModal.querySelector('#dipendenteNome').textContent = dipendenteNome;
-
-        // === INIZIO CORREZIONE ===
-        // Popola i campi del form con i valori esistenti, usando le chiavi JSON corrette.
-        // Aggiungiamo controlli per assicurarci che gli elementi esistano prima di impostare il valore.
-        
-        const cantiereSelect = attivitaModal.querySelector('#id_cantiere_pianificato');
-        if (cantiereSelect) cantiereSelect.value = attivitaCorrente.cantiere_id || "";
-
-        const mezzoSelect = attivitaModal.querySelector('#id_mezzo_pianificato');
-        if (mezzoSelect) mezzoSelect.value = attivitaCorrente.mezzo_id || "";
-
-        const statoSelect = attivitaModal.querySelector('#id_stato_presenza');
-        if (statoSelect) statoSelect.value = attivitaCorrente.stato_presenza || "";
-        
-        const tipoAssenzaInput = attivitaModal.querySelector('#id_tipo_assenza_giustificata');
-        if (tipoAssenzaInput) tipoAssenzaInput.value = attivitaCorrente.tipo_assenza || "";
-
-        // Ecco il punto cruciale: le chiavi sono 'ore_ord' e 'ore_str'
-        const oreOrdInput = attivitaModal.querySelector('#id_ore_ordinarie');
-        if (oreOrdInput) oreOrdInput.value = attivitaCorrente.ore_ord;
-
-        const oreStrInput = attivitaModal.querySelector('#id_ore_straordinarie');
-        if (oreStrInput) oreStrInput.value = attivitaCorrente.ore_str;
-
-        const noteInput = attivitaModal.querySelector('#id_note_giornaliere');
-        if (noteInput) noteInput.value = attivitaCorrente.note || "";
-        // === FINE CORREZIONE ===
-    });
-}
-</script>
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const datePicker = document.getElementById('datePicker');
-    if(datePicker) {
-        datePicker.addEventListener('change', function() {
-            const selectedDate = this.value; // Formato YYYY-MM-DD
-            if (selectedDate) {
-                const [year, month, day] = selectedDate.split('-');
-                // Costruiamo l'URL dinamicamente
-                const url = `/app/hr/${year}/${month}/${day}/`; // Attenzione: questo è un URL "hardcoded"
-                window.location.href = url;
+    {# 2. Aggiungiamo solo lo script specifico per QUESTA pagina. #}
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const datePicker = document.getElementById('datePicker');
+            if(datePicker) {
+                datePicker.addEventListener('change', function() {
+                    const selectedDate = this.value; // Formato YYYY-MM-DD
+                    if (selectedDate) {
+                        const [year, month, day] = selectedDate.split('-');
+                        // Costruiamo l'URL dinamicamente. L'URL hardcoded qui è accettabile
+                        // perché la struttura di questo URL è molto stabile.
+                        const url = `/app/hr/${year}/${month}/${day}/`;
+                        window.location.href = url;
+                    }
+                });
             }
         });
-    }
-});
-</script>
+    </script>
 {% endblock %}
