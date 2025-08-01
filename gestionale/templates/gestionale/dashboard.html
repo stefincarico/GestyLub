@@ -1,23 +1,126 @@
-<!-- gestionale/templates/gestionale/dashboard.html -->
+{% extends "gestionale/base.html" %}
+{% load currency_filters humanize %}
 
-{% extends "gestionale/base.html" %} <!-- ORA EREDITIAMO DAL TEMPLATE BASE! -->
-
-{% block title %}Dashboard{% endblock %} <!-- Definiamo il titolo specifico per questa pagina -->
+{% block title %}Dashboard{% endblock %}
 
 {% block content %}
-    <!-- Inseriamo qui solo il contenuto che è UNICO della dashboard -->
-    <div class="info-bar">
-        Stai operando per l'azienda <strong>{{ request.session.active_tenant_name }}</strong>.
-    </div>
+<div class="info-bar">
+    Stai operando per l'azienda <strong>{{ request.session.active_tenant_name }}</strong>.
+</div>
+<h1 class="h2 mb-4">Dashboard Riepilogativa</h1>
 
-    <h1 class="h2">Dashboard Riepilogativa</h1>
-    <p>
-        Benvenuto nel tuo gestionale!
-    </p>
-    <p>
-        Questa è la dashboard principale. Presto qui vedrai tutti i KPI e i widget come nei mockup.
-    </p>
-    <p>
-        <a href="{% url 'tenant_selection' %}">Clicca qui per cambiare azienda</a>
-    </p>
+<!-- KPI Finanziari -->
+<div class="row">
+    <div class="col-md-6 col-xl-3 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <h6 class="card-title text-muted">Crediti v/Clienti (Attivo)</h6>
+                <h3 class="fw-bold text-success">€ {{ kpi_finanziari.crediti_clienti|format_currency }}</h3>
+                <small class="text-muted">(di cui scaduti: <a href="{% url 'scadenzario_list' %}?tipo=Incasso&stato=scadute">€ {{ kpi_finanziari.crediti_scaduti|format_currency }}</a>)</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-xl-3 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <h6 class="card-title text-muted">Debiti v/Fornitori (Passivo)</h6>
+                <h3 class="fw-bold text-danger">€ {{ kpi_finanziari.debiti_fornitori|format_currency }}</h3>
+                <small class="text-muted">(di cui scaduti: <a href="{% url 'scadenzario_list' %}?tipo=Pagamento&stato=scadute">€ {{ kpi_finanziari.debiti_scaduti|format_currency }}</a>)</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-xl-3 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <h6 class="card-title text-muted">Liquidità Totale</h6>
+                <h3 class="fw-bold">€ {{ kpi_finanziari.liquidita_totale|format_currency }}</h3>
+                <small class="text-muted">(Somma saldi conti attivi)</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-xl-3 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <h6 class="card-title text-muted">Saldo Circolante Netto</h6>
+                <h3 class="fw-bold">€ {{ kpi_finanziari.saldo_netto|format_currency }}</h3>
+                <small class="text-muted">(Crediti - Debiti)</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Widget Saldi e Scadenze -->
+<div class="row">
+    <div class="col-lg-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header">Saldi Conti Finanziari</div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    {% for conto in conti_finanziari %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <a href="{% url 'primanota_list' %}?conto_finanziario={{ conto.pk }}">{{ conto.nome_conto }}</a>
+                        <span class="fw-bold {% if conto.saldo < 0 %}text-danger{% endif %}">€ {{ conto.saldo|format_currency }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            <div class="card-footer text-end">
+                <a href="{% url 'tesoreria_dashboard' %}">Vai alla Gestione Tesoreria →</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header">Scadenze Incassi Imminenti (30 gg)</div>
+            <div class="card-body">
+                <table class="table">
+                    <tbody>
+                        {% for scadenza in scadenze_imminenti %}
+                        <tr>
+                            <td>{{ scadenza.data_scadenza|date:"d/m" }}</td>
+                            <td><a href="{% url 'anagrafica_detail' scadenza.anagrafica.pk %}">{{ scadenza.anagrafica.nome_cognome_ragione_sociale|truncatechars:25 }}</a></td>
+                            <td><a href="{{ scadenza.documento.get_absolute_url }}">{{ scadenza.documento.numero_documento }}</a></td>
+                            <td class="text-end text-danger">€ {{ scadenza.residuo|format_currency }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="4" class="text-center text-muted">Nessuna scadenza in arrivo.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="card-footer text-end">
+                <a href="{% url 'scadenzario_list' %}?tipo=Incasso&stato=a_scadere">Vai allo Scadenziario Completo →</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Riepilogo Operativo -->
+<h2 class="h4 mt-4 mb-3">Riepilogo Operativo Odierno → <a href="{% url 'dashboard_hr' %}" class="fs-6 fw-normal">Vai al Planning</a></h2>
+<div class="row">
+    <div class="col-md-4 mb-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <h2 class="display-4 fw-bold">{{ kpi_operativi.dipendenti_presenti }} / {{ kpi_operativi.totale_dipendenti }}</h2>
+                <p class="text-muted mb-0">Dipendenti Presenti</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <h2 class="display-4 fw-bold">{{ kpi_operativi.cantieri_attivi }}</h2>
+                <p class="text-muted mb-0">Cantieri Attivi</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <h2 class="display-4 fw-bold">{{ kpi_operativi.note_spese_pendenti }}</h2>
+                <p class="text-muted mb-0">Note Spese Pendenti</p>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}

@@ -82,14 +82,6 @@ def clear_doc_wizard_session(session):
 # === VISTE PRINCIPALI, ANAGRAFICHE E DOCUMENTI                             ===
 # ==============================================================================
 
-class DashboardView(TenantRequiredMixin, View):
-    """Mostra la dashboard principale."""
-    def get(self, request, *args, **kwargs):
-        active_tenant_name = request.session.get('active_tenant_name')
-        user_company_role = request.session.get('user_company_role')
-        context = {'active_tenant_name': active_tenant_name, 'user_company_role': user_company_role}
-        return render(request, 'gestionale/dashboard.html', context)
-
 class AnagraficaListView(TenantRequiredMixin, ListView):
     """Mostra l'elenco paginato delle anagrafiche."""
     model = Anagrafica
@@ -2537,3 +2529,97 @@ class ScadenzaPersonaleDeleteView(TenantRequiredMixin, AdminRequiredMixin, Delet
     def get_success_url(self):
         messages.success(self.request, "Scadenza personale eliminata con successo.")
         return reverse_lazy('dipendente_detail', kwargs={'pk': self.object.dipendente.pk})
+    
+# ==============================================================================
+# === DASHBOARD PRINCIPALE                                                   ===
+# ==============================================================================
+
+
+class DashboardView(TenantRequiredMixin, View):
+    """Mostra la dashboard principale."""
+    def get(self, request, *args, **kwargs):
+        active_tenant_name = request.session.get('active_tenant_name')
+        user_company_role = request.session.get('user_company_role')
+        context = {'active_tenant_name': active_tenant_name, 'user_company_role': user_company_role}
+        return render(request, 'gestionale/dashboard.html', context)
+
+# gestionale/views.py
+
+class DashboardView(TenantRequiredMixin, View):
+    """
+    Mostra la dashboard principale con KPI aggregati e riepiloghi operativi.
+    """
+    template_name = 'gestionale/dashboard.html'
+
+    def get(self, request, *args, **kwargs):
+        from datetime import date # Importiamo date qui dentro per chiarezza
+        from django.db.models import Sum, Value, Q, F, Case, When # <-- IMPORTAZIONI NECESSARIE
+
+        today = date.today()
+        
+        # --- 1. CALCOLI FINANZIARI (Scadenze e Saldi) ---
+        
+        scadenze_aperte_qs = Scadenza.objects.filter(
+            stato__in=[Scadenza.Stato.APERTA, Scadenza.Stato.PARZIALE]
+        )
+
+        kpi_rate = scadenze_aperte_qs.aggregate(
+            incassi_tot_rate=Coalesce(Sum('importo_rata', filter=Q(tipo_scadenza='Incasso')), Value(0), output_field=models.DecimalField()),
+            incassi_scaduti_rate=Coalesce(Sum('importo_rata', filter=Q(tipo_scadenza='Incasso', data_scadenza__lt=today)), Value(0), output_field=models.DecimalField()),
+            pagamenti_tot_rate=Coalesce(Sum('importo_rata', filter=Q(tipo_scadenza='Pagamento')), Value(0), output_field=models.DecimalField()),
+            pagamenti_scaduti_rate=Coalesce(Sum('importo_rata', filter=Q(tipo_scadenza='Pagamento', data_scadenza__lt=today)), Value(0), output_field=models.DecimalField()),
+        )
+        
+        kpi_pagamenti = PrimaNota.objects.filter(scadenza_collegata__in=scadenze_aperte_qs).aggregate(
+            incassi_pagati=Coalesce(Sum('importo', filter=Q(scadenza_collegata__tipo_scadenza='Incasso')), Value(0), output_field=models.DecimalField()),
+            incassi_scaduti_pagati=Coalesce(Sum('importo', filter=Q(scadenza_collegata__tipo_scadenza='Incasso', scadenza_collegata__data_scadenza__lt=today)), Value(0), output_field=models.DecimalField()),
+            pagamenti_pagati=Coalesce(Sum('importo', filter=Q(scadenza_collegata__tipo_scadenza='Pagamento')), Value(0), output_field=models.DecimalField()),
+            pagamenti_scaduti_pagati=Coalesce(Sum('importo', filter=Q(scadenza_collegata__tipo_scadenza='Pagamento', scadenza_collegata__data_scadenza__lt=today)), Value(0), output_field=models.DecimalField()),
+        )
+
+        incassi_aperti = kpi_rate['incassi_tot_rate'] - kpi_pagamenti['incassi_pagati']
+        incassi_scaduti = kpi_rate['incassi_scaduti_rate'] - kpi_pagamenti['incassi_scaduti_pagati']
+        pagamenti_aperti = kpi_rate['pagamenti_tot_rate'] - kpi_pagamenti['pagamenti_pagati']
+        pagamenti_scaduti = kpi_rate['pagamenti_scaduti_rate'] - kpi_pagamenti['pagamenti_scaduti_pagati']
+        
+        conti_finanziari = ContoFinanziario.objects.filter(attivo=True).annotate(
+            saldo=Coalesce(Sum(Case(When(movimenti__tipo_movimento='E', then=F('movimenti__importo')), When(movimenti__tipo_movimento='U', then=-F('movimenti__importo')), default=Value(0), output_field=models.DecimalField())), Value(0), output_field=models.DecimalField())
+        ).order_by('nome_conto')
+        
+        liquidita_totale = sum(c.saldo for c in conti_finanziari)
+
+        trenta_giorni_da_oggi = today + timedelta(days=30)
+        # Usiamo il queryset annotato per il residuo, che è più efficiente
+        scadenze_imminenti = scadenze_aperte_qs.filter(
+            tipo_scadenza=Scadenza.Tipo.INCASSO,
+            data_scadenza__gte=today,
+            data_scadenza__lte=trenta_giorni_da_oggi
+        ).annotate(
+            pagato=Coalesce(Sum('pagamenti__importo'), Value(0), output_field=models.DecimalField()),
+            residuo=F('importo_rata') - F('pagato')
+        )[:5]
+
+        dipendenti_presenti = DiarioAttivita.objects.filter(data=today, stato_presenza=DiarioAttivita.StatoPresenza.PRESENTE).count()
+        totale_dipendenti_attivi = Anagrafica.objects.filter(tipo=Anagrafica.Tipo.DIPENDENTE, attivo=True).count()
+        cantieri_attivi = Cantiere.objects.filter(stato=Cantiere.Stato.APERTO).count()
+        
+        context = {
+            'kpi_finanziari': {
+                'crediti_clienti': incassi_aperti,
+                'crediti_scaduti': incassi_scaduti,
+                'debiti_fornitori': pagamenti_aperti,
+                'debiti_scaduti': pagamenti_scaduti,
+                'liquidita_totale': liquidita_totale,
+                'saldo_netto': incassi_aperti - pagamenti_aperti,
+            },
+            'conti_finanziari': conti_finanziari,
+            'scadenze_imminenti': scadenze_imminenti,
+            'kpi_operativi': {
+                'dipendenti_presenti': dipendenti_presenti,
+                'totale_dipendenti': totale_dipendenti_attivi,
+                'cantieri_attivi': cantieri_attivi,
+                'note_spese_pendenti': 0,
+            }
+        }
+        
+        return render(request, self.template_name, context)
