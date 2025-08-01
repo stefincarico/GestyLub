@@ -29,7 +29,7 @@
             <a href="{% url 'scadenzario_list' %}" class="nav-link text-white fw-bold me-3">Scadenziario</a>
             <a href="{% url 'primanota_list' %}" class="nav-link text-white fw-bold me-3">Prima Nota</a>
             <a href="{% url 'tesoreria_dashboard' %}" class="nav-link text-white fw-bold me-3">Tesoreria</a>
-            <a href="{% url 'dashboard_hr' %}" class="nav-link text-white fw-bold me-3">Dashboard HR</a>
+            <a href="{% url 'dashboard_hr' %}" class="nav-link text-white fw-bold me-3">HR</a>
             
             {% if request.session.user_company_role == 'admin' %}
                 <a href="{% url 'admin_dashboard' %}" class="nav-link text-white fw-bold me-3">Amministrazione</a>
