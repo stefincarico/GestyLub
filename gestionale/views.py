@@ -123,9 +123,6 @@ class AnagraficaCreateView(TenantRequiredMixin, CreateView):
         # Impostiamo l'utente
         anagrafica.created_by = self.request.user
         anagrafica.updated_by = self.request.user
-        active_tenant_id = self.request.session.get('active_tenant_id')
-        if active_tenant_id:
-            anagrafica.tenant = Company.objects.get(pk=active_tenant_id)
         
         # Salviamo. Il metodo save() personalizzato del modello Anagrafica
         # verrà chiamato automaticamente e genererà il codice.
@@ -387,7 +384,6 @@ def documento_create_step3_scadenze(request):
 
 
                     nuova_testata = DocumentoTestata.objects.create(
-                        tenant=tenant_obj,
                         tipo_doc=tipo_doc,
                         anagrafica=anagrafica,
                         data_documento=date.fromisoformat(testata_data['data_documento']),
@@ -415,8 +411,7 @@ def documento_create_step3_scadenze(request):
                             documento=nuova_testata, anagrafica=anagrafica,
                             data_scadenza=date.fromisoformat(scadenza['data_scadenza']),
                             importo_rata=scadenza['importo_rata'],
-                            tipo_scadenza=Scadenza.Tipo.INCASSO if 'V' in nuova_testata.tipo_doc else Scadenza.Tipo.PAGAMENTO,
-                            tenant=tenant_obj
+                            tipo_scadenza=Scadenza.Tipo.INCASSO if 'V' in nuova_testata.tipo_doc else Scadenza.Tipo.PAGAMENTO
                         )
                     
                     clear_doc_wizard_session(request.session)
@@ -1065,9 +1060,6 @@ class RegistraPagamentoView(TenantRequiredMixin, View):
                     causale, _ = Causale.objects.get_or_create(descrizione="PAG. FT. FORN.")
                     tipo_movimento = PrimaNota.TipoMovimento.USCITA
                 
-                active_tenant_id = self.request.session.get('active_tenant_id')
-                tenant = Company.objects.get(pk=active_tenant_id) if active_tenant_id else None
-
                 PrimaNota.objects.create(
                     data_registrazione=form.cleaned_data['data_pagamento'],
                     descrizione=f"{causale.descrizione} - Doc. {scadenza.documento.numero_documento} - {scadenza.anagrafica.nome_cognome_ragione_sociale}",
@@ -1077,8 +1069,7 @@ class RegistraPagamentoView(TenantRequiredMixin, View):
                     causale=causale,
                     anagrafica=scadenza.anagrafica,
                     scadenza_collegata=scadenza,
-                    created_by=self.request.user,
-                    tenant=tenant
+                    created_by=self.request.user
                 )
 
                 # --- SECONDA CORREZIONE QUI ---
@@ -1826,9 +1817,6 @@ class PrimaNotaCreateView(TenantRequiredMixin, CreateView):
                 uscita.updated_by = self.request.user
                 uscita.tipo_movimento = PrimaNota.TipoMovimento.USCITA
                 uscita.descrizione = f"GIROCONTO -> {conto_destinazione.nome_conto}"
-                active_tenant_id = self.request.session.get('active_tenant_id')
-                if active_tenant_id:
-                    uscita.tenant = Company.objects.get(pk=active_tenant_id)
                 uscita.save() # Primo salvataggio per ottenere un pk
 
                 # 2. Crea il movimento di ENTRATA speculare
@@ -1840,8 +1828,7 @@ class PrimaNotaCreateView(TenantRequiredMixin, CreateView):
                     causale=causale,
                     conto_finanziario=conto_destinazione,
                     created_by=self.request.user,
-                    movimento_collegato=uscita,
-                    tenant=uscita.tenant
+                    movimento_collegato=uscita
                 )
                 
                 # 3. Aggiorna il movimento di uscita per creare il legame bidirezionale
@@ -1855,9 +1842,6 @@ class PrimaNotaCreateView(TenantRequiredMixin, CreateView):
             movimento = form.save(commit=False)
             movimento.created_by = self.request.user
             movimento.updated_by = self.request.user # Aggiungiamo anche updated_by per coerenza
-            active_tenant_id = self.request.session.get('active_tenant_id')
-            if active_tenant_id:
-                movimento.tenant = Company.objects.get(pk=active_tenant_id)
             movimento.save()
             messages.success(self.request, "Movimento di prima nota creato con successo.")
             
@@ -2881,9 +2865,6 @@ class CantiereCreateView(TenantRequiredMixin, AdminRequiredMixin, CreateView):
         cantiere = form.save(commit=False)
         cantiere.created_by = self.request.user
         cantiere.updated_by = self.request.user
-        active_tenant_id = self.request.session.get('active_tenant_id')
-        if active_tenant_id:
-            cantiere.tenant = Company.objects.get(pk=active_tenant_id)
         cantiere.save()
         messages.success(self.request, "Cantiere creato con successo.")
         return HttpResponseRedirect(self.get_success_url())

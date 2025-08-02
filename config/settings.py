@@ -53,8 +53,9 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
+    'django.contrib.messages.middleware.MessageMiddleware',  # <-- Assicurati che sia qui
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'config.middleware.TenantMiddleware',  # Il nostro middleware personalizzato
 ]
 
 ROOT_URLCONF = 'config.urls'

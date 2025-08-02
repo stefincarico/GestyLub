@@ -4,6 +4,28 @@ from django.db import models, transaction
 from django.conf import settings
 from django.urls import reverse # Per riferirci al nostro User model personalizzato
 from tenants.models import Company
+from .managers import TenantAwareManager
+
+class TenantAwareModel(models.Model):
+    tenant = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='%(app_label)s_%(class)s_related')
+
+    objects = TenantAwareManager()
+
+    class Meta:
+        abstract = True
+
+    def save(self, *args, **kwargs):
+        from .managers import get_current_tenant
+        if not self.pk:
+            if not self.tenant_id:
+                current_tenant = get_current_tenant()
+                if current_tenant:
+                    self.tenant = current_tenant
+                else:
+                    # Questo dovrebbe essere gestito dal middleware o dalla vista
+                    # ma è un fallback di sicurezza per evitare IntegrityError
+                    raise Exception("Cannot save tenant-aware model without a current tenant set.")
+        super().save(*args, **kwargs)
 
 # ==============================================================================
 # === MODELLI DI CONFIGURAZIONE (Tabelle di supporto)                       ===
@@ -49,7 +71,7 @@ class Causale(models.Model):
         verbose_name = "Causale"
         verbose_name_plural = "Causali"
 
-class ContoFinanziario(models.Model):
+class ContoFinanziario(TenantAwareModel):
     nome_conto = models.CharField(max_length=100, unique=True, verbose_name="Nome Conto")
     attivo = models.BooleanField(default=True)
 
@@ -59,7 +81,7 @@ class ContoFinanziario(models.Model):
         verbose_name = "Conto Finanziario"
         verbose_name_plural = "Conti Finanziari"
 
-class ContoOperativo(models.Model):
+class ContoOperativo(TenantAwareModel):
     class Tipo(models.TextChoices):
         COSTO = 'Costo', 'Costo'
         RICAVO = 'Ricavo', 'Ricavo'
@@ -103,7 +125,7 @@ class TipoScadenzaPersonale(models.Model):
 # === MODELLI CORE (Anagrafiche, Cantieri)                                  ===
 # ==============================================================================
 
-class Anagrafica(models.Model):
+class Anagrafica(TenantAwareModel):
     class Tipo(models.TextChoices):
         CLIENTE = 'Cliente', 'Cliente'
         FORNITORE = 'Fornitore', 'Fornitore'
@@ -129,7 +151,6 @@ class Anagrafica(models.Model):
     # il campo 'created_by' diventa NULL invece di cancellare anche l'anagrafica.
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='anagrafiche_create', on_delete=models.SET_NULL, null=True, blank=True)
     updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='anagrafiche_aggiornate', on_delete=models.SET_NULL, null=True, blank=True)
-    tenant = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='anagrafiche')
 
     def __str__(self):
         return f"{self.nome_cognome_ragione_sociale} ({self.codice})"
@@ -168,7 +189,7 @@ class Anagrafica(models.Model):
         verbose_name_plural = "Anagrafiche"
         ordering = ['nome_cognome_ragione_sociale']
 
-class Cantiere(models.Model):
+class Cantiere(TenantAwareModel):
     class Stato(models.TextChoices):
         BOZZA = 'Bozza', 'Bozza'
         APERTO = 'Aperto', 'Aperto'
@@ -189,7 +210,6 @@ class Cantiere(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='cantieri_creati', on_delete=models.SET_NULL, null=True, blank=True)
     updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='cantieri_aggiornati', on_delete=models.SET_NULL, null=True, blank=True)
-    tenant = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='cantieri')
 
     def __str__(self):
         return f"{self.codice_cantiere} - {self.descrizione}"
@@ -204,7 +224,7 @@ class Cantiere(models.Model):
 # === MODELLI CONTABILI (Documenti, Scadenze, Prima Nota)                   ===
 # ==============================================================================
 
-class DocumentoTestata(models.Model):
+class DocumentoTestata(TenantAwareModel):
     class TipoDoc(models.TextChoices):
         FATTURA_VENDITA = 'FTV', 'Fattura di Vendita'
         NOTA_CREDITO_VENDITA = 'NCV', 'Nota di Credito di Vendita'
@@ -243,7 +263,6 @@ class DocumentoTestata(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='documenti_creati', on_delete=models.SET_NULL, null=True, blank=True)
     updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='documenti_aggiornati', on_delete=models.SET_NULL, null=True, blank=True)
-    tenant = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='documenti')
 
     def __str__(self):
         return f"{self.get_tipo_doc_display()} N. {self.numero_documento} del {self.data_documento}"
@@ -277,7 +296,7 @@ class DocumentoRiga(models.Model):
         verbose_name = "Riga Documento"
         verbose_name_plural = "Righe Documenti"
 
-class Scadenza(models.Model):
+class Scadenza(TenantAwareModel):
     class Stato(models.TextChoices):
         APERTA = 'Aperta', 'Aperta'
         PARZIALE = 'Parziale', 'Pagata Parzialmente'
@@ -297,7 +316,6 @@ class Scadenza(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    tenant = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='scadenze')
     
     # NOTA: La logica per 'importo_pagato' e 'importo_residuo' che avevi nella
     # reference la implementeremo in modo più "Djangonico" direttamente nelle viste
@@ -313,7 +331,7 @@ class Scadenza(models.Model):
         ordering = ['data_scadenza']
 
 
-class PrimaNota(models.Model):
+class PrimaNota(TenantAwareModel):
     class TipoMovimento(models.TextChoices):
         ENTRATA = 'E', 'Entrata'
         USCITA = 'U', 'Uscita'
@@ -344,7 +362,6 @@ class PrimaNota(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='primanota_create', on_delete=models.SET_NULL, null=True, blank=True)
-    tenant = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='primanota')
     
 
     def __str__(self):
