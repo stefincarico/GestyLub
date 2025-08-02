@@ -7,3 +7,41 @@ source venv/bin/activate
 Per avviare il server:
 python manage.py runserver
 
+
+Inizio branch multi-ten
+
+# Crea un nuovo branch chiamato "multi-ten" e passa subito a lavorarci
+git checkout -b multi-ten
+
+Se i test hanno successo e vuoi mergiare:
+
+bash
+# Torna al branch principale (es. main/master)
+git checkout main
+
+# Unisci multi-ten a main
+git merge multi-ten
+
+# Aggiorna GitHub
+git push origin main
+
+4. Se Crolla Tutto: Torna Indietro
+Per eliminare tutto e ripristinare lo stato iniziale:
+
+A) Elimina il Branch Locale
+bash
+# Torna al branch principale (es. main/master)
+git checkout main
+
+# Elimina il branch locale (forzatamente)
+git branch -D multi-ten
+B) Elimina il Branch da GitHub
+bash
+# Elimina il branch remoto
+git push origin --delete multi-ten
+C) Ripristina lo Stato Originale
+Se hai modificato file senza commit e vuoi annullare tutto:
+
+bash
+# Annulla tutte le modifiche non committate
+git restore .
