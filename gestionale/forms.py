@@ -772,3 +772,38 @@ class ScadenzaPersonaleForm(forms.ModelForm):
                 self.initial['data_scadenza'] = self.instance.data_scadenza.strftime('%Y-%m-%d')
         # === FINE CORREZIONE ===
 
+class CantiereForm(forms.ModelForm):
+    """
+    Form per la creazione e modifica dei Cantieri.
+    """
+    class Meta:
+        model = Cantiere
+        fields = [
+            'codice_cantiere', 'descrizione', 'indirizzo', 'cliente',
+            'data_inizio', 'data_fine_prevista', 'stato', 'attivo'
+        ]
+        widgets = {
+            'codice_cantiere': forms.TextInput(attrs={'class': 'form-control'}),
+            'descrizione': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+            'indirizzo': forms.TextInput(attrs={'class': 'form-control'}),
+            'cliente': forms.Select(attrs={'class': 'form-select'}),
+            'data_inizio': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'data_fine_prevista': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'stato': forms.Select(attrs={'class': 'form-select'}),
+            'attivo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Filtriamo il queryset per mostrare solo i clienti attivi.
+        self.fields['cliente'].queryset = Anagrafica.objects.filter(
+            tipo=Anagrafica.Tipo.CLIENTE, 
+            attivo=True
+        )
+        # Formattiamo le date per il widget HTML se siamo in modalità modifica
+        if self.instance and self.instance.pk:
+            if self.instance.data_inizio:
+                self.initial['data_inizio'] = self.instance.data_inizio.strftime('%Y-%m-%d')
+            if self.instance.data_fine_prevista:
+                self.initial['data_fine_prevista'] = self.instance.data_fine_prevista.strftime('%Y-%m-%d')
+

@@ -41,7 +41,7 @@ from .forms import (
     AliquotaIVAForm, AnagraficaForm, CausaleForm, ContoFinanziarioForm, ContoOperativoForm, DiarioAttivitaForm, DipendenteDettaglioForm,
     DocumentoFilterForm, DocumentoRigaForm, DocumentoTestataForm, MezzoAziendaleForm, ModalitaPagamentoForm,
     PagamentoForm, PartitarioFilterForm, PrimaNotaFilterForm, PrimaNotaForm, ScadenzaPersonaleForm,
-    ScadenzarioFilterForm, ScadenzaWizardForm,PrimaNotaUpdateForm,PagamentoUpdateForm, TipoScadenzaPersonaleForm
+    ScadenzarioFilterForm, ScadenzaWizardForm,PrimaNotaUpdateForm,PagamentoUpdateForm, TipoScadenzaPersonaleForm, CantiereForm
 )
 from .models import (
     AliquotaIVA, Anagrafica, Cantiere, Causale, ContoFinanziario,
@@ -1423,6 +1423,19 @@ class DashboardHRView(TenantRequiredMixin, View):
         # 4. Mappiamo le attività ai dipendenti per un accesso veloce (invariato)
         mappa_diario = {d.dipendente_id: d for d in diario_del_giorno}
         
+        # === INIZIO NUOVA LOGICA PER I CANTIERI ===
+        # 1. Recupera il filtro per lo stato del cantiere dall'URL.
+        #    Il default è 'APERTO', come da requisiti.
+        stato_cantiere_filter = request.GET.get('stato_cantiere', Cantiere.Stato.APERTO)
+
+        # 2. Queryset di base per i cantieri.
+        cantieri_qs = Cantiere.objects.select_related('cliente').order_by('codice_cantiere')
+        
+        # 3. Applica il filtro, a meno che non sia 'TUTTI'.
+        if stato_cantiere_filter and stato_cantiere_filter != 'TUTTI':
+            cantieri_qs = cantieri_qs.filter(stato=stato_cantiere_filter)
+        # === FINE NUOVA LOGICA PER I CANTIERI ===
+
         # 5. Combiniamo i dati, calcoliamo i KPI e le ore di default
         lista_dipendenti_con_stato = []
         kpi = {
@@ -1471,6 +1484,9 @@ class DashboardHRView(TenantRequiredMixin, View):
             'mezzi_disponibili': MezzoAziendale.objects.filter(attivo=True),
             'attivita_form': DiarioAttivitaForm(),
             'kpi': kpi,
+            'cantieri': cantieri_qs,
+            'stati_cantiere': Cantiere.Stato.choices, # Passiamo le scelte per il dropdown
+            'stato_cantiere_selezionato': stato_cantiere_filter,
         }
         
         return render(request, self.template_name, context)
@@ -2812,3 +2828,49 @@ class DipendenteUpdateView(TenantRequiredMixin, AdminRequiredMixin, View):
             messages.error(request, "Correggi gli errori nel form.")
             return render(request, self.template_name, context)
         
+# ==============================================================================
+# === VISTE CRUD CANTIERI                                                   ===
+# ==============================================================================
+
+class CantiereCreateView(TenantRequiredMixin, AdminRequiredMixin, CreateView):
+    model = Cantiere
+    form_class = CantiereForm
+    template_name = 'gestionale/cantiere_form.html' # Useremo un template dedicato
+    
+    def get_success_url(self):
+        # Torniamo alla dashboard HR da cui siamo partiti
+        return reverse_lazy('dashboard_hr')
+
+    def form_valid(self, form):
+        cantiere = form.save(commit=False)
+        cantiere.created_by = self.request.user
+        cantiere.updated_by = self.request.user
+        cantiere.save()
+        messages.success(self.request, "Cantiere creato con successo.")
+        return HttpResponseRedirect(self.get_success_url())
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = 'Nuovo Cantiere'
+        return context
+
+class CantiereUpdateView(TenantRequiredMixin, AdminRequiredMixin, UpdateView):
+    model = Cantiere
+    form_class = CantiereForm
+    template_name = 'gestionale/cantiere_form.html'
+    
+    def get_success_url(self):
+        return reverse_lazy('dashboard_hr')
+
+    def form_valid(self, form):
+        cantiere = form.save(commit=False)
+        cantiere.updated_by = self.request.user
+        cantiere.save()
+        messages.success(self.request, "Cantiere aggiornato con successo.")
+        return HttpResponseRedirect(self.get_success_url())
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = f"Modifica Cantiere: {self.object.codice_cantiere}"
+        return context
+    
