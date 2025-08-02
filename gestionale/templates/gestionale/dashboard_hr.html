@@ -74,8 +74,8 @@
                 </form>
 
                 <!-- Pulsanti di Azione -->
-                <a href="{% url 'cantiere_list_export_excel' %}?{{ request.GET.urlencode }}" class="btn btn-sm" style="...">Esporta Excel</a>
-                <a href="{% url 'cantiere_list_export_pdf' %}?{{ request.GET.urlencode }}" class="btn btn-sm ms-2" style="...">Esporta PDF</a>
+                <a href="{% url 'cantiere_list_export_excel' %}?{{ request.GET.urlencode }}" class="btn btn-sm" style="background-color: #185C37; color: white;">Esporta Excel</a>
+                <a href="{% url 'cantiere_list_export_pdf' %}?{{ request.GET.urlencode }}" class="btn btn-sm ms-2" style="background-color: #FF9900; color: white;">Esporta PDF</a>
                 {% if request.session.user_company_role == 'admin' %}
                     <a href="{% url 'cantiere_create' %}" class="btn btn-primary btn-sm ms-2">+ Aggiungi Cantiere</a>
                 {% endif %}

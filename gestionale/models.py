@@ -3,6 +3,7 @@
 from django.db import models, transaction
 from django.conf import settings
 from django.urls import reverse # Per riferirci al nostro User model personalizzato
+from tenants.models import Company
 
 # ==============================================================================
 # === MODELLI DI CONFIGURAZIONE (Tabelle di supporto)                       ===
@@ -128,6 +129,7 @@ class Anagrafica(models.Model):
     # il campo 'created_by' diventa NULL invece di cancellare anche l'anagrafica.
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='anagrafiche_create', on_delete=models.SET_NULL, null=True, blank=True)
     updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='anagrafiche_aggiornate', on_delete=models.SET_NULL, null=True, blank=True)
+    tenant = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='anagrafiche')
 
     def __str__(self):
         return f"{self.nome_cognome_ragione_sociale} ({self.codice})"
@@ -187,6 +189,7 @@ class Cantiere(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='cantieri_creati', on_delete=models.SET_NULL, null=True, blank=True)
     updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='cantieri_aggiornati', on_delete=models.SET_NULL, null=True, blank=True)
+    tenant = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='cantieri')
 
     def __str__(self):
         return f"{self.codice_cantiere} - {self.descrizione}"
@@ -240,6 +243,7 @@ class DocumentoTestata(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='documenti_creati', on_delete=models.SET_NULL, null=True, blank=True)
     updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='documenti_aggiornati', on_delete=models.SET_NULL, null=True, blank=True)
+    tenant = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='documenti')
 
     def __str__(self):
         return f"{self.get_tipo_doc_display()} N. {self.numero_documento} del {self.data_documento}"
@@ -339,6 +343,7 @@ class PrimaNota(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='primanota_create', on_delete=models.SET_NULL, null=True, blank=True)
+    tenant = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='primanota')
     
 
     def __str__(self):
