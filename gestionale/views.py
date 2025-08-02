@@ -2874,3 +2874,64 @@ class CantiereUpdateView(TenantRequiredMixin, AdminRequiredMixin, UpdateView):
         context['title'] = f"Modifica Cantiere: {self.object.codice_cantiere}"
         return context
     
+class CantiereListExportExcelView(TenantRequiredMixin, AdminRequiredMixin, View):
+    """
+    Esporta la lista filtrata dei cantieri in formato Excel.
+    """
+    def get(self, request, *args, **kwargs):
+        # Riutilizziamo la logica di filtraggio dalla DashboardHRView
+        stato_cantiere_filter = request.GET.get('stato_cantiere', Cantiere.Stato.APERTO)
+        cantieri_qs = Cantiere.objects.select_related('cliente').order_by('codice_cantiere')
+        if stato_cantiere_filter and stato_cantiere_filter != 'TUTTI':
+            cantieri_qs = cantieri_qs.filter(stato=stato_cantiere_filter)
+            
+        # Preparazione dati per l'utility
+        tenant_name = request.session.get('active_tenant_name')
+        report_title = 'Elenco Cantieri'
+        filename_prefix = 'Elenco_Cantieri'
+        
+        filtri_str = f"Stato: {dict(Cantiere.Stato.choices).get(stato_cantiere_filter, 'Tutti')}"
+        
+        headers = ["Codice", "Descrizione", "Cliente", "Indirizzo", "Stato", "Data Inizio", "Data Fine Prevista"]
+        data_rows = []
+        for cantiere in cantieri_qs:
+            data_rows.append([
+                cantiere.codice_cantiere,
+                cantiere.descrizione,
+                cantiere.cliente.nome_cognome_ragione_sociale,
+                cantiere.indirizzo,
+                cantiere.get_stato_display(),
+                cantiere.data_inizio,
+                cantiere.data_fine_prevista
+            ])
+            
+        report_sections = [{'title': 'Dettaglio Cantieri', 'headers': headers, 'rows': data_rows}]
+        
+        return generate_excel_report(
+            tenant_name, report_title, filtri_str, None, report_sections,
+            filename_prefix=filename_prefix
+        )
+
+class CantiereListExportPdfView(TenantRequiredMixin, AdminRequiredMixin, View):
+    """
+    Esporta la lista filtrata dei cantieri in formato PDF.
+    """
+    def get(self, request, *args, **kwargs):
+        # Riutilizziamo la logica di filtraggio
+        stato_cantiere_filter = request.GET.get('stato_cantiere', Cantiere.Stato.APERTO)
+        cantieri_qs = Cantiere.objects.select_related('cliente').order_by('codice_cantiere')
+        if stato_cantiere_filter and stato_cantiere_filter != 'TUTTI':
+            cantieri_qs = cantieri_qs.filter(stato=stato_cantiere_filter)
+
+        filtri_str = f"Stato: {dict(Cantiere.Stato.choices).get(stato_cantiere_filter, 'Tutti')}"
+
+        context = {
+            'tenant_name': request.session.get('active_tenant_name'),
+            'report_title': 'Elenco Cantieri',
+            'timestamp': timezone.now().strftime('%d/%m/%Y %H:%M:%S'),
+            'filtri_str': filtri_str,
+            'cantieri': cantieri_qs,
+        }
+        
+        return generate_pdf_report(request, 'gestionale/cantiere_list_pdf.html', context)
+    

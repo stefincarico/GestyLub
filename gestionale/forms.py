@@ -782,8 +782,12 @@ class CantiereForm(forms.ModelForm):
             'codice_cantiere', 'descrizione', 'indirizzo', 'cliente',
             'data_inizio', 'data_fine_prevista', 'stato', 'attivo'
         ]
+        # Aggiorniamo i widget per aggiungere il placeholder
         widgets = {
-            'codice_cantiere': forms.TextInput(attrs={'class': 'form-control'}),
+            'codice_cantiere': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Es: C-2025-MILANO-001'
+            }),
             'descrizione': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
             'indirizzo': forms.TextInput(attrs={'class': 'form-control'}),
             'cliente': forms.Select(attrs={'class': 'form-select'}),
@@ -795,15 +799,26 @@ class CantiereForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Filtriamo il queryset per mostrare solo i clienti attivi.
         self.fields['cliente'].queryset = Anagrafica.objects.filter(
             tipo=Anagrafica.Tipo.CLIENTE, 
             attivo=True
         )
-        # Formattiamo le date per il widget HTML se siamo in modalità modifica
         if self.instance and self.instance.pk:
             if self.instance.data_inizio:
                 self.initial['data_inizio'] = self.instance.data_inizio.strftime('%Y-%m-%d')
             if self.instance.data_fine_prevista:
                 self.initial['data_fine_prevista'] = self.instance.data_fine_prevista.strftime('%Y-%m-%d')
+
+    # === METODI DI SANIFICAZIONE AGGIUNTI ===
+    def clean_codice_cantiere(self):
+        data = self.cleaned_data.get('codice_cantiere')
+        return data.upper() if data else data
+
+    def clean_descrizione(self):
+        data = self.cleaned_data.get('descrizione')
+        return data.upper() if data else data
+
+    def clean_indirizzo(self):
+        data = self.cleaned_data.get('indirizzo')
+        return data.upper() if data else data
 
