@@ -297,6 +297,7 @@ class Scadenza(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    tenant = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='scadenze')
     
     # NOTA: La logica per 'importo_pagato' e 'importo_residuo' che avevi nella
     # reference la implementeremo in modo più "Djangonico" direttamente nelle viste
@@ -479,4 +480,3 @@ class ScadenzaPersonale(models.Model):
         verbose_name = "Scadenza Personale"
         verbose_name_plural = "Scadenze Personale"
         ordering = ['data_scadenza']
-

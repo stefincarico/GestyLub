@@ -24,6 +24,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
+from functools import wraps
 from django.views import View
 from django.views.generic import DetailView, ListView
 from django.views.generic.edit import CreateView, UpdateView, DeleteView
@@ -77,6 +78,16 @@ def clear_doc_wizard_session(session):
     session.pop('doc_testata_data', None)
     session.pop('doc_righe_data', None)
     session.pop('doc_scadenze_data', None)
+
+def tenant_required(view_func):
+    """Decoratore per le viste basate su funzioni che richiede un tenant attivo in sessione."""
+    @wraps(view_func)
+    def _wrapped_view(request, *args, **kwargs):
+        if not request.session.get('active_tenant_id'):
+            messages.error(request, "Seleziona un'azienda per continuare.")
+            return redirect(reverse('tenant_selection'))
+        return view_func(request, *args, **kwargs)
+    return _wrapped_view
 
 # ==============================================================================
 # === VISTE PRINCIPALI, ANAGRAFICHE E DOCUMENTI                             ===
@@ -170,6 +181,7 @@ class DipendenteDettaglioCreateView(TenantRequiredMixin, CreateView):
 # ==============================================================================
 
 @login_required
+@tenant_required
 def documento_create_step1_testata(request):
     """
     Step 1 del wizard: inserimento dati della testata.
@@ -205,6 +217,7 @@ def documento_create_step1_testata(request):
     return render(request, 'gestionale/documento_create_step1.html', context)
 
 @login_required
+@tenant_required
 def documento_create_step2_righe(request):
     """
     Step 2 del wizard: inserimento delle righe del documento.
@@ -283,6 +296,7 @@ def documento_create_step2_righe(request):
     return render(request, 'gestionale/documento_create_step2.html', context)
 
 @login_required
+@tenant_required
 def documento_create_step3_scadenze(request):
     """
     Step 3 del wizard: inserimento scadenze e finalizzazione.
@@ -333,6 +347,9 @@ def documento_create_step3_scadenze(request):
                     tipo_doc = testata_data['tipo_doc']
                     numero_doc_finale = "" # Inizializziamo la variabile
 
+                    active_tenant_id = request.session.get('active_tenant_id')
+                    tenant_obj = Company.objects.get(pk=active_tenant_id) if active_tenant_id else None
+
                     # Definiamo i prefissi per i documenti di vendita
                     prefissi_vendita = {
                         DocumentoTestata.TipoDoc.FATTURA_VENDITA: 'FT',
@@ -370,7 +387,7 @@ def documento_create_step3_scadenze(request):
 
 
                     nuova_testata = DocumentoTestata.objects.create(
-                        tenant=request.tenant,
+                        tenant=tenant_obj,
                         tipo_doc=tipo_doc,
                         anagrafica=anagrafica,
                         data_documento=date.fromisoformat(testata_data['data_documento']),
@@ -398,7 +415,8 @@ def documento_create_step3_scadenze(request):
                             documento=nuova_testata, anagrafica=anagrafica,
                             data_scadenza=date.fromisoformat(scadenza['data_scadenza']),
                             importo_rata=scadenza['importo_rata'],
-                            tipo_scadenza=Scadenza.Tipo.INCASSO if 'V' in nuova_testata.tipo_doc else Scadenza.Tipo.PAGAMENTO
+                            tipo_scadenza=Scadenza.Tipo.INCASSO if 'V' in nuova_testata.tipo_doc else Scadenza.Tipo.PAGAMENTO,
+                            tenant=tenant_obj
                         )
                     
                     clear_doc_wizard_session(request.session)
@@ -460,6 +478,7 @@ def get_scadenza_initial_data(testata_data, scadenze_data, residuo_da_scadenzare
 # ==============================================================================
 
 @login_required
+@tenant_required
 def get_anagrafiche_by_tipo(request):
     tipo_documento = request.GET.get('tipo_doc')
     anagrafiche_qs = Anagrafica.objects.none()
