@@ -28,7 +28,7 @@
                         </td>
                         <td>
                             <a href="#" class="text-decoration-none">Modifica Ruolo</a> |
-                            <a href="#" class="text-danger text-decoration-none">Rimuovi</a>
+                            <a href="{% url 'superadmin:user_permission_delete' perm.pk %}" class="text-danger text-decoration-none">Rimuovi</a>
                         </td>
                     </tr>
                     {% empty %}

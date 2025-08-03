@@ -14,7 +14,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.views import View
-from django.views.generic import CreateView, FormView, ListView, UpdateView
+from django.views.generic import CreateView, FormView, ListView, UpdateView,DeleteView
 
 # Models imports
 from accounts.models import User
@@ -132,6 +132,23 @@ class CompanyDetailView(SuperAdminRequiredMixin, View):
             messages.error(request, "Errore nel form. Selezionare un utente e un ruolo.")
         
         return redirect('superadmin:company_detail', pk=company.pk)    
+
+class UserPermissionDeleteView(SuperAdminRequiredMixin, DeleteView):
+    model = UserCompanyPermission
+    template_name = 'superadmin/generic_confirm_delete.html' # Riutilizziamo un template generico
+
+    def get_success_url(self):
+        messages.success(self.request, "Associazione utente rimossa con successo.")
+        # Torniamo al cruscotto dell'azienda da cui siamo partiti
+        company_pk = self.object.company.pk
+        return reverse_lazy('superadmin:company_detail', kwargs={'pk': company_pk})
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = "Conferma Rimozione Permesso"
+        context['message'] = f"Sei sicuro di voler rimuovere l'utente '{self.object.user.username}' dall'azienda '{self.object.company.company_name}'?"
+        return context
+    
 
 # === VISTE CRUD PER GLI UTENTI ===
 

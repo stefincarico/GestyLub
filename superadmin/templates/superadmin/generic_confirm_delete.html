@@ -1,0 +1,14 @@
+{% extends "superadmin/base_superadmin.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<h1 class="h2 mb-4">{{ title }}</h1>
+<div class="card"><div class="card-body">
+    <p>{{ message }}</p>
+    <div class="alert alert-danger"><strong>ATTENZIONE:</strong> L'azione è irreversibile.</div>
+    <form method="post" class="mt-4">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger">Sì, Rimuovi</button>
+        <a href="{{ request.META.HTTP_REFERER }}" class="btn btn-secondary">Annulla</a>
+    </form>
+</div></div>
+{% endblock %}
