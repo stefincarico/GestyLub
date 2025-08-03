@@ -186,3 +186,18 @@ Pagine di Errore Generiche: Se c'è un errore, l'utente vede una pagina "500 Ser
 Performance Ottimizzate: Whitenoise serve i file statici in modo super-veloce, con caching e compressione.
 Server Robusto: Waitress gestisce più utenti contemporaneamente in modo efficiente.
 Come si avvia: Il nostro script start_gestionale.bat (che usa waitress).
+
+5. Procedure di Backup e Ripristino
+Backup
+Accedi al gestionale come utente Super Amministratore.
+Naviga nel "Pannello Superadmin" (/super/).
+Nella sezione "Utilità di Manutenzione", clicca su "Esegui Backup Database".
+Un file di backup con nome YYYYMMDD_HHMMSS_gestilub_db_backup.sql verrà salvato nella cartella Documenti dell'utente del PC server.
+È fondamentale copiare regolarmente questo file su un'unità esterna o un cloud storage.
+Ripristino (Operazione di Emergenza)
+ATTENZIONE: Questa procedura CANCELLA tutti i dati attuali e li sostituisce con quelli del backup. Da eseguire solo in caso di problemi gravi.
+Assicurati che il server del gestionale sia spento.
+Trova il file di backup .sql che vuoi ripristinare.
+Nella cartella GestiLub sul server, fai click destro su restore_database.bat e scegli "Esegui come amministratore".
+Segui le istruzioni a schermo: conferma l'operazione, inserisci il percorso completo del file di backup e la password di PostgreSQL quando richiesta.
+Al termine, riavvia il gestionale usando lo script start_gestionale.bat.
