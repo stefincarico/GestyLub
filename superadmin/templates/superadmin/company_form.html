@@ -1,0 +1,15 @@
+{% extends "superadmin/base_superadmin.html" %}
+{% block title %}{% if object %}Modifica Azienda{% else %}Nuova Azienda{% endif %}{% endblock %}
+{% block content %}
+<h1 class="h2 mb-4">{% if object %}Modifica Azienda: {{ object.company_name }}{% else %}Crea Nuova Azienda{% endif %}</h1>
+<div class="card"><div class="card-body">
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <div class="mt-4">
+            <button type="submit" class="btn btn-primary">Salva</button>
+            <a href="{% url 'superadmin:company_list' %}" class="btn btn-secondary">Annulla</a>
+        </div>
+    </form>
+</div></div>
+{% endblock %}

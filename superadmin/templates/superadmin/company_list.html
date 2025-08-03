@@ -1,0 +1,38 @@
+{% extends "superadmin/base_superadmin.html" %}
+{% block title %}Elenco Aziende{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h2">Elenco Aziende Clienti</h1>
+    <a href="{% url 'superadmin:company_create' %}" class="btn btn-primary">+ Nuova Azienda</a>
+</div>
+<div class="card">
+    <table class="table table-hover mb-0">
+        <thead>
+            <tr>
+                <th>Nome Azienda</th>
+                <th>P.IVA</th>
+                <th>Schema DB</th>
+                <th>Stato</th>
+                <th>Azioni</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for azienda in aziende %}
+            <tr>
+                <td>{{ azienda.company_name }}</td>
+                <td>{{ azienda.vat_number|default_if_none:"" }}</td>
+                <td><code>{{ azienda.schema_name }}</code></td>
+                <td>
+                    {% if azienda.is_active %}<span class="badge bg-success">Attiva</span>
+                    {% else %}<span class="badge bg-secondary">Disattivata</span>{% endif %}
+                </td>
+                <td>
+                    <a href="{% url 'superadmin:company_update' azienda.pk %}" class="btn btn-sm btn-outline-primary">Modifica</a>
+                    <!-- TODO: Aggiungere gestione domini -->
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
