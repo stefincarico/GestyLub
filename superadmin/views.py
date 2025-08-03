@@ -22,7 +22,7 @@ from tenants.models import Company
 
 # Forms imports
 from accounts.forms import CustomUserCreationForm, CustomUserChangeForm
-from tenants.forms import CompanyForm, UserPermissionFormSet
+from tenants.forms import CompanyForm, UserPermissionForm, UserPermissionFormSet
 from tenants.models import UserCompanyPermission
 from tenants.forms import AssociateUserForm
 
@@ -148,7 +148,20 @@ class UserPermissionDeleteView(SuperAdminRequiredMixin, DeleteView):
         context['title'] = "Conferma Rimozione Permesso"
         context['message'] = f"Sei sicuro di voler rimuovere l'utente '{self.object.user.username}' dall'azienda '{self.object.company.company_name}'?"
         return context
+
+class UserPermissionUpdateView(SuperAdminRequiredMixin, UpdateView):
+    model = UserCompanyPermission
+    form_class = UserPermissionForm # Riutilizziamo il form che abbiamo già!
+    template_name = 'superadmin/user_permission_form.html'
     
+    def get_success_url(self):
+        messages.success(self.request, "Ruolo utente aggiornato con successo.")
+        return reverse_lazy('superadmin:company_detail', kwargs={'pk': self.object.company.pk})
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = f"Modifica Ruolo per {self.object.user.username} in {self.object.company.company_name}"
+        return context    
 
 # === VISTE CRUD PER GLI UTENTI ===
 

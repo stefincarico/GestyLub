@@ -1,7 +1,24 @@
 # superadmin/urls.py
 from django.urls import path
-from .views import CompanyCreateView, CompanyDetailView, CompanyListView, CompanyUpdateView, DatabaseBackupView, SuperAdminDashboardView, UserCreateView, UserListView, UserPasswordChangeView, UserPermissionDeleteView, UserUpdateView
-
+from .views import (
+    # Company related views
+    CompanyCreateView,
+    CompanyListView,
+    CompanyDetailView,
+    CompanyUpdateView,
+    
+    # User related views
+    UserCreateView,
+    UserListView,
+    UserPermissionUpdateView,
+    UserUpdateView,
+    UserPasswordChangeView,
+    UserPermissionDeleteView,
+    
+    # Other admin views
+    SuperAdminDashboardView,
+    DatabaseBackupView,
+)
 app_name = 'superadmin'
 urlpatterns = [
     path('', SuperAdminDashboardView.as_view(), name='dashboard'),
@@ -17,4 +34,5 @@ urlpatterns = [
     path('backup/', DatabaseBackupView.as_view(), name='database_backup'),
     path('aziende/<int:pk>/', CompanyDetailView.as_view(), name='company_detail'),
     path('permissions/<int:pk>/delete/', UserPermissionDeleteView.as_view(), name='user_permission_delete'),
+    path('permissions/<int:pk>/update/', UserPermissionUpdateView.as_view(), name='user_permission_update'),
 ]

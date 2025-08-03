@@ -24,6 +24,10 @@ class UserPermissionForm(forms.ModelForm):
             'company': forms.Select(attrs={'class': 'form-select'}),
             'company_role': forms.Select(attrs={'class': 'form-select'}),
         }
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk:
+            self.fields['company'].disabled = True
 
 # FormSet per gestire una lista di UserPermissionForm
 UserPermissionFormSet = forms.inlineformset_factory(

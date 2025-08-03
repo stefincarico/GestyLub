@@ -1,0 +1,15 @@
+{% extends "superadmin/base_superadmin.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<h1 class="h2 mb-4">{{ title }}</h1>
+<div class="card"><div class="card-body">
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <div class="mt-4">
+            <button type="submit" class="btn btn-primary">Salva Modifiche</button>
+            <a href="{% url 'superadmin:company_detail' object.company.pk %}" class="btn btn-secondary">Annulla</a>
+        </div>
+    </form>
+</div></div>
+{% endblock %}
