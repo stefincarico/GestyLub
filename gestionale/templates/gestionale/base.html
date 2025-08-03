@@ -35,21 +35,21 @@
                     
                     <!-- Voci di menu principali (allineate a sinistra dopo il brand) -->
                     <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                        <li class="nav-item"><a class="nav-link" href="{% url 'dashboard' %}">Dashboard</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'dashboard' %}">Home</a></li>
                         <li class="nav-item"><a class="nav-link" href="{% url 'anagrafica_list' %}">Anagrafiche</a></li>
                         <li class="nav-item"><a class="nav-link" href="{% url 'documento_list' %}">Documenti</a></li>
                         <li class="nav-item"><a class="nav-link" href="{% url 'scadenzario_list' %}">Scadenziario</a></li>
                         <li class="nav-item"><a class="nav-link" href="{% url 'primanota_list' %}">Prima Nota</a></li>
                         <li class="nav-item"><a class="nav-link" href="{% url 'tesoreria_dashboard' %}">Tesoreria</a></li>
-                        <li class="nav-item"><a class="nav-link" href="{% url 'dashboard_hr' %}">Dashboard HR</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'dashboard_hr' %}">Planning</a></li>
                         {% if request.session.user_company_role == 'admin' %}
-                            <li class="nav-item"><a class="nav-link" href="{% url 'admin_dashboard' %}">Amministrazione</a></li>
+                            <li class="nav-item"><a class="nav-link" href="{% url 'admin_dashboard' %}">Admin</a></li>
                         {% endif %}
                     </ul>
 
                     <!-- Info Utente e Logout (allineati a destra) -->
                     <span class="navbar-text me-3">
-                        Utente: <strong>{{ request.user.username }}</strong> ({{ request.session.user_company_role }})
+                        User: {{ request.user.username }} (Role: {{ request.session.user_company_role }})
                     </span>
                     <form action="{% url 'logout' %}" method="post" class="d-flex">
                         {% csrf_token %}

@@ -4,10 +4,7 @@
 {% block title %}Dashboard{% endblock %}
 
 {% block content %}
-<div class="info-bar">
-    Stai operando per l'azienda <strong>{{ request.session.active_tenant_name }}</strong>.
-</div>
-<h1 class="h2 mb-4">Dashboard Riepilogativa</h1>
+<h1 class="h2 mb-3">Dashboard Riepilogativa</h1>
 
 <!-- ======================= KPI FINANZIARI ======================= -->
 <div class="row">
@@ -93,7 +90,7 @@
     </div>
     <div class="col-lg-6 mb-4">
         <div class="card h-100">
-            <div class="card-header">Scadenze Imminenti (30 gg)</div>
+            <div class="card-header">Scadenze Imminenti (60 gg)</div>
             <div class="card-body">
                 <div class="table-responsive">
                     <table class="table table-sm">
