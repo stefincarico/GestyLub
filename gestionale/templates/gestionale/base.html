@@ -17,11 +17,11 @@
 <body>
 
     <header class="header">
-        <div class="user-info">
-            Utente: <strong>{{ request.user.username }}</strong> | 
-            Azienda: <strong>{{ request.session.active_tenant_name }}</strong> 
-            (Ruolo: {{ request.session.user_company_role }})
-        </div>
+<div class="user-info">
+    <div>Azienda: <strong>{{ request.session.active_tenant_name }}</strong></div>
+    <div>Utente: <strong>{{ request.user.username }}</strong> | 
+    (Ruolo: {{ request.session.user_company_role }})</div>
+</div>
         <nav class="d-flex align-items-center">
             <a href="{% url 'dashboard' %}" class="nav-link text-white fw-bold me-3">Dashboard</a>
             <a href="{% url 'anagrafica_list' %}" class="nav-link text-white fw-bold me-3">Anagrafiche</a>
@@ -29,10 +29,10 @@
             <a href="{% url 'scadenzario_list' %}" class="nav-link text-white fw-bold me-3">Scadenziario</a>
             <a href="{% url 'primanota_list' %}" class="nav-link text-white fw-bold me-3">Prima Nota</a>
             <a href="{% url 'tesoreria_dashboard' %}" class="nav-link text-white fw-bold me-3">Tesoreria</a>
-            <a href="{% url 'dashboard_hr' %}" class="nav-link text-white fw-bold me-3">HR</a>
+            <a href="{% url 'dashboard_hr' %}" class="nav-link text-white fw-bold me-3">Planning</a>
             
             {% if request.session.user_company_role == 'admin' %}
-                <a href="{% url 'admin_dashboard' %}" class="nav-link text-white fw-bold me-3">Amministrazione</a>
+                <a href="{% url 'admin_dashboard' %}" class="nav-link text-white fw-bold me-3">Admin</a>
             {% endif %}
             
             <form action="{% url 'logout' %}" method="post" class="m-0">
