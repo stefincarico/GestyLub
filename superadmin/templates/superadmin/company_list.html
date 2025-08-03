@@ -26,7 +26,7 @@
                     <tr>
                         <th>ID</th>
                         <th>Nome Azienda</th>
-                        <th>Nome Database</th>
+                        
                         <th>Stato</th>
                         <th>Azioni</th>
                     </tr>
@@ -36,7 +36,7 @@
                     <tr>
                         <td>{{ azienda.pk }}</td>
                         <td>{{ azienda.company_name }}</td>
-                        <td><code>{{ azienda.db_name }}</code></td>
+                        
                         <td>
                             {% if azienda.is_active %}
                                 <span class="badge bg-success">Attiva</span>
