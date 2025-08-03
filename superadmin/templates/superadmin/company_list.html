@@ -20,9 +20,17 @@
 <div class="card">
     <div class="card-header">Aziende Gestite</div>
     <div class="card-body p-0">
-        <div class="table-responsive">
+<div class="table-responsive">
             <table class="table table-hover mb-0">
-                <thead><tr><th>ID</th><th>Nome Azienda</th><th>Nome Database</th><th>Stato</th><th>Azioni</th></tr></thead>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Nome Azienda</th>
+                        <th>Nome Database</th>
+                        <th>Stato</th>
+                        <th>Azioni</th>
+                    </tr>
+                </thead>
                 <tbody>
                     {% for azienda in aziende %}
                     <tr>
@@ -30,13 +38,28 @@
                         <td>{{ azienda.company_name }}</td>
                         <td><code>{{ azienda.db_name }}</code></td>
                         <td>
-                            {% if azienda.is_active %}<span class="badge bg-success">Attiva</span>
-                            {% else %}<span class="badge bg-secondary">Disattivata</span>{% endif %}
+                            {% if azienda.is_active %}
+                                <span class="badge bg-success">Attiva</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Disattivata</span>
+                            {% endif %}
                         </td>
                         <td>
-                            <a href="{% url 'superadmin:company_detail' azienda.pk %}" class="text-decoration-none">Cruscotto Azienda</a> |
+                            <!-- Link al Cruscotto Azienda -->
+                            <a href="{% url 'superadmin:company_detail' azienda.pk %}" class="text-decoration-none">Cruscotto</a> |
+                            
+                            <!-- Link alla Modifica -->
                             <a href="{% url 'superadmin:company_update' azienda.pk %}" class="text-decoration-none">Modifica</a> |
-                            <a href="#" class="text-danger text-decoration-none">Disattiva</a>
+                            
+                            <!-- Form per Attiva/Disattiva (usa POST per sicurezza) -->
+                            <form action="{% url 'superadmin:company_toggle_active' azienda.pk %}" method="post" class="d-inline">
+                                {% csrf_token %}
+                                {% if azienda.is_active %}
+                                    <button type="submit" class="btn btn-link text-danger p-0" style="vertical-align: baseline;">Disattiva</button>
+                                {% else %}
+                                    <button type="submit" class="btn btn-link text-success p-0" style="vertical-align: baseline;">Attiva</button>
+                                {% endif %}
+                            </form>
                         </td>
                     </tr>
                     {% empty %}
@@ -44,6 +67,7 @@
                     {% endfor %}
                 </tbody>
             </table>
+        </div>
         </div>
     </div>
 </div>

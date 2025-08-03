@@ -18,6 +18,7 @@ from django.views.generic import CreateView, FormView, ListView, UpdateView,Dele
 
 # Models imports
 from accounts.models import User
+from gestionale.report_utils import generate_excel_report
 from tenants.models import Company
 
 # Forms imports
@@ -28,7 +29,7 @@ from tenants.forms import AssociateUserForm
 
 # Custom views/mixins
 from gestionale.views import SuperAdminRequiredMixin
-
+from gestionale.models import Anagrafica
 
 class SuperAdminDashboardView(SuperAdminRequiredMixin, View):
     template_name = 'superadmin/dashboard.html'
@@ -162,6 +163,35 @@ class UserPermissionUpdateView(SuperAdminRequiredMixin, UpdateView):
         context = super().get_context_data(**kwargs)
         context['title'] = f"Modifica Ruolo per {self.object.user.username} in {self.object.company.company_name}"
         return context    
+
+class CompanyToggleActiveView(SuperAdminRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        company = get_object_or_404(Company, pk=kwargs['pk'])
+        company.is_active = not company.is_active
+        company.save()
+        status = "attivata" if company.is_active else "disattivata"
+        messages.success(request, f"Azienda '{company.company_name}' {status} con successo.")
+        return redirect('superadmin:company_list')
+
+class CompanyDataExportView(SuperAdminRequiredMixin, View):
+    def get(self, request, *args, **kwargs):
+        company = get_object_or_404(Company, pk=kwargs['pk'])
+        
+        # Attiva lo schema del tenant specifico
+        with company.activate():
+            # Ora, qualsiasi query sui modelli tenant-aware verrà eseguita su questo schema
+            anagrafiche_qs = Anagrafica.objects.all()
+            
+            tenant_name = company.company_name
+            report_title = f'Export Dati Completo - {tenant_name}'
+            # ... (costruisci headers, data_rows come negli altri export)
+            headers = ["Codice", "Tipo", "Nome"]
+            data_rows = [[a.codice, a.tipo, a.nome_cognome_ragione_sociale] for a in anagrafiche_qs]
+            report_sections = [{'title': 'Anagrafiche', 'headers': headers, 'rows': data_rows}]
+
+        return generate_excel_report(
+            tenant_name, report_title, "Tutti i dati", None, report_sections
+        )
 
 # === VISTE CRUD PER GLI UTENTI ===
 

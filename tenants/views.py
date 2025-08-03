@@ -3,7 +3,8 @@
 from django.shortcuts import render
 from django.views import View
 from django.contrib.auth.mixins import LoginRequiredMixin
-from .models import UserCompanyPermission
+
+from .models import Company, UserCompanyPermission
 from django.shortcuts import redirect, get_object_or_404
 from django.urls import reverse
 
