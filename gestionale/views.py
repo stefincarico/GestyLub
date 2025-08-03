@@ -2955,3 +2955,17 @@ class CantiereListExportPdfView(TenantRequiredMixin, AdminRequiredMixin, View):
         
         return generate_pdf_report(request, 'gestionale/cantiere_list_pdf.html', context)
     
+class SuperAdminRequiredMixin(AccessMixin):
+    """
+    Mixin per verificare che l'utente sia loggato e abbia il ruolo
+    di sistema 'super_admin'.
+    """
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return self.handle_no_permission()
+        if not request.user.system_role == 'super_admin':
+            messages.error(request, "Accesso negato. Area riservata ai Super Amministratori.")
+            # Se un utente normale prova ad accedere, lo mandiamo alla selezione tenant.
+            return redirect(reverse('tenant_selection')) 
+        return super().dispatch(request, *args, **kwargs)
+    

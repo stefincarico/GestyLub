@@ -25,4 +25,6 @@ urlpatterns = [
     path('tenants/', include('tenants.urls')),
     path('app/', include('gestionale.urls')),
     path('', RedirectView.as_view(url='/app/', permanent=False), name='index'),
+    # NUOVO URL PER IL SUPERADMIN
+    path('super/', include('superadmin.urls', namespace='superadmin')),
 ]

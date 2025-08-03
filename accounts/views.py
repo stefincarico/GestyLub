@@ -13,8 +13,14 @@ class CustomLoginView(LoginView):
     redirect_authenticated_user = True
     
     # 3. Definiamo dove mandare l'utente DOPO un login andato a buon fine.
-    #    'reverse_lazy' è un modo intelligente per dire a Django: "Quando il login
-    #    sarà completato, trova l'URL che ha come nome 'tenant_selection'".
-    #    Definiremo questo nome tra poco nel nostro file urls.py.
     def get_success_url(self):
-        return reverse_lazy('tenant_selection')
+        """
+        Reindirizza l'utente in base al suo ruolo di sistema.
+        """
+        # self.request.user è l'utente che ha appena fatto il login.
+        if self.request.user.system_role == 'super_admin':
+            # Se è un super_admin, lo mandiamo alla sua dashboard.
+            return reverse_lazy('superadmin:dashboard')
+        else:
+            # Altrimenti, lo mandiamo alla selezione del tenant.
+            return reverse_lazy('tenant_selection')

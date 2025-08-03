@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'accounts',
     'tenants',
     'gestionale',
+    'superadmin'
 ]
 
 MIDDLEWARE = [
