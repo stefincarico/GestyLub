@@ -34,3 +34,30 @@ UserPermissionFormSet = forms.inlineformset_factory(
     can_delete=True # Permette di cancellare i permessi esistenti
 )
 
+class AssociateUserForm(forms.Form):
+    """
+    Form per associare un utente esistente a un'azienda.
+    """
+    # Usiamo un ModelChoiceField per avere un menu a tendina con tutti gli utenti.
+    user = forms.ModelChoiceField(
+        queryset=User.objects.all(),
+        label="Seleziona Utente",
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+    # Usiamo un ChoiceField per i ruoli, prendendoli dal modello UserCompanyPermission.
+    company_role = forms.ChoiceField(
+        choices=UserCompanyPermission.CompanyRole.choices,
+        label="Assegna Ruolo",
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+
+    def __init__(self, *args, **kwargs):
+        # Riceviamo l'azienda come argomento extra per poter escludere gli utenti già associati.
+        company = kwargs.pop('company', None)
+        super().__init__(*args, **kwargs)
+        if company:
+            # Recupera gli ID degli utenti già associati a questa azienda tramite il modello-ponte
+            utenti_gia_associati_ids = UserCompanyPermission.objects.filter(company=company).values_list('user__pk', flat=True)
+            # Escludi questi utenti dal queryset del campo 'user'
+            self.fields['user'].queryset = User.objects.exclude(pk__in=utenti_gia_associati_ids)
+

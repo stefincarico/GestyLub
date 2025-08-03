@@ -23,6 +23,8 @@ from tenants.models import Company
 # Forms imports
 from accounts.forms import CustomUserCreationForm, CustomUserChangeForm
 from tenants.forms import CompanyForm, UserPermissionFormSet
+from tenants.models import UserCompanyPermission
+from tenants.forms import AssociateUserForm
 
 # Custom views/mixins
 from gestionale.views import SuperAdminRequiredMixin
@@ -42,6 +44,28 @@ class CompanyListView(SuperAdminRequiredMixin, ListView):
     model = Company
     template_name = 'superadmin/company_list.html'
     context_object_name = 'aziende'
+    ordering = ['company_name']
+
+    def get_queryset(self):
+        """
+        Filtra le aziende in base allo stato selezionato.
+        """
+        queryset = super().get_queryset()
+        self.stato_filter = self.request.GET.get('stato', 'attive') # Default: 'attive'
+        
+        if self.stato_filter == 'attive':
+            queryset = queryset.filter(is_active=True)
+        # Se 'tutte', non applichiamo nessun filtro extra.
+            
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        """
+        Aggiunge il valore del filtro al contesto per usarlo nel template.
+        """
+        context = super().get_context_data(**kwargs)
+        context['stato_filter'] = self.stato_filter
+        return context
 
 class CompanyCreateView(SuperAdminRequiredMixin, CreateView):
     model = Company
@@ -62,7 +86,53 @@ class CompanyUpdateView(SuperAdminRequiredMixin, UpdateView):
     def form_valid(self, form):
         messages.success(self.request, "Azienda aggiornata con successo.")
         return super().form_valid(form)
-    
+
+class CompanyDetailView(SuperAdminRequiredMixin, View):
+    """
+    Mostra il "Cruscotto Azienda", con la lista degli utenti associati
+    e i form per la gestione dei permessi.
+    """
+    template_name = 'superadmin/company_detail.html'
+
+    def get(self, request, *args, **kwargs):
+        company = get_object_or_404(Company, pk=kwargs['pk'])
+        
+        # Recupera tutti i permessi per questa azienda, pre-caricando i dati dell'utente
+        permissions = UserCompanyPermission.objects.filter(company=company).select_related('user')
+        
+        # Prepara il form per associare un nuovo utente
+        associate_form = AssociateUserForm(company=company)
+
+        context = {
+            'company': company,
+            'permissions': permissions,
+            'associate_form': associate_form
+        }
+        return render(request, self.template_name, context)
+
+    def post(self, request, *args, **kwargs):
+        """
+        Gestisce la richiesta POST per associare un nuovo utente.
+        """
+        company = get_object_or_404(Company, pk=kwargs['pk'])
+        form = AssociateUserForm(request.POST, company=company)
+        
+        if form.is_valid():
+            user = form.cleaned_data['user']
+            role = form.cleaned_data['company_role']
+            
+            # Crea il nuovo permesso
+            UserCompanyPermission.objects.create(
+                user=user,
+                company=company,
+                company_role=role
+            )
+            messages.success(request, f"Utente {user.username} associato a {company.company_name} con successo.")
+        else:
+            messages.error(request, "Errore nel form. Selezionare un utente e un ruolo.")
+        
+        return redirect('superadmin:company_detail', pk=company.pk)    
+
 # === VISTE CRUD PER GLI UTENTI ===
 
 class UserListView(SuperAdminRequiredMixin, ListView):
@@ -148,7 +218,7 @@ class SuperAdminDashboardView(SuperAdminRequiredMixin, View):
             }
         }
         return render(request, self.template_name, context)
-    
+
 
 # === GESTIONE PASSWORD ===
 class UserPasswordChangeView(SuperAdminRequiredMixin, PasswordChangeView):

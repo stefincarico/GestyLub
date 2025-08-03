@@ -1,38 +1,50 @@
 {% extends "superadmin/base_superadmin.html" %}
-{% block title %}Elenco Aziende{% endblock %}
+{% block title %}Gestione Aziende{% endblock %}
+
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h1 class="h2">Elenco Aziende Clienti</h1>
-    <a href="{% url 'superadmin:company_create' %}" class="btn btn-primary">+ Nuova Azienda</a>
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h2 mb-0">Pannello di Controllo Superadmin</h1>
+    <a href="{% url 'superadmin:company_create' %}" class="btn btn-primary">Crea Nuova Azienda</a>
 </div>
+
+<div class="card mb-4">
+    <div class="card-body d-flex align-items-center">
+        <strong class="me-3">Filtra per Stato:</strong>
+        <div class="btn-group btn-group-sm" role="group">
+            <a href="{% url 'superadmin:company_list' %}?stato=attive" class="btn {% if stato_filter == 'attive' %}btn-primary{% else %}btn-outline-primary{% endif %}">Attive</a>
+            <a href="{% url 'superadmin:company_list' %}?stato=tutte" class="btn {% if stato_filter == 'tutte' %}btn-primary{% else %}btn-outline-primary{% endif %}">Mostra Tutte</a>
+        </div>
+    </div>
+</div>
+
 <div class="card">
-    <table class="table table-hover mb-0">
-        <thead>
-            <tr>
-                <th>Nome Azienda</th>
-                <th>P.IVA</th>
-                <th>Schema DB</th>
-                <th>Stato</th>
-                <th>Azioni</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for azienda in aziende %}
-            <tr>
-                <td>{{ azienda.company_name }}</td>
-                <td>{{ azienda.vat_number|default_if_none:"" }}</td>
-                <td><code>{{ azienda.schema_name }}</code></td>
-                <td>
-                    {% if azienda.is_active %}<span class="badge bg-success">Attiva</span>
-                    {% else %}<span class="badge bg-secondary">Disattivata</span>{% endif %}
-                </td>
-                <td>
-                    <a href="{% url 'superadmin:company_update' azienda.pk %}" class="btn btn-sm btn-outline-primary">Modifica</a>
-                    <!-- TODO: Aggiungere gestione domini -->
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <div class="card-header">Aziende Gestite</div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead><tr><th>ID</th><th>Nome Azienda</th><th>Nome Database</th><th>Stato</th><th>Azioni</th></tr></thead>
+                <tbody>
+                    {% for azienda in aziende %}
+                    <tr>
+                        <td>{{ azienda.pk }}</td>
+                        <td>{{ azienda.company_name }}</td>
+                        <td><code>{{ azienda.db_name }}</code></td>
+                        <td>
+                            {% if azienda.is_active %}<span class="badge bg-success">Attiva</span>
+                            {% else %}<span class="badge bg-secondary">Disattivata</span>{% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'superadmin:company_detail' azienda.pk %}" class="text-decoration-none">Cruscotto Azienda</a> |
+                            <a href="{% url 'superadmin:company_update' azienda.pk %}" class="text-decoration-none">Modifica</a> |
+                            <a href="#" class="text-danger text-decoration-none">Disattiva</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" class="text-center">Nessuna azienda trovata.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
 {% endblock %}

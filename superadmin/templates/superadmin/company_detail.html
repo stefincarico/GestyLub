@@ -1,0 +1,66 @@
+{% extends "superadmin/base_superadmin.html" %}
+{% block title %}Cruscotto: {{ company.company_name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h2 mb-0">Gestione Aziende / {{ company.company_name }}</h1>
+    <div>
+        <a href="#" class="btn btn-outline-primary">Esporta Dati Azienda (Excel)</a>
+        <a href="{% url 'superadmin:company_list' %}" class="btn btn-secondary ms-2">← Torna alla Lista Aziende</a>
+    </div>
+</div>
+
+<!-- Tabella Utenti Associati -->
+<div class="card mb-4">
+    <div class="card-header">Utenti Associati a {{ company.company_name }}</div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead><tr><th>Username</th><th>Ruolo Aziendale</th><th>Stato Globale</th><th>Azioni</th></tr></thead>
+                <tbody>
+                    {% for perm in permissions %}
+                    <tr>
+                        <td>{{ perm.user.username }}</td>
+                        <td>{{ perm.get_company_role_display }}</td>
+                        <td>
+                            {% if perm.user.is_active %}<span class="badge bg-success">Attivo</span>
+                            {% else %}<span class="badge bg-secondary">Disattivato</span>{% endif %}
+                        </td>
+                        <td>
+                            <a href="#" class="text-decoration-none">Modifica Ruolo</a> |
+                            <a href="#" class="text-danger text-decoration-none">Rimuovi</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4" class="text-center">Nessun utente associato a questa azienda.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Form Associa Utente Esistente -->
+<div class="card">
+    <div class="card-header">Associa Utente Esistente</div>
+    <div class="card-body">
+        <p class="text-muted">Aggiungi un utente già registrato sulla piattaforma a <strong>{{ company.company_name }}</strong>.</p>
+        <form method="post">
+            {% csrf_token %}
+            <div class="row align-items-end">
+                <div class="col-md-5">
+                    {{ associate_form.user.label_tag }}
+                    {{ associate_form.user }}
+                </div>
+                <div class="col-md-5">
+                    {{ associate_form.company_role.label_tag }}
+                    {{ associate_form.company_role }}
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">Associa Utente</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
