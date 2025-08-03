@@ -137,6 +137,16 @@ Questa procedura va eseguita **una sola volta** sulla macchina che fungerà da s
     -   Metti la spunta su **"Esegui come amministratore"**. Clicca OK due volte.
 -   Sposta questo collegamento sul Desktop.
 
+### 3. Aggiungere PostgreSQL al PATH di Sistema (Obbligatorio per i Backup)
+Apri le "Impostazioni di sistema avanzate" di Windows.
+Clicca su "Variabili d'ambiente...".
+Nella sezione "Variabili di sistema", trova e seleziona la variabile **Path** e clicca "Modifica...".
+Clicca "Nuovo" e aggiungi il percorso alla cartella bin della tua installazione di PostgreSQL. Di solito è:
+C:\Program Files\PostgreSQL\16\bin
+(verifica che la versione 16 sia corretta).
+Clicca OK su tutte le finestre.
+Riavvia il computer per rendere effettiva la modifica.
+
 **L'installazione è completata!**
 
 ---
@@ -156,12 +166,23 @@ Questa procedura va eseguita **una sola volta** sulla macchina che fungerà da s
 ### Accesso per gli Altri Utenti:
 -   Gli altri utenti nella stessa rete locale potranno accedere al gestionale digitando nel loro browser l'indirizzo IP mostrato all'avvio (ad esempio `http://192.168.1.100:8000`).
 
-5. Aggiungere PostgreSQL al PATH di Sistema (Obbligatorio per i Backup)
-Apri le "Impostazioni di sistema avanzate" di Windows.
-Clicca su "Variabili d'ambiente...".
-Nella sezione "Variabili di sistema", trova e seleziona la variabile Path e clicca "Modifica...".
-Clicca "Nuovo" e aggiungi il percorso alla cartella bin della tua installazione di PostgreSQL. Di solito è:
-C:\Program Files\PostgreSQL\16\bin
-(verifica che la versione 16 sia corretta).
-Clicca OK su tutte le finestre.
-Riavvia il computer per rendere effettiva la modifica.
+
+## Modalità SVILUPPO (quando aggiungi nuove funzionalità):
+Obiettivo: Massima visibilità per te, lo sviluppatore.
+Configurazione (.env): DEBUG = True
+Comportamento:
+Pagine di Errore Dettagliate: Se c'è un bug, Django ti mostra la pagina gialla con tutta la traccia dell'errore, le variabili locali, ecc. Questo è FONDAMENTALE per il debug.
+Ricaricamento Automatico: Il server di sviluppo (manage.py runserver) si riavvia automaticamente ogni volta che salvi un file, permettendoti di vedere le modifiche all'istante.
+Servizio Statici Semplificato: Django serve i file statici direttamente, senza bisogno di collectstatic.
+Come si avvia: python manage.py runserver
+Se hai modificato file statici (CSS/JS), ricorda di eseguire:
+ - python manage.py collectstatic
+
+## Modalità PRODUZIONE (quando l'utente finale usa l'applicazione):
+Obiettivo: Massima sicurezza, performance e stabilità.
+Configurazione (.env): DEBUG = False
+Comportamento:
+Pagine di Errore Generiche: Se c'è un errore, l'utente vede una pagina "500 Server Error" generica e amichevole, senza rivelare dettagli tecnici sensibili.
+Performance Ottimizzate: Whitenoise serve i file statici in modo super-veloce, con caching e compressione.
+Server Robusto: Waitress gestisce più utenti contemporaneamente in modo efficiente.
+Come si avvia: Il nostro script start_gestionale.bat (che usa waitress).

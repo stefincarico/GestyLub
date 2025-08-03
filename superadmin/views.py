@@ -188,49 +188,79 @@ class UserPasswordChangeView(SuperAdminRequiredMixin, PasswordChangeView):
 # === GESTIONE BACKUP ===
 class DatabaseBackupView(SuperAdminRequiredMixin, View):
     def get(self, request, *args, **kwargs):
-        # Recupera le impostazioni del database da settings.py
-        db_settings = settings.DATABASES['default']
-        db_name = db_settings['NAME']
-        db_user = db_settings['USER']
-        db_pass = db_settings['PASSWORD']
-        db_host = db_settings['HOST']
-        db_port = db_settings['PORT']
-
-        # Definisci il nome del file di backup con un timestamp
-        timestamp = timezone.now().strftime('%Y%m%d_%H%M%S')
-        backup_filename = f"{timestamp}_{db_name}_backup.sql"
-
-        # Trova un percorso sicuro e comune dove salvare il backup, come la cartella 'Documenti' dell'utente
-        # NOTA: Questo percorso dipende dall'utente che esegue il server Django
-        user_docs = os.path.join(os.path.expanduser('~'), 'Documents')
-        backup_filepath = os.path.join(user_docs, backup_filename)
+        print("\n--- INIZIO PROCESSO DI BACKUP ---")
         
-        # Componi il comando pg_dump
-        # Assicurati che il percorso di pg_dump.exe sia nella variabile d'ambiente PATH del sistema
-        command = [
-            "pg_dump",
-            f"--host={db_host}",
-            f"--port={db_port}",
-            f"--username={db_user}",
-            f"--dbname={db_name}",
-            f"--file={backup_filepath}",
-            "--format=p", # Formato plain-text SQL, facile da ispezionare
-            "--no-password" # La password verrà passata tramite variabile d'ambiente
-        ]
-
-        # Imposta la password in una variabile d'ambiente solo per questo comando
-        env = os.environ.copy()
-        env['PGPASSWORD'] = db_pass
-
         try:
+            db_settings = settings.DATABASES['default']
+            db_name = db_settings.get('NAME')
+            db_user = db_settings.get('USER')
+            db_pass = db_settings.get('PASSWORD')
+            db_host = db_settings.get('HOST')
+            db_port = db_settings.get('PORT')
+            print(f"1. Impostazioni DB caricate: DBNAME={db_name}, USER={db_user}")
+
+            timestamp = timezone.now().strftime('%Y%m%d_%H%M%S')
+            backup_filename = f"{timestamp}_{db_name}_backup.sql"
+
+            user_docs = os.path.join(os.path.expanduser('~'), 'Documents')
+            if not os.path.exists(user_docs):
+                print(f"AVVISO: La cartella Documenti '{user_docs}' non esiste. Tento di crearla.")
+                os.makedirs(user_docs)
+            
+            backup_filepath = os.path.join(user_docs, backup_filename)
+            print(f"2. Percorso del file di backup: {backup_filepath}")
+            
+            # Componiamo il comando pg_dump
+            command = [
+                "pg_dump",
+                f"--host={db_host}",
+                f"--port={db_port}",
+                f"--username={db_user}",
+                f"--dbname={db_name}",
+                f"--file={backup_filepath}",
+                "--format=p",
+                "--no-password",
+            ]
+            print(f"3. Comando da eseguire: {' '.join(command)}")
+
+            env = os.environ.copy()
+            env['PGPASSWORD'] = db_pass
+            print("4. Password impostata in PGPASSWORD.")
+
             # Esegui il comando
-            subprocess.run(command, check=True, env=env, capture_output=True, text=True)
-            messages.success(request, f"Backup del database '{db_name}' creato con successo in: {backup_filepath}")
+            print("5. Esecuzione di subprocess.run...")
+            # Aumentiamo il timeout per essere sicuri
+            result = subprocess.run(
+                command, env=env, check=True, 
+                capture_output=True, text=True, timeout=60
+            )
+            
+            print("6. Comando eseguito con successo.")
+            print("   Output standard:", result.stdout)
+            print("   Output errore:", result.stderr)
+            messages.success(request, f"Backup creato con successo in: {backup_filepath}")
+
         except FileNotFoundError:
-            messages.error(request, "Errore: il comando 'pg_dump' non è stato trovato. Assicurarsi che la cartella 'bin' di PostgreSQL sia nella variabile d'ambiente PATH del sistema.")
+            print("ERRORE: FileNotFoundError. Il comando 'pg_dump' non è nel PATH.")
+            messages.error(request, "Errore di configurazione: 'pg_dump' non trovato. Assicurarsi che la cartella 'bin' di PostgreSQL sia nella variabile d'ambiente PATH del sistema e riavviare il PC.")
+        
         except subprocess.CalledProcessError as e:
-            # Se pg_dump restituisce un errore, lo mostriamo all'utente
+            print(f"ERRORE: CalledProcessError. pg_dump ha restituito un errore.")
+            print("   Return code:", e.returncode)
+            print("   Output standard:", e.stdout)
+            print("   Output errore (stderr):", e.stderr)
             messages.error(request, f"Errore durante l'esecuzione del backup: {e.stderr}")
         
+        except subprocess.TimeoutExpired:
+            print("ERRORE: TimeoutExpired. Il comando ha impiegato più di 60 secondi.")
+            messages.error(request, "Errore: il processo di backup ha richiesto troppo tempo ed è stato interrotto.")
+            
+        except Exception as e:
+            print(f"ERRORE GENERICO: {type(e).__name__} - {e}")
+            messages.error(request, f"Si è verificato un errore imprevisto: {e}")
+        
+        finally:
+            print("--- FINE PROCESSO DI BACKUP ---")
+
         return redirect('superadmin:dashboard')
     
