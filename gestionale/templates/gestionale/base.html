@@ -14,31 +14,50 @@
     <!-- Il nostro foglio di stile personalizzato -->
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
 </head>
-<body>
+<body>    
+<!-- gestionale/templates/gestionale/base.html -->
 
-    <header class="header">
-<div class="user-info">
-    <div>Azienda: <strong>{{ request.session.active_tenant_name }}</strong></div>
-    <div>Utente: <strong>{{ request.user.username }}</strong> | 
-    (Ruolo: {{ request.session.user_company_role }})</div>
-</div>
-        <nav class="d-flex align-items-center">
-            <a href="{% url 'dashboard' %}" class="nav-link text-white fw-bold me-3">Dashboard</a>
-            <a href="{% url 'anagrafica_list' %}" class="nav-link text-white fw-bold me-3">Anagrafiche</a>
-            <a href="{% url 'documento_list' %}" class="nav-link text-white fw-bold me-3">Documenti</a>
-            <a href="{% url 'scadenzario_list' %}" class="nav-link text-white fw-bold me-3">Scadenziario</a>
-            <a href="{% url 'primanota_list' %}" class="nav-link text-white fw-bold me-3">Prima Nota</a>
-            <a href="{% url 'tesoreria_dashboard' %}" class="nav-link text-white fw-bold me-3">Tesoreria</a>
-            <a href="{% url 'dashboard_hr' %}" class="nav-link text-white fw-bold me-3">Planning</a>
-            
-            {% if request.session.user_company_role == 'admin' %}
-                <a href="{% url 'admin_dashboard' %}" class="nav-link text-white fw-bold me-3">Admin</a>
-            {% endif %}
-            
-            <form action="{% url 'logout' %}" method="post" class="m-0">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-link nav-link text-white fw-bold p-0">Logout</button>
-            </form>
+    <header>
+        <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+            <div class="container-fluid">
+                <!-- Brand/Titolo a sinistra -->
+                <a class="navbar-brand" href="{% url 'dashboard' %}">
+                    <strong>{{ request.session.active_tenant_name }}</strong>
+                </a>
+
+                <!-- Pulsante Hamburger (visibile solo su schermi piccoli) -->
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <!-- Contenitore collassabile per le voci di menu e info utente -->
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    
+                    <!-- Voci di menu principali (allineate a sinistra dopo il brand) -->
+                    <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                        <li class="nav-item"><a class="nav-link" href="{% url 'dashboard' %}">Dashboard</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'anagrafica_list' %}">Anagrafiche</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'documento_list' %}">Documenti</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'scadenzario_list' %}">Scadenziario</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'primanota_list' %}">Prima Nota</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'tesoreria_dashboard' %}">Tesoreria</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'dashboard_hr' %}">Dashboard HR</a></li>
+                        {% if request.session.user_company_role == 'admin' %}
+                            <li class="nav-item"><a class="nav-link" href="{% url 'admin_dashboard' %}">Amministrazione</a></li>
+                        {% endif %}
+                    </ul>
+
+                    <!-- Info Utente e Logout (allineati a destra) -->
+                    <span class="navbar-text me-3">
+                        Utente: <strong>{{ request.user.username }}</strong> ({{ request.session.user_company_role }})
+                    </span>
+                    <form action="{% url 'logout' %}" method="post" class="d-flex">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-outline-light">Logout</button>
+                    </form>
+
+                </div>
+            </div>
         </nav>
     </header>
 
