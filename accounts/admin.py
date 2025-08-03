@@ -57,6 +57,6 @@ class CustomUserAdmin(UserAdmin):
             if str(request.user.pk) in request.POST.getlist('_selected_action'):
                 if active_superusers <= 1 and request.user.is_superuser:
                     messages.error(request, "Azione non consentita: non puoi cancellare l'ultimo Super Amministratore.")
-                    return queryset.exclude(pk=request.user.pk)
+                    return queryset.exclude(pk=request.user.pk).order_by('username', 'pk')
                  
-        return queryset
+        return queryset.order_by('username', 'pk')

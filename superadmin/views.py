@@ -61,6 +61,7 @@ class UserListView(SuperAdminRequiredMixin, ListView):
     model = User
     template_name = 'superadmin/user_list.html'
     context_object_name = 'utenti'
+    ordering = ['username']
 
 class UserCreateView(SuperAdminRequiredMixin, CreateView):
     model = User
