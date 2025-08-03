@@ -206,4 +206,79 @@
 <!-- FINE BLOCCO PAGINAZIONE PAGAMENTI -->
 </div>
 
-{% endblock %}
+<!-- ================= MODALE REGISTRAZIONE PAGAMENTO ================= -->
+<div class="modal fade" id="pagamentoModal" tabindex="-1" aria-labelledby="pagamentoModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="pagamentoModalLabel">Registra Pagamento/Incasso</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="pagamentoForm" action="{% url 'registra_pagamento' %}" method="post">
+                {% csrf_token %}
+                <input type="hidden" name="scadenza_id" id="scadenza_id">
+                <div class="modal-body">
+                    <p>Stai registrando un movimento per la scadenza: <strong id="scadenzaInfo"></strong></p>
+                    <div class="mb-3">
+                        <label for="id_data_pagamento" class="form-label">Data Pagamento</label>
+                        <input type="date" name="data_pagamento" class="form-control" required id="id_data_pagamento">
+                    </div>
+                    <div class="mb-3">
+                        <label for="id_importo_pagato" class="form-label">Importo</label>
+                        <input type="number" name="importo_pagato" class="form-control" step="0.01" required id="id_importo_pagato">
+                    </div>
+                    <div class="mb-3">
+                        <label for="id_conto_finanziario" class="form-label">Conto Finanziario</label>
+                        <select name="conto_finanziario" class="form-select" required id="id_conto_finanziario">
+                            <!-- Options verranno popolate da JS o passate dal contesto -->
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-primary">Salva Pagamento</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock content %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var pagamentoModal = document.getElementById('pagamentoModal');
+    pagamentoModal.addEventListener('show.bs.modal', function (event) {
+        var button = event.relatedTarget;
+        var scadenzaId = button.getAttribute('data-scadenza-id');
+        var scadenzaResiduo = button.getAttribute('data-scadenza-residuo');
+        var scadenzaInfo = button.getAttribute('data-scadenza-info');
+
+        var modal = this;
+        modal.querySelector('#scadenza_id').value = scadenzaId;
+        modal.querySelector('#id_importo_pagato').value = scadenzaResiduo;
+        modal.querySelector('#scadenzaInfo').textContent = scadenzaInfo;
+
+        // Popola il campo data con la data odierna
+        document.getElementById('id_data_pagamento').valueAsDate = new Date();
+
+        // Popola dinamicamente i conti finanziari
+        var contoSelect = modal.querySelector('#id_conto_finanziario');
+        contoSelect.innerHTML = ''; // Pulisce le opzioni esistenti
+        var defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.textContent = '-- Seleziona conto --';
+        defaultOption.selected = true;
+        defaultOption.disabled = true;
+        contoSelect.appendChild(defaultOption);
+        {% for conto in conti_finanziari %}
+            var option = document.createElement('option');
+            option.value = "{{ conto.pk }}";
+            option.textContent = "{{ conto.nome_conto }}";
+            contoSelect.appendChild(option);
+        {% endfor %}
+    });
+});
+</script>
+{% endblock scripts %}

@@ -76,7 +76,7 @@
                 <!-- Pulsanti di Azione -->
                 <a href="{% url 'cantiere_list_export_excel' %}?{{ request.GET.urlencode }}" class="btn btn-sm" style="background-color: #185C37; color: white;">Esporta Excel</a>
                 <a href="{% url 'cantiere_list_export_pdf' %}?{{ request.GET.urlencode }}" class="btn btn-sm ms-2" style="background-color: #FF9900; color: white;">Esporta PDF</a>
-                {% if request.session.user_company_role == 'admin' %}
+                {% if request.session.user_company_role == 'admin' or request.session.user_company_role == 'contabile' %}
                     <a href="{% url 'cantiere_create' %}" class="btn btn-primary btn-sm ms-2">+ Aggiungi Cantiere</a>
                 {% endif %}
             </div>
@@ -108,7 +108,7 @@
                             <td>{{ cantiere.data_inizio|date:"d/m/Y"|default_if_none:"" }}</td>
                             <td>{{ cantiere.data_fine_prevista|date:"d/m/Y"|default_if_none:"" }}</td>
                             <td>
-                                {% if request.session.user_company_role == 'admin' %}
+                                {% if request.session.user_company_role == 'admin' or request.session.user_company_role == 'contabile' %}
                                     <a href="{% url 'cantiere_update' cantiere.pk %}" class="btn btn-sm btn-outline-primary">Modifica</a>
                                 {% endif %}
                             </td>
@@ -176,7 +176,7 @@
                         <td>{{ dipendente.attivita.note_giornaliere|default_if_none:"" }}</td>
                         <td>
                         <!-- TODO: Pulsanti di azione -->
-                            {% if request.session.user_company_role == 'admin' %}
+                            {% if request.session.user_company_role == 'admin' or request.session.user_company_role == 'contabile' %}
                         <button type="button" class="btn btn-sm btn-outline-primary"
                                 data-bs-toggle="modal" 
                                 data-bs-target="#attivitaModal"

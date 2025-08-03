@@ -33,7 +33,7 @@ class TenantAwareModel(models.Model):
 # Questi modelli contengono le opzioni che popolano i menu a tendina
 # nel resto dell'applicazione (es. aliquote IVA, modalità di pagamento).
 
-class AliquotaIVA(models.Model):
+class AliquotaIVA(TenantAwareModel):
     descrizione = models.CharField(max_length=100, verbose_name="Descrizione")
     valore_percentuale = models.DecimalField(max_digits=5, decimal_places=2, verbose_name="Valore %")
     attivo = models.BooleanField(default=True)
@@ -46,7 +46,7 @@ class AliquotaIVA(models.Model):
         verbose_name_plural = "Aliquote IVA"
         ordering = ['valore_percentuale'] # Ordina le aliquote per valore
 
-class ModalitaPagamento(models.Model):
+class ModalitaPagamento(TenantAwareModel):
     descrizione = models.CharField(max_length=100, unique=True, verbose_name="Descrizione")
     giorni_scadenza = models.IntegerField(default=30, verbose_name="Giorni a scadere di default")
     attivo = models.BooleanField(default=True)
@@ -59,7 +59,7 @@ class ModalitaPagamento(models.Model):
         verbose_name_plural = "Modalità di Pagamento"
         ordering = ['descrizione']
 
-class Causale(models.Model):
+class Causale(TenantAwareModel):
     descrizione = models.CharField(max_length=255, unique=True)
     # Potremmo usare delle choices anche qui, ma per ora un testo libero è sufficiente.
     tipo_movimento = models.CharField(max_length=50, blank=True, null=True, help_text="Es: Pagamento Fattura, Incasso, Costo")
@@ -96,7 +96,7 @@ class ContoOperativo(TenantAwareModel):
         verbose_name = "Conto Operativo"
         verbose_name_plural = "Conti Operativi"
 
-class MezzoAziendale(models.Model):
+class MezzoAziendale(TenantAwareModel):
     targa = models.CharField(max_length=20, unique=True)
     descrizione = models.CharField(max_length=255)
     tipo = models.CharField(max_length=50, blank=True, null=True, help_text="Es: Furgone, Autovettura, Escavatore")
@@ -108,7 +108,7 @@ class MezzoAziendale(models.Model):
         verbose_name = "Mezzo Aziendale"
         verbose_name_plural = "Mezzi Aziendali"
 
-class TipoScadenzaPersonale(models.Model):
+class TipoScadenzaPersonale(TenantAwareModel):
     descrizione = models.CharField(max_length=100, unique=True)
     validita_mesi = models.IntegerField(null=True, blank=True, help_text="Numero di mesi di validità. Lasciare vuoto se non applicabile.")
     note = models.TextField(blank=True, null=True)
@@ -279,7 +279,7 @@ class DocumentoTestata(TenantAwareModel):
         ordering = ['-data_documento', '-numero_documento']
 
 
-class DocumentoRiga(models.Model):
+class DocumentoRiga(TenantAwareModel):
     testata = models.ForeignKey(DocumentoTestata, on_delete=models.CASCADE, related_name='righe', verbose_name="Testata Documento")
     descrizione = models.CharField(max_length=255)
     quantita = models.DecimalField(max_digits=10, decimal_places=2, default=1.00, verbose_name="Quantità")
@@ -373,7 +373,7 @@ class PrimaNota(TenantAwareModel):
         ordering = ['data_registrazione', 'pk'] # Aggiunto '-pk' per coerenza
 
 
-class DipendenteDettaglio(models.Model):
+class DipendenteDettaglio(TenantAwareModel):
     anagrafica = models.OneToOneField(Anagrafica, on_delete=models.CASCADE, primary_key=True, related_name='dettaglio_dipendente', limit_choices_to={'tipo': Anagrafica.Tipo.DIPENDENTE})
     mansione = models.CharField(max_length=100)
     data_assunzione = models.DateField()
@@ -422,7 +422,7 @@ class DipendenteDettaglio(models.Model):
         verbose_name_plural = "Dettagli Dipendenti"
 
 
-class DiarioAttivita(models.Model):
+class DiarioAttivita(TenantAwareModel):
     class StatoPresenza(models.TextChoices):
         PRESENTE = 'Presente', 'Presente'
         ASSENTE_G = 'Assente Giustificato', 'Assente Giustificato'
@@ -474,7 +474,7 @@ class DiarioAttivita(models.Model):
         ordering = ['-data', 'dipendente']
 
 
-class ScadenzaPersonale(models.Model):
+class ScadenzaPersonale(TenantAwareModel):
     class Stato(models.TextChoices):
         VALIDA = 'Valida', 'Valida'
         SCADUTA = 'Scaduta', 'Scaduta'

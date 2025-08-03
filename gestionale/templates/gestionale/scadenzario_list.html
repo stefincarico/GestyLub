@@ -197,6 +197,12 @@ document.addEventListener('DOMContentLoaded', function () {
         // Popola dinamicamente i conti finanziari
         var contoSelect = modal.querySelector('#id_conto_finanziario');
         contoSelect.innerHTML = ''; // Pulisce le opzioni esistenti
+        var defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.textContent = '-- Seleziona conto --';
+        defaultOption.selected = true;
+        defaultOption.disabled = true;
+        contoSelect.appendChild(defaultOption);
         {% for conto in conti_finanziari %}
             var option = document.createElement('option');
             option.value = "{{ conto.pk }}";

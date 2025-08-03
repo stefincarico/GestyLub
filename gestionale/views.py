@@ -73,6 +73,33 @@ class AdminRequiredMixin(AccessMixin):
             return redirect(reverse_lazy('dashboard'))
         return super().dispatch(request, *args, **kwargs)
 
+class RoleRequiredMixin(AccessMixin):
+    """Mixin per le viste basate su classi che richiede uno o più ruoli specifici."""
+    allowed_roles = [] # Deve essere sovrascritto dalle classi figlie
+
+    def dispatch(self, request, *args, **kwargs):
+        user_role = request.session.get('user_company_role')
+        if user_role not in self.allowed_roles:
+            messages.error(request, "Accesso negato. Non hai i permessi necessari.")
+            return redirect(reverse_lazy('dashboard')) # O una pagina di errore permessi
+        return super().dispatch(request, *args, **kwargs)
+
+def role_required(allowed_roles=None):
+    """Decoratore per le viste basate su funzioni che richiede uno o più ruoli specifici."""
+    if allowed_roles is None:
+        allowed_roles = []
+
+    def decorator(view_func):
+        @wraps(view_func)
+        def _wrapped_view(request, *args, **kwargs):
+            user_role = request.session.get('user_company_role')
+            if user_role not in allowed_roles:
+                messages.error(request, "Accesso negato. Non hai i permessi necessari.")
+                return redirect(reverse_lazy('dashboard')) # O una pagina di errore permessi
+            return view_func(request, *args, **kwargs)
+        return _wrapped_view
+    return decorator
+
 def clear_doc_wizard_session(session):
     """Pulisce i dati del wizard dalla sessione."""
     session.pop('doc_testata_data', None)
@@ -93,14 +120,16 @@ def tenant_required(view_func):
 # === VISTE PRINCIPALI, ANAGRAFICHE E DOCUMENTI                             ===
 # ==============================================================================
 
-class AnagraficaListView(TenantRequiredMixin, ListView):
+class AnagraficaListView(TenantRequiredMixin, RoleRequiredMixin, ListView):
+    allowed_roles = ['admin', 'contabile', 'visualizzatore']
     """Mostra l'elenco paginato delle anagrafiche."""
     model = Anagrafica
     template_name = 'gestionale/anagrafica_list.html'
     context_object_name = 'anagrafiche'
     paginate_by = 15
 
-class AnagraficaCreateView(TenantRequiredMixin, CreateView):
+class AnagraficaCreateView(TenantRequiredMixin, RoleRequiredMixin, CreateView):
+    allowed_roles = ['admin', 'contabile']
     # ... (codice invariato) ...
     model = Anagrafica
     form_class = AnagraficaForm
@@ -133,7 +162,8 @@ class AnagraficaCreateView(TenantRequiredMixin, CreateView):
         
         return HttpResponseRedirect(self.get_success_url())
 
-class AnagraficaUpdateView(TenantRequiredMixin, UpdateView):
+class AnagraficaUpdateView(TenantRequiredMixin, RoleRequiredMixin, UpdateView):
+    allowed_roles = ['admin', 'contabile']
     # ... (codice invariato) ...
     model = Anagrafica
     form_class = AnagraficaForm
@@ -144,7 +174,8 @@ class AnagraficaUpdateView(TenantRequiredMixin, UpdateView):
         form.instance.updated_by = self.request.user
         return super().form_valid(form)
 
-class AnagraficaToggleAttivoView(TenantRequiredMixin, View):
+class AnagraficaToggleAttivoView(TenantRequiredMixin, RoleRequiredMixin, View):
+    allowed_roles = ['admin', 'contabile']
     # ... (codice invariato) ...
     def post(self, request, *args, **kwargs):
         anagrafica = get_object_or_404(Anagrafica, pk=kwargs.get('pk'))
@@ -153,7 +184,8 @@ class AnagraficaToggleAttivoView(TenantRequiredMixin, View):
         anagrafica.save()
         return redirect('anagrafica_list')
 
-class DipendenteDettaglioCreateView(TenantRequiredMixin, CreateView):
+class DipendenteDettaglioCreateView(TenantRequiredMixin, RoleRequiredMixin, CreateView):
+    allowed_roles = ['admin', 'contabile']
     # ... (codice invariato) ...
     model = DipendenteDettaglio
     form_class = DipendenteDettaglioForm
@@ -179,6 +211,7 @@ class DipendenteDettaglioCreateView(TenantRequiredMixin, CreateView):
 
 @login_required
 @tenant_required
+@role_required(allowed_roles=['admin', 'contabile'])
 def documento_create_step1_testata(request):
     """
     Step 1 del wizard: inserimento dati della testata.
@@ -215,6 +248,7 @@ def documento_create_step1_testata(request):
 
 @login_required
 @tenant_required
+@role_required(allowed_roles=['admin', 'contabile'])
 def documento_create_step2_righe(request):
     """
     Step 2 del wizard: inserimento delle righe del documento.
@@ -294,6 +328,7 @@ def documento_create_step2_righe(request):
 
 @login_required
 @tenant_required
+@role_required(allowed_roles=['admin', 'contabile'])
 def documento_create_step3_scadenze(request):
     """
     Step 3 del wizard: inserimento scadenze e finalizzazione.
@@ -526,7 +561,8 @@ def get_documento_dettaglio_context(pk):
     }
 
 
-class DocumentoDetailView(TenantRequiredMixin, View):
+class DocumentoDetailView(TenantRequiredMixin, RoleRequiredMixin, View):
+    allowed_roles = ['admin', 'contabile', 'visualizzatore']
     """
     Mostra la vista di dettaglio completa di un singolo documento,
     gestendo due paginazioni indipendenti per scadenze e pagamenti.
@@ -555,6 +591,7 @@ class DocumentoDetailView(TenantRequiredMixin, View):
         # Rimuove i queryset non più necessari per pulizia
         context.pop('scadenze_qs')
         context.pop('cronologia_pagamenti_qs')
+        context['conti_finanziari'] = ContoFinanziario.objects.filter(attivo=True)
 
         # Renderizza il template con il contesto finale
         return render(request, self.template_name, context)
@@ -563,7 +600,8 @@ class DocumentoDetailView(TenantRequiredMixin, View):
 # === VISTE DOCUMENTI (LISTA + EXPORTS)                                     ===
 # ==============================================================================
 
-class DocumentoListView(TenantRequiredMixin, View):
+class DocumentoListView(TenantRequiredMixin, RoleRequiredMixin, View):
+    allowed_roles = ['admin', 'contabile', 'visualizzatore']
     """
     Mostra l'elenco paginato e filtrabile di tutti i documenti.
     Contiene la logica di recupero dati riutilizzabile dagli export.
@@ -688,7 +726,8 @@ class DocumentoListExportPdfView(DocumentoListView):
             context
         )
 
-class DocumentoDetailExportPdfView(TenantRequiredMixin, View):
+class DocumentoDetailExportPdfView(TenantRequiredMixin, RoleRequiredMixin, View):
+   allowed_roles = ['admin', 'contabile', 'visualizzatore']
    """
    Gestisce la generazione e il download del PDF per il dettaglio di un documento.
    """
@@ -727,7 +766,8 @@ class DocumentoDetailExportPdfView(TenantRequiredMixin, View):
 # === VISTE PARTITARIO ANAGRAFICA (DETAIL + EXPORTS)                        ===
 # ==============================================================================
 
-class AnagraficaDetailView(TenantRequiredMixin, View):
+class AnagraficaDetailView(TenantRequiredMixin, RoleRequiredMixin, View):
+    allowed_roles = ['admin', 'contabile', 'visualizzatore']
     """
     Gestisce la visualizzazione del partitario e contiene la logica
     di recupero dati riutilizzata dagli export.
@@ -1028,7 +1068,8 @@ class AnagraficaListExportPdfView(AnagraficaListView):
 # === VISTE PAGAMENTI                                                       ===
 # ==============================================================================
 
-class RegistraPagamentoView(TenantRequiredMixin, View):
+class RegistraPagamentoView(TenantRequiredMixin, RoleRequiredMixin, View):
+    allowed_roles = ['admin', 'contabile']
     """
     Gestisce la registrazione di un pagamento/incasso per una scadenza.
     """
@@ -1413,7 +1454,8 @@ class ScadenzarioExportPdfView(ScadenzarioListView):
 # === VISTE HR (Human Resources)                                            ===
 # ==============================================================================
 
-class DashboardHRView(TenantRequiredMixin, View):
+class DashboardHRView(TenantRequiredMixin, RoleRequiredMixin, View):
+    allowed_roles = ['admin', 'contabile', 'visualizzatore']
     """
     Mostra la dashboard per la pianificazione e consuntivazione giornaliera
     delle risorse umane.
@@ -1511,7 +1553,8 @@ class DashboardHRView(TenantRequiredMixin, View):
         
         return render(request, self.template_name, context)
 
-class SalvaAttivitaDiarioView(TenantRequiredMixin, AdminRequiredMixin, View): # Aggiunto AdminRequiredMixin per sicurezza
+class SalvaAttivitaDiarioView(TenantRequiredMixin, RoleRequiredMixin, View):
+    allowed_roles = ['admin', 'contabile'] # Aggiunto AdminRequiredMixin per sicurezza
     """
     Gestisce il salvataggio (creazione o modifica) di una voce
     del DiarioAttivita tramite una richiesta POST dalla modale.
@@ -1579,7 +1622,8 @@ class SalvaAttivitaDiarioView(TenantRequiredMixin, AdminRequiredMixin, View): # 
 # === VISTE PRIMA NOTA                                                      ===
 # ==============================================================================
 
-class PrimaNotaListView(TenantRequiredMixin, View):
+class PrimaNotaListView(TenantRequiredMixin, RoleRequiredMixin, View):
+    allowed_roles = ['admin', 'contabile', 'visualizzatore']
     """
     Gestisce la visualizzazione della dashboard di Prima Nota.
     Contiene la logica di recupero e filtraggio dati riutilizzabile dagli export.
@@ -1635,7 +1679,8 @@ class PrimaNotaListView(TenantRequiredMixin, View):
         }
         return render(request, self.template_name, context)
 
-class PrimaNotaDeleteView(TenantRequiredMixin, DeleteView):
+class PrimaNotaDeleteView(TenantRequiredMixin, RoleRequiredMixin, DeleteView):
+    allowed_roles = ['admin', 'contabile']
     """
     Gestisce l'eliminazione di un movimento di Prima Nota,
     mostrando un avviso speciale per i giroconti.
@@ -1652,7 +1697,8 @@ class PrimaNotaDeleteView(TenantRequiredMixin, DeleteView):
         messages.success(self.request, f"Movimento N. {self.object.pk} eliminato con successo.")
         return super().form_valid(form)
 
-class PrimaNotaUpdateView(TenantRequiredMixin, UpdateView):
+class PrimaNotaUpdateView(TenantRequiredMixin, RoleRequiredMixin, UpdateView):
+    allowed_roles = ['admin', 'contabile']
     """
     Gestisce la modifica di un movimento di Prima Nota.
     Contiene la logica speciale per sincronizzare i due movimenti
@@ -1757,7 +1803,8 @@ class PrimaNotaUpdateView(TenantRequiredMixin, UpdateView):
         messages.success(self.request, f"Movimento N. {movimento_originale.pk} aggiornato con successo.")
         return HttpResponseRedirect(self.get_success_url())    
 
-class PrimaNotaCreateView(TenantRequiredMixin, CreateView):
+class PrimaNotaCreateView(TenantRequiredMixin, RoleRequiredMixin, CreateView):
+    allowed_roles = ['admin', 'contabile']
     """
     Gestisce la creazione di un nuovo movimento di Prima Nota.
     Contiene la logica speciale per creare due movimenti atomici
@@ -1951,7 +1998,8 @@ class PrimaNotaListExportPdfView(PrimaNotaListView):
 # === VISTE TESORERIA                                                       ===
 # ==============================================================================
 
-class TesoreriaDashboardView(TenantRequiredMixin, View):
+class TesoreriaDashboardView(TenantRequiredMixin, RoleRequiredMixin, View):
+    allowed_roles = ['admin', 'contabile', 'visualizzatore']
     """
     Gestisce la visualizzazione della Dashboard di Tesoreria.
     Contiene la logica di calcolo dei saldi riutilizzabile dagli export.
@@ -2049,6 +2097,7 @@ class TesoreriaExportPdfView(TesoreriaDashboardView):
 # ==============================================================================
 
 class AdminDashboardView(TenantRequiredMixin, AdminRequiredMixin, View):
+    allowed_roles = ['admin']
     """
     Mostra la pagina principale del pannello di amministrazione del tenant.
     """
@@ -2110,7 +2159,8 @@ class ModalitaPagamentoToggleAttivoView(TenantRequiredMixin, AdminRequiredMixin,
     
 # --- VISTE CRUD PER ALIQUOTE IVA ---
 
-class AliquotaIVAListView(TenantRequiredMixin, AdminRequiredMixin, ListView):
+class AliquotaIVAListView(TenantRequiredMixin, RoleRequiredMixin, ListView):
+    allowed_roles = ['admin', 'contabile', 'visualizzatore']
     model = AliquotaIVA
     template_name = 'gestionale/aliquota_iva_list.html' # Useremo un template specifico per ora
     context_object_name = 'oggetti'
@@ -2121,7 +2171,8 @@ class AliquotaIVAListView(TenantRequiredMixin, AdminRequiredMixin, ListView):
         context['create_url'] = reverse_lazy('aliquota_iva_create')
         return context
 
-class AliquotaIVACreateView(TenantRequiredMixin, AdminRequiredMixin, CreateView):
+class AliquotaIVACreateView(TenantRequiredMixin, RoleRequiredMixin, CreateView):
+    allowed_roles = ['admin']
     model = AliquotaIVA
     form_class = AliquotaIVAForm
     template_name = 'gestionale/config_form_base.html' # Riutilizziamo il form generico!
@@ -2138,7 +2189,8 @@ class AliquotaIVACreateView(TenantRequiredMixin, AdminRequiredMixin, CreateView)
         messages.success(self.request, "Aliquota IVA creata con successo.")
         return super().form_valid(form)
 
-class AliquotaIVAUpdateView(TenantRequiredMixin, AdminRequiredMixin, UpdateView):
+class AliquotaIVAUpdateView(TenantRequiredMixin, RoleRequiredMixin, UpdateView):
+    allowed_roles = ['admin']
     model = AliquotaIVA
     form_class = AliquotaIVAForm
     template_name = 'gestionale/config_form_base.html' # Riutilizziamo il form generico!
@@ -2154,7 +2206,8 @@ class AliquotaIVAUpdateView(TenantRequiredMixin, AdminRequiredMixin, UpdateView)
         messages.success(self.request, "Aliquota IVA aggiornata con successo.")
         return super().form_valid(form)
 
-class AliquotaIVAToggleAttivoView(TenantRequiredMixin, AdminRequiredMixin, View):
+class AliquotaIVAToggleAttivoView(TenantRequiredMixin, RoleRequiredMixin, View):
+    allowed_roles = ['admin']
     def post(self, request, *args, **kwargs):
         obj = get_object_or_404(AliquotaIVA, pk=kwargs.get('pk'))
         obj.attivo = not obj.attivo
@@ -2164,7 +2217,8 @@ class AliquotaIVAToggleAttivoView(TenantRequiredMixin, AdminRequiredMixin, View)
 
 # --- VISTE CRUD PER CAUSALI CONTABILI ---
 
-class CausaleListView(TenantRequiredMixin, AdminRequiredMixin, ListView):
+class CausaleListView(TenantRequiredMixin, RoleRequiredMixin, ListView):
+    allowed_roles = ['admin', 'contabile', 'visualizzatore']
     model = Causale
     template_name = 'gestionale/causale_list.html' # Template specifico per la lista
     context_object_name = 'oggetti'
@@ -2175,7 +2229,8 @@ class CausaleListView(TenantRequiredMixin, AdminRequiredMixin, ListView):
         context['create_url'] = reverse_lazy('causale_create')
         return context
 
-class CausaleCreateView(TenantRequiredMixin, AdminRequiredMixin, CreateView):
+class CausaleCreateView(TenantRequiredMixin, RoleRequiredMixin, CreateView):
+    allowed_roles = ['admin']
     model = Causale
     form_class = CausaleForm
     template_name = 'gestionale/config_form_base.html' # Riutilizziamo il form generico
@@ -2191,7 +2246,8 @@ class CausaleCreateView(TenantRequiredMixin, AdminRequiredMixin, CreateView):
         messages.success(self.request, "Causale creata con successo.")
         return super().form_valid(form)
 
-class CausaleUpdateView(TenantRequiredMixin, AdminRequiredMixin, UpdateView):
+class CausaleUpdateView(TenantRequiredMixin, RoleRequiredMixin, UpdateView):
+    allowed_roles = ['admin']
     model = Causale
     form_class = CausaleForm
     template_name = 'gestionale/config_form_base.html' # Riutilizziamo il form generico
@@ -2207,7 +2263,8 @@ class CausaleUpdateView(TenantRequiredMixin, AdminRequiredMixin, UpdateView):
         messages.success(self.request, "Causale aggiornata con successo.")
         return super().form_valid(form)
 
-class CausaleToggleAttivoView(TenantRequiredMixin, AdminRequiredMixin, View):
+class CausaleToggleAttivoView(TenantRequiredMixin, RoleRequiredMixin, View):
+    allowed_roles = ['admin']
     def post(self, request, *args, **kwargs):
         obj = get_object_or_404(Causale, pk=kwargs.get('pk'))
         obj.attivo = not obj.attivo
@@ -2217,7 +2274,8 @@ class CausaleToggleAttivoView(TenantRequiredMixin, AdminRequiredMixin, View):
 
 # --- VISTE CRUD PER CONTI FINANZIARI ---
 
-class ContoFinanziarioListView(TenantRequiredMixin, AdminRequiredMixin, ListView):
+class ContoFinanziarioListView(TenantRequiredMixin, RoleRequiredMixin, ListView):
+    allowed_roles = ['admin', 'contabile', 'visualizzatore']
     model = ContoFinanziario
     template_name = 'gestionale/conto_finanziario_list.html'
     context_object_name = 'oggetti'
@@ -2228,7 +2286,8 @@ class ContoFinanziarioListView(TenantRequiredMixin, AdminRequiredMixin, ListView
         context['create_url'] = reverse_lazy('conto_finanziario_create')
         return context
 
-class ContoFinanziarioCreateView(TenantRequiredMixin, AdminRequiredMixin, CreateView):
+class ContoFinanziarioCreateView(TenantRequiredMixin, RoleRequiredMixin, CreateView):
+    allowed_roles = ['admin']
     model = ContoFinanziario
     form_class = ContoFinanziarioForm
     template_name = 'gestionale/config_form_base.html'
@@ -2244,7 +2303,8 @@ class ContoFinanziarioCreateView(TenantRequiredMixin, AdminRequiredMixin, Create
         messages.success(self.request, "Conto Finanziario creato con successo.")
         return super().form_valid(form)
 
-class ContoFinanziarioUpdateView(TenantRequiredMixin, AdminRequiredMixin, UpdateView):
+class ContoFinanziarioUpdateView(TenantRequiredMixin, RoleRequiredMixin, UpdateView):
+    allowed_roles = ['admin']
     model = ContoFinanziario
     form_class = ContoFinanziarioForm
     template_name = 'gestionale/config_form_base.html'
@@ -2260,7 +2320,8 @@ class ContoFinanziarioUpdateView(TenantRequiredMixin, AdminRequiredMixin, Update
         messages.success(self.request, "Conto Finanziario aggiornato con successo.")
         return super().form_valid(form)
 
-class ContoFinanziarioToggleAttivoView(TenantRequiredMixin, AdminRequiredMixin, View):
+class ContoFinanziarioToggleAttivoView(TenantRequiredMixin, RoleRequiredMixin, View):
+    allowed_roles = ['admin']
     def post(self, request, *args, **kwargs):
         obj = get_object_or_404(ContoFinanziario, pk=kwargs.get('pk'))
         obj.attivo = not obj.attivo
@@ -2270,7 +2331,8 @@ class ContoFinanziarioToggleAttivoView(TenantRequiredMixin, AdminRequiredMixin, 
     
 # --- VISTE CRUD PER CONTI OPERATIVI ---
 
-class ContoOperativoListView(TenantRequiredMixin, AdminRequiredMixin, ListView):
+class ContoOperativoListView(TenantRequiredMixin, RoleRequiredMixin, ListView):
+    allowed_roles = ['admin', 'contabile', 'visualizzatore']
     model = ContoOperativo
     template_name = 'gestionale/conto_operativo_list.html'
     context_object_name = 'oggetti'
@@ -2281,7 +2343,8 @@ class ContoOperativoListView(TenantRequiredMixin, AdminRequiredMixin, ListView):
         context['create_url'] = reverse_lazy('conto_operativo_create')
         return context
 
-class ContoOperativoCreateView(TenantRequiredMixin, AdminRequiredMixin, CreateView):
+class ContoOperativoCreateView(TenantRequiredMixin, RoleRequiredMixin, CreateView):
+    allowed_roles = ['admin']
     model = ContoOperativo
     form_class = ContoOperativoForm
     template_name = 'gestionale/config_form_base.html'
@@ -2297,7 +2360,8 @@ class ContoOperativoCreateView(TenantRequiredMixin, AdminRequiredMixin, CreateVi
         messages.success(self.request, "Conto Operativo creato con successo.")
         return super().form_valid(form)
 
-class ContoOperativoUpdateView(TenantRequiredMixin, AdminRequiredMixin, UpdateView):
+class ContoOperativoUpdateView(TenantRequiredMixin, RoleRequiredMixin, UpdateView):
+    allowed_roles = ['admin']
 
     model = ContoOperativo
     form_class = ContoOperativoForm
@@ -2314,7 +2378,8 @@ class ContoOperativoUpdateView(TenantRequiredMixin, AdminRequiredMixin, UpdateVi
         messages.success(self.request, "Conto Operativo aggiornato con successo.")
         return super().form_valid(form)
 
-class ContoOperativoToggleAttivoView(TenantRequiredMixin, AdminRequiredMixin, View):
+class ContoOperativoToggleAttivoView(TenantRequiredMixin, RoleRequiredMixin, View):
+    allowed_roles = ['admin']
     def post(self, request, *args, **kwargs):
         obj = get_object_or_404(ContoOperativo, pk=kwargs.get('pk'))
         obj.attivo = not obj.attivo
@@ -2324,7 +2389,8 @@ class ContoOperativoToggleAttivoView(TenantRequiredMixin, AdminRequiredMixin, Vi
     
  # --- VISTE CRUD PER MEZZI AZIENDALI ---
 
-class MezzoAziendaleListView(TenantRequiredMixin, AdminRequiredMixin, ListView):
+class MezzoAziendaleListView(TenantRequiredMixin, RoleRequiredMixin, ListView):
+    allowed_roles = ['admin', 'contabile', 'visualizzatore']
     model = MezzoAziendale
     template_name = 'gestionale/mezzo_aziendale_list.html'
     context_object_name = 'oggetti'
@@ -2335,7 +2401,8 @@ class MezzoAziendaleListView(TenantRequiredMixin, AdminRequiredMixin, ListView):
         context['create_url'] = reverse_lazy('mezzo_aziendale_create')
         return context
 
-class MezzoAziendaleCreateView(TenantRequiredMixin, AdminRequiredMixin, CreateView):
+class MezzoAziendaleCreateView(TenantRequiredMixin, RoleRequiredMixin, CreateView):
+    allowed_roles = ['admin']
     model = MezzoAziendale
     form_class = MezzoAziendaleForm
     template_name = 'gestionale/config_form_base.html'
@@ -2351,7 +2418,8 @@ class MezzoAziendaleCreateView(TenantRequiredMixin, AdminRequiredMixin, CreateVi
         messages.success(self.request, "Mezzo aziendale creato con successo.")
         return super().form_valid(form)
 
-class MezzoAziendaleUpdateView(TenantRequiredMixin, AdminRequiredMixin, UpdateView):
+class MezzoAziendaleUpdateView(TenantRequiredMixin, RoleRequiredMixin, UpdateView):
+    allowed_roles = ['admin']
     model = MezzoAziendale
     form_class = MezzoAziendaleForm
     template_name = 'gestionale/config_form_base.html'
@@ -2367,7 +2435,8 @@ class MezzoAziendaleUpdateView(TenantRequiredMixin, AdminRequiredMixin, UpdateVi
         messages.success(self.request, "Mezzo aziendale aggiornato con successo.")
         return super().form_valid(form)
 
-class MezzoAziendaleToggleAttivoView(TenantRequiredMixin, AdminRequiredMixin, View):
+class MezzoAziendaleToggleAttivoView(TenantRequiredMixin, RoleRequiredMixin, View):
+    allowed_roles = ['admin']
     def post(self, request, *args, **kwargs):
         obj = get_object_or_404(MezzoAziendale, pk=kwargs.get('pk'))
         obj.attivo = not obj.attivo
@@ -2377,7 +2446,8 @@ class MezzoAziendaleToggleAttivoView(TenantRequiredMixin, AdminRequiredMixin, Vi
    
 # --- VISTE CRUD PER TIPI SCADENZE PERSONALE ---
 
-class TipoScadenzaPersonaleListView(TenantRequiredMixin, AdminRequiredMixin, ListView):
+class TipoScadenzaPersonaleListView(TenantRequiredMixin, RoleRequiredMixin, ListView):
+    allowed_roles = ['admin', 'contabile', 'visualizzatore']
     model = TipoScadenzaPersonale
     template_name = 'gestionale/tipo_scadenza_personale_list.html'
     context_object_name = 'oggetti'
@@ -2388,7 +2458,8 @@ class TipoScadenzaPersonaleListView(TenantRequiredMixin, AdminRequiredMixin, Lis
         context['create_url'] = reverse_lazy('tipo_scadenza_personale_create')
         return context
 
-class TipoScadenzaPersonaleCreateView(TenantRequiredMixin, AdminRequiredMixin, CreateView):
+class TipoScadenzaPersonaleCreateView(TenantRequiredMixin, RoleRequiredMixin, CreateView):
+    allowed_roles = ['admin']
     model = TipoScadenzaPersonale
     form_class = TipoScadenzaPersonaleForm
     template_name = 'gestionale/config_form_base.html'
@@ -2404,7 +2475,8 @@ class TipoScadenzaPersonaleCreateView(TenantRequiredMixin, AdminRequiredMixin, C
         messages.success(self.request, "Tipo scadenza creato con successo.")
         return super().form_valid(form)
 
-class TipoScadenzaPersonaleUpdateView(TenantRequiredMixin, AdminRequiredMixin, UpdateView):
+class TipoScadenzaPersonaleUpdateView(TenantRequiredMixin, RoleRequiredMixin, UpdateView):
+    allowed_roles = ['admin']
     model = TipoScadenzaPersonale
     form_class = TipoScadenzaPersonaleForm
     template_name = 'gestionale/config_form_base.html'
@@ -2420,7 +2492,8 @@ class TipoScadenzaPersonaleUpdateView(TenantRequiredMixin, AdminRequiredMixin, U
         messages.success(self.request, "Tipo scadenza aggiornato con successo.")
         return super().form_valid(form)
 
-class TipoScadenzaPersonaleToggleAttivoView(TenantRequiredMixin, AdminRequiredMixin, View):
+class TipoScadenzaPersonaleToggleAttivoView(TenantRequiredMixin, RoleRequiredMixin, View):
+    allowed_roles = ['admin']
     def post(self, request, *args, **kwargs):
         obj = get_object_or_404(TipoScadenzaPersonale, pk=kwargs.get('pk'))
         obj.attivo = not obj.attivo
@@ -2428,7 +2501,8 @@ class TipoScadenzaPersonaleToggleAttivoView(TenantRequiredMixin, AdminRequiredMi
         messages.success(request, f"Stato di '{obj.descrizione}' aggiornato.")
         return redirect('tipo_scadenza_personale_list')
     
-class DipendenteDetailView(TenantRequiredMixin, View): # Cambia da DetailView a View
+class DipendenteDetailView(TenantRequiredMixin, RoleRequiredMixin, View):
+    allowed_roles = ['admin', 'contabile', 'visualizzatore'] # Cambia da DetailView a View
     """
     Mostra il "Fascicolo del Dipendente", la pagina di dettaglio completa
     per un'anagrafica di tipo Dipendente, con tabelle paginate.
@@ -2502,7 +2576,8 @@ class DipendenteDetailView(TenantRequiredMixin, View): # Cambia da DetailView a 
 # === VISTE CRUD SCADENZE PERSONALI (per il Fascicolo Dipendente)           ===
 # ==============================================================================
 
-class ScadenzaPersonaleCreateView(TenantRequiredMixin, AdminRequiredMixin, View):
+class ScadenzaPersonaleCreateView(TenantRequiredMixin, RoleRequiredMixin, View):
+    allowed_roles = ['admin']
     """
     Gestisce la creazione di una nuova scadenza personale.
     """
@@ -2519,7 +2594,8 @@ class ScadenzaPersonaleCreateView(TenantRequiredMixin, AdminRequiredMixin, View)
             messages.error(request, f"Errore nella creazione della scadenza: {form.errors.as_text()}")
         return redirect('dipendente_detail', pk=dipendente.pk)
 
-class ScadenzaPersonaleUpdateView(TenantRequiredMixin, AdminRequiredMixin, UpdateView):
+class ScadenzaPersonaleUpdateView(TenantRequiredMixin, RoleRequiredMixin, UpdateView):
+    allowed_roles = ['admin']
     """
     Gestisce la modifica di una scadenza personale esistente.
     """
@@ -2548,7 +2624,8 @@ class ScadenzaPersonaleUpdateView(TenantRequiredMixin, AdminRequiredMixin, Updat
         messages.success(self.request, "Scadenza personale aggiornata con successo.")
         return super().form_valid(form)
 
-class ScadenzaPersonaleDeleteView(TenantRequiredMixin, AdminRequiredMixin, DeleteView):
+class ScadenzaPersonaleDeleteView(TenantRequiredMixin, RoleRequiredMixin, DeleteView):
+    allowed_roles = ['admin']
     """
     Gestisce l'eliminazione di una scadenza personale.
     """
@@ -2572,7 +2649,8 @@ class DashboardView(TenantRequiredMixin, View):
         return render(request, 'gestionale/dashboard.html', context)
 
 
-class DashboardView(TenantRequiredMixin, View):
+class DashboardView(TenantRequiredMixin, RoleRequiredMixin, View):
+    allowed_roles = ['admin', 'contabile', 'visualizzatore']
     """
     Mostra la dashboard principale con KPI aggregati e riepiloghi operativi.
     """
@@ -2852,7 +2930,8 @@ class DipendenteUpdateView(TenantRequiredMixin, AdminRequiredMixin, View):
 # === VISTE CRUD CANTIERI                                                   ===
 # ==============================================================================
 
-class CantiereCreateView(TenantRequiredMixin, AdminRequiredMixin, CreateView):
+class CantiereCreateView(TenantRequiredMixin, RoleRequiredMixin, CreateView):
+    allowed_roles = ['admin', 'contabile']
     model = Cantiere
     form_class = CantiereForm
     template_name = 'gestionale/cantiere_form.html' # Useremo un template dedicato
@@ -2874,7 +2953,8 @@ class CantiereCreateView(TenantRequiredMixin, AdminRequiredMixin, CreateView):
         context['title'] = 'Nuovo Cantiere'
         return context
 
-class CantiereUpdateView(TenantRequiredMixin, AdminRequiredMixin, UpdateView):
+class CantiereUpdateView(TenantRequiredMixin, RoleRequiredMixin, UpdateView):
+    allowed_roles = ['admin', 'contabile']
     model = Cantiere
     form_class = CantiereForm
     template_name = 'gestionale/cantiere_form.html'
