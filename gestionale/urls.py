@@ -6,7 +6,7 @@ from .views import (
     AnagraficaToggleAttivoView, DipendenteUpdateView, DocumentoListExportExcelView, DocumentoListExportPdfView, 
     DocumentoListView, DocumentoDetailView, ExportTabelleContabiliView, ExportTabelleSistemaView, MezzoAziendaleCreateView, MezzoAziendaleListView, MezzoAziendaleToggleAttivoView, MezzoAziendaleUpdateView, ModalitaPagamentoCreateView, ModalitaPagamentoListView, ModalitaPagamentoToggleAttivoView, ModalitaPagamentoUpdateView, PagamentoDeleteView, PagamentoUpdateView, PrimaNotaCreateView, PrimaNotaListExportExcelView, PrimaNotaListExportPdfView, PrimaNotaListView,RegistraPagamentoView, SalvaAttivitaDiarioView, ScadenzaPersonaleCreateView, ScadenzaPersonaleDeleteView, ScadenzaPersonaleUpdateView, ScadenzarioExportPdfView,
     ScadenzarioListView, ScadenzarioExportExcelView, AnagraficaPartitarioExportExcelView,
-    DashboardHRView, PrimaNotaCreateView, PrimaNotaUpdateView, PrimaNotaDeleteView, DocumentoDetailExportPdfView, TesoreriaDashboardView, TesoreriaExportExcelView, TesoreriaExportPdfView, TipoScadenzaPersonaleCreateView, TipoScadenzaPersonaleListView, TipoScadenzaPersonaleToggleAttivoView, TipoScadenzaPersonaleUpdateView
+    DashboardHRView, PrimaNotaCreateView, PrimaNotaUpdateView, PrimaNotaDeleteView, DocumentoDetailExportPdfView, TesoreriaDashboardView, TesoreriaExportExcelView, TesoreriaExportPdfView, TipoScadenzaPersonaleCreateView, TipoScadenzaPersonaleListView, TipoScadenzaPersonaleToggleAttivoView, TipoScadenzaPersonaleUpdateView, GetContoFinanziarioSaldoView
 )
 from .views import documento_create_step1_testata, documento_create_step2_righe, documento_create_step3_scadenze, get_anagrafiche_by_tipo
 
@@ -49,6 +49,7 @@ urlpatterns = [
     path('tesoreria/', TesoreriaDashboardView.as_view(), name='tesoreria_dashboard'),
     path('tesoreria/export/excel/', TesoreriaExportExcelView.as_view(), name='tesoreria_export_excel'),
     path('tesoreria/export/pdf/', TesoreriaExportPdfView.as_view(), name='tesoreria_export_pdf'),
+    path('api/get-conto-saldo/', GetContoFinanziarioSaldoView.as_view(), name='api_get_conto_saldo'),
     path('admin-panel/', AdminDashboardView.as_view(), name='admin_dashboard'),
     # URLS PER MODALITA' DI PAGAMENTO
     path('admin-panel/modalita-pagamento/', ModalitaPagamentoListView.as_view(), name='modalita_pagamento_list'),
@@ -101,4 +102,5 @@ urlpatterns = [
     # NUOVI URL PER EXPORT CANTIERI
     path('hr/cantieri/export/excel/', CantiereListExportExcelView.as_view(), name='cantiere_list_export_excel'),
     path('hr/cantieri/export/pdf/', CantiereListExportPdfView.as_view(), name='cantiere_list_export_pdf'),
+
 ]

@@ -77,10 +77,9 @@
         {% endblock %}
     </main>
 
-    <!-- ================= MODALE REGISTRAZIONE PAGAMENTO ================= -->
-    <div class="modal fade" id="pagamentoModal" tabindex="-1" aria-labelledby="pagamentoModalLabel" aria-hidden="true">
-        <!-- ... (Contenuto della modale di pagamento, già corretto e invariato) ... -->
-    </div>
+    <!-- ================= MODALE REGISTRAZIONE PAGAMENTO (ORA INCLUSA) ================= -->
+    {% include "gestionale/partials/_pagamento_modal.html" %}
+    <!-- ================================================================================= -->
 
     <!-- ================= MODALE PIANIFICAZIONE/CONSUNTIVAZIONE HR (SPOSTATA QUI) ================= -->
     <div class="modal fade" id="attivitaModal" tabindex="-1" aria-labelledby="attivitaModalLabel" aria-hidden="true">

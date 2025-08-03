@@ -1,0 +1,110 @@
+<!-- ================= MODALE REGISTRAZIONE PAGAMENTO ================= -->
+<div class="modal fade" id="pagamentoModal" tabindex="-1" aria-labelledby="pagamentoModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="pagamentoModalLabel">Registra Pagamento/Incasso</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="pagamentoForm" action="{% url 'registra_pagamento' %}" method="post">
+                {% csrf_token %}
+                <input type="hidden" name="scadenza_id" id="scadenza_id">
+                <div class="modal-body">
+                    <p>Stai registrando un movimento per la scadenza: <strong id="scadenzaInfo"></strong></p>
+                    <div class="mb-3">
+                        <label for="id_data_pagamento" class="form-label">Data Pagamento</label>
+                        <input type="date" name="data_pagamento" class="form-control" required id="id_data_pagamento">
+                    </div>
+                    <div class="mb-3">
+                        <label for="id_importo_pagato" class="form-label">Importo</label>
+                        <input type="number" name="importo_pagato" class="form-control" step="0.01" required id="id_importo_pagato">
+                    </div>
+                    <div class="mb-3">
+                        <label for="id_conto_finanziario" class="form-label">Conto Finanziario</label>
+                        <select name="conto_finanziario" class="form-select" required id="id_conto_finanziario" data-saldo-url="{% url 'api_get_conto_saldo' %}">
+                            <!-- Options verranno popolate da JS o passate dal contesto -->
+                        </select>
+                        <div id="saldoContoFinanziario" class="mt-2 fw-bold" style="font-family: monospace;"></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-primary">Salva Pagamento</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var pagamentoModal = document.getElementById('pagamentoModal');
+    var contoSelect = document.getElementById('id_conto_finanziario');
+    var saldoDisplay = document.getElementById('saldoContoFinanziario');
+    var saldoApiUrl = contoSelect.getAttribute('data-saldo-url');
+
+    // Funzione per aggiornare il saldo
+    function updateSaldo(contoId) {
+        if (contoId) {
+            fetch(`${saldoApiUrl}?conto_id=${contoId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        saldoDisplay.textContent = `Errore: ${data.error}`;
+                        saldoDisplay.style.color = 'orange'; // Colore per errori
+                    } else {
+                        saldoDisplay.textContent = `Saldo: ${data.saldo_formattato}`;
+                        saldoDisplay.style.color = data.color;
+                    }
+                })
+                .catch(error => {
+                    console.error('Errore nel recupero del saldo:', error);
+                    saldoDisplay.textContent = 'Errore nel caricamento del saldo.';
+                    saldoDisplay.style.color = 'orange';
+                });
+        } else {
+            // Se nessun conto è selezionato, mostra un saldo di default
+            saldoDisplay.textContent = 'Saldo: € 0,00';
+            saldoDisplay.style.color = 'grey'; // Colore grigio per il default
+        }
+    }
+
+    pagamentoModal.addEventListener('show.bs.modal', function (event) {
+        var button = event.relatedTarget;
+        var scadenzaId = button.getAttribute('data-scadenza-id');
+        var scadenzaResiduo = button.getAttribute('data-scadenza-residuo');
+        var scadenzaInfo = button.getAttribute('data-scadenza-info');
+
+        var modal = this;
+        modal.querySelector('#scadenza_id').value = scadenzaId;
+        modal.querySelector('#id_importo_pagato').value = scadenzaResiduo;
+        modal.querySelector('#scadenzaInfo').textContent = scadenzaInfo;
+
+        // Popola il campo data con la data odierna
+        document.getElementById('id_data_pagamento').valueAsDate = new Date();
+
+        // Popola dinamicamente i conti finanziari
+        contoSelect.innerHTML = ''; // Pulisce le opzioni esistenti
+        var defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.textContent = '-- Seleziona conto --';
+        defaultOption.selected = true;
+        defaultOption.disabled = true;
+        contoSelect.appendChild(defaultOption);
+        {% for conto in conti_finanziari %}{% comment %} Questo loop richiede che 'conti_finanziari' sia nel contesto {% endcomment %}
+            var option = document.createElement('option');
+            option.value = "{{ conto.pk }}";
+            option.textContent = "{{ conto.nome_conto }}";
+            contoSelect.appendChild(option);
+        {% endfor %}
+
+        // Chiama updateSaldo con il valore iniziale (che sarà vuoto) per mostrare il saldo di default
+        updateSaldo(contoSelect.value);
+    });
+
+    // Ascolta il cambio di selezione del conto finanziario
+    contoSelect.addEventListener('change', function() {
+        updateSaldo(this.value);
+    });
+});
+</script>

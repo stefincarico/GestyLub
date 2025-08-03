@@ -2,8 +2,8 @@
 {% load currency_filters %}
 {% block title %}Partitario: {{ anagrafica.nome_cognome_ragione_sociale }}{% endblock %}
 {% block content %}
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="h2">Partitario {{ anagrafica.get_tipo_display }}: {{ anagrafica.nome_cognome_ragione_sociale }}</h1>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h2">Partitario {{ anagrafica.get_tipo_display }}: {{ anagrafica.nome_cognome_ragione_sociale }}</h1>
     <div>
         <a href="{% url 'anagrafica_partitario_export_excel' anagrafica.pk %}?{{ request.GET.urlencode }}" class="btn" style="background-color: #185C37; color: white;">Esporta Excel</a>
         <a href="{% url 'anagrafica_partitario_export_pdf' anagrafica.pk %}?{{ request.GET.urlencode }}" class="btn" style="background-color: #FF9900; color: white;">Esporta PDF</a>
@@ -181,4 +181,5 @@
     {% endif %}
     {% endwith %}
 </div>
+{% include 'gestionale/partials/_pagamento_modal.html' %}
 {% endblock %}

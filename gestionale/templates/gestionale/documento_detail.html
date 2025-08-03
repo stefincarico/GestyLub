@@ -229,9 +229,10 @@
                     </div>
                     <div class="mb-3">
                         <label for="id_conto_finanziario" class="form-label">Conto Finanziario</label>
-                        <select name="conto_finanziario" class="form-select" required id="id_conto_finanziario">
+                        <select name="conto_finanziario" class="form-select" required id="id_conto_finanziario" data-saldo-url="{% url 'api_get_conto_saldo' %}">
                             <!-- Options verranno popolate da JS o passate dal contesto -->
                         </select>
+                        <div id="saldoContoFinanziario" class="mt-2 fw-bold" style="font-family: monospace;"></div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -245,40 +246,13 @@
 
 {% endblock content %}
 
+{% include 'gestionale/partials/_pagamento_modal.html' %}
+
 {% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    var pagamentoModal = document.getElementById('pagamentoModal');
-    pagamentoModal.addEventListener('show.bs.modal', function (event) {
-        var button = event.relatedTarget;
-        var scadenzaId = button.getAttribute('data-scadenza-id');
-        var scadenzaResiduo = button.getAttribute('data-scadenza-residuo');
-        var scadenzaInfo = button.getAttribute('data-scadenza-info');
-
-        var modal = this;
-        modal.querySelector('#scadenza_id').value = scadenzaId;
-        modal.querySelector('#id_importo_pagato').value = scadenzaResiduo;
-        modal.querySelector('#scadenzaInfo').textContent = scadenzaInfo;
-
-        // Popola il campo data con la data odierna
-        document.getElementById('id_data_pagamento').valueAsDate = new Date();
-
-        // Popola dinamicamente i conti finanziari
-        var contoSelect = modal.querySelector('#id_conto_finanziario');
-        contoSelect.innerHTML = ''; // Pulisce le opzioni esistenti
-        var defaultOption = document.createElement('option');
-        defaultOption.value = '';
-        defaultOption.textContent = '-- Seleziona conto --';
-        defaultOption.selected = true;
-        defaultOption.disabled = true;
-        contoSelect.appendChild(defaultOption);
-        {% for conto in conti_finanziari %}
-            var option = document.createElement('option');
-            option.value = "{{ conto.pk }}";
-            option.textContent = "{{ conto.nome_conto }}";
-            contoSelect.appendChild(option);
-        {% endfor %}
-    });
+    // Il JavaScript specifico della modale è ora nel partial _pagamento_modal.html
+    // Questo blocco può contenere altri script specifici per documento_detail.html
 });
 </script>
 {% endblock scripts %}

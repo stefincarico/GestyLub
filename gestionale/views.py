@@ -17,7 +17,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.paginator import Paginator
 from django.db import models, transaction
-from django.db.models import Q, Sum, Value
+from django.db.models import Q, Sum, Value, Case, When, F
 from django.db.models.functions import Coalesce
 from django.http import HttpResponse, HttpResponseRedirect, JsonResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
@@ -857,6 +857,7 @@ class AnagraficaDetailView(TenantRequiredMixin, RoleRequiredMixin, View):
         page_number_movimenti = request.GET.get('pagina_movimenti', 1)
         context['movimenti'] = paginator_movimenti.get_page(page_number_movimenti)
         context['pagamento_form'] = PagamentoForm()
+        context['conti_finanziari'] = ContoFinanziario.objects.filter(attivo=True)
         return render(request, self.template_name, context)
 
 class AnagraficaPartitarioExportExcelView(AnagraficaDetailView):
@@ -2048,6 +2049,8 @@ class TesoreriaExportExcelView(TesoreriaDashboardView):
         conti_finanziari, liquidita_totale = self._get_tesoreria_data()
         
         tenant_name = request.session.get('active_tenant_name', 'GestionaleDjango')
+
+
         report_title = 'Report Saldi di Tesoreria'
         filename_prefix = 'Saldi_Tesoreria'
         
@@ -2092,6 +2095,34 @@ class TesoreriaExportPdfView(TesoreriaDashboardView):
             context
         )
     
+
+from .templatetags import currency_filters # Importiamo i nostri filtri
+
+class GetContoFinanziarioSaldoView(TenantRequiredMixin, View):
+    """
+    Vista API che restituisce il saldo di un conto finanziario in formato JSON.
+    """
+    def get(self, request, *args, **kwargs):
+        conto_id = request.GET.get('conto_id')
+        if not conto_id:
+            return JsonResponse({'error': 'ID Conto mancante'}, status=400)
+
+        try:
+            # Riutilizziamo la nostra potente query dalla Tesoreria
+            conto = ContoFinanziario.objects.annotate(
+                saldo=Coalesce(Sum(Case(When(movimenti__tipo_movimento='E', then=F('movimenti__importo')),When(movimenti__tipo_movimento='U', then=-F('movimenti__importo')),default=Value(0),output_field=models.DecimalField())),Value(0),output_field=models.DecimalField())
+            ).get(pk=conto_id)
+            
+            saldo_formattato = currency_filters.format_currency(conto.saldo)
+            
+            data = {
+                'saldo_formattato': f"Saldo: € {saldo_formattato}",
+                'color': 'red' if conto.saldo < 0 else 'green'
+            }
+            return JsonResponse(data)
+        except ContoFinanziario.DoesNotExist:
+            return JsonResponse({'error': 'Conto non trovato'}, status=404)
+
 # ==============================================================================
 # === VISTE PANNELLO AMMINISTRAZIONE                                        ===
 # ==============================================================================
