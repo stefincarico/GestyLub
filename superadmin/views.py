@@ -1,27 +1,32 @@
 # superadmin/views.py
-
-from django.shortcuts import render
-from django.views import View
-from django.contrib import messages
-from django.urls import reverse_lazy
-from django.shortcuts import redirect
-from django.views.generic import ListView, CreateView, UpdateView
-from django.db import transaction
-from tenants.models import Company # Importa il modello
-from tenants.forms import CompanyForm # Importa il form
-from django.contrib.auth.views import PasswordChangeView
-from django.contrib.auth.forms import AdminPasswordChangeForm
-
-# Importa i modelli e i form dalle altre app
-from gestionale.views import SuperAdminRequiredMixin
-from django.shortcuts import get_object_or_404
-from django.views.generic import FormView
-from accounts.models import User
-from accounts.forms import CustomUserCreationForm, CustomUserChangeForm
-from tenants.forms import UserPermissionFormSet
-
-from django.utils import timezone
+# Standard library imports
+import os
+import subprocess
 from datetime import timedelta
+
+# Django core imports
+from django.conf import settings
+from django.contrib import messages
+from django.contrib.auth.forms import AdminPasswordChangeForm
+from django.contrib.auth.views import PasswordChangeView
+from django.db import transaction
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse_lazy
+from django.utils import timezone
+from django.views import View
+from django.views.generic import CreateView, FormView, ListView, UpdateView
+
+# Models imports
+from accounts.models import User
+from tenants.models import Company
+
+# Forms imports
+from accounts.forms import CustomUserCreationForm, CustomUserChangeForm
+from tenants.forms import CompanyForm, UserPermissionFormSet
+
+# Custom views/mixins
+from gestionale.views import SuperAdminRequiredMixin
+
 
 class SuperAdminDashboardView(SuperAdminRequiredMixin, View):
     template_name = 'superadmin/dashboard.html'
@@ -179,4 +184,53 @@ class UserPasswordChangeView(SuperAdminRequiredMixin, PasswordChangeView):
         context = super().get_context_data(**kwargs)
         context['object'] = get_object_or_404(User, pk=self.kwargs['pk'])
         return context
+    
+# === GESTIONE BACKUP ===
+class DatabaseBackupView(SuperAdminRequiredMixin, View):
+    def get(self, request, *args, **kwargs):
+        # Recupera le impostazioni del database da settings.py
+        db_settings = settings.DATABASES['default']
+        db_name = db_settings['NAME']
+        db_user = db_settings['USER']
+        db_pass = db_settings['PASSWORD']
+        db_host = db_settings['HOST']
+        db_port = db_settings['PORT']
+
+        # Definisci il nome del file di backup con un timestamp
+        timestamp = timezone.now().strftime('%Y%m%d_%H%M%S')
+        backup_filename = f"{timestamp}_{db_name}_backup.sql"
+
+        # Trova un percorso sicuro e comune dove salvare il backup, come la cartella 'Documenti' dell'utente
+        # NOTA: Questo percorso dipende dall'utente che esegue il server Django
+        user_docs = os.path.join(os.path.expanduser('~'), 'Documents')
+        backup_filepath = os.path.join(user_docs, backup_filename)
+        
+        # Componi il comando pg_dump
+        # Assicurati che il percorso di pg_dump.exe sia nella variabile d'ambiente PATH del sistema
+        command = [
+            "pg_dump",
+            f"--host={db_host}",
+            f"--port={db_port}",
+            f"--username={db_user}",
+            f"--dbname={db_name}",
+            f"--file={backup_filepath}",
+            "--format=p", # Formato plain-text SQL, facile da ispezionare
+            "--no-password" # La password verrà passata tramite variabile d'ambiente
+        ]
+
+        # Imposta la password in una variabile d'ambiente solo per questo comando
+        env = os.environ.copy()
+        env['PGPASSWORD'] = db_pass
+
+        try:
+            # Esegui il comando
+            subprocess.run(command, check=True, env=env, capture_output=True, text=True)
+            messages.success(request, f"Backup del database '{db_name}' creato con successo in: {backup_filepath}")
+        except FileNotFoundError:
+            messages.error(request, "Errore: il comando 'pg_dump' non è stato trovato. Assicurarsi che la cartella 'bin' di PostgreSQL sia nella variabile d'ambiente PATH del sistema.")
+        except subprocess.CalledProcessError as e:
+            # Se pg_dump restituisce un errore, lo mostriamo all'utente
+            messages.error(request, f"Errore durante l'esecuzione del backup: {e.stderr}")
+        
+        return redirect('superadmin:dashboard')
     

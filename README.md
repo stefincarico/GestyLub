@@ -1,7 +1,7 @@
 # GestionaleDjango - Gestionale Aziendale
-
-**Versione:** 1.0
-**Autore:** [Il Tuo Nome/La Tua Azienda]
+-
+**Versione:** 1.0 08-2025
+**Autore:** [Angelo Lubrano/Lubry Tech]
 **Tecnologie:** Python, Django, PostgreSQL, Bootstrap 5
 
 ---
@@ -154,4 +154,14 @@ Questa procedura va eseguita **una sola volta** sulla macchina che fungerà da s
 1.  Semplicemente **chiudi la finestra nera del terminale** che è stata aperta dallo script di avvio.
 
 ### Accesso per gli Altri Utenti:
--   Gli altri utenti nella stessa rete locale potranno accedere al gestionale digitando nel loro browser l'indirizzo IP mostrato all'avvio (es. `http://192.168.1.100:8000`).
+-   Gli altri utenti nella stessa rete locale potranno accedere al gestionale digitando nel loro browser l'indirizzo IP mostrato all'avvio (ad esempio `http://192.168.1.100:8000`).
+
+5. Aggiungere PostgreSQL al PATH di Sistema (Obbligatorio per i Backup)
+Apri le "Impostazioni di sistema avanzate" di Windows.
+Clicca su "Variabili d'ambiente...".
+Nella sezione "Variabili di sistema", trova e seleziona la variabile Path e clicca "Modifica...".
+Clicca "Nuovo" e aggiungi il percorso alla cartella bin della tua installazione di PostgreSQL. Di solito è:
+C:\Program Files\PostgreSQL\16\bin
+(verifica che la versione 16 sia corretta).
+Clicca OK su tutte le finestre.
+Riavvia il computer per rendere effettiva la modifica.

@@ -44,5 +44,13 @@
     </div>
 </div>
 
-<!-- Qui potremmo aggiungere altre sezioni, come una lista delle ultime aziende registrate -->
+<div class="card mt-4">
+    <div class="card-header">
+        Utilità di Manutenzione
+    </div>
+    <div class="card-body">
+        <p>Esegui un backup completo del database principale. Il file verrà salvato nella cartella "Documenti" dell'utente del server.</p>
+        <a href="{% url 'superadmin:database_backup' %}" class="btn btn-warning">Esegui Backup Database</a>
+    </div>
+</div>
 {% endblock %}
