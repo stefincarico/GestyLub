@@ -13,6 +13,7 @@
         <h4 class="mb-0">GestionaleDjango - Pannello Superadmin</h4>
         <nav class="d-flex align-items-center">
             <!-- I link avranno la classe 'nav-link' per lo stile di Bootstrap -->
+             <a href="{% url 'superadmin:dashboard' %}" class="nav-link text-white fw-bold me-3">Dashboard</a>
             <a href="{% url 'superadmin:company_list' %}" class="nav-link text-white fw-bold me-3">Aziende</a>
             <a href="{% url 'superadmin:user_list' %}" class="nav-link text-white fw-bold me-3">Utenti</a>
             

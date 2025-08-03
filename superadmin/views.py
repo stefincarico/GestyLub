@@ -20,6 +20,9 @@ from accounts.models import User
 from accounts.forms import CustomUserCreationForm, CustomUserChangeForm
 from tenants.forms import UserPermissionFormSet
 
+from django.utils import timezone
+from datetime import timedelta
+
 class SuperAdminDashboardView(SuperAdminRequiredMixin, View):
     template_name = 'superadmin/dashboard.html'
 
@@ -110,6 +113,38 @@ class UserUpdateView(SuperAdminRequiredMixin, View):
             }
             return render(request, self.template_name, context)
         
+
+ # === GESTIONE KPI ===
+class SuperAdminDashboardView(SuperAdminRequiredMixin, View):
+    template_name = 'superadmin/dashboard.html'
+
+    def get(self, request, *args, **kwargs):
+        # Calcolo KPI Aziende
+        total_companies = Company.objects.count()
+        active_companies = Company.objects.filter(is_active=True).count()
+        
+        # Calcolo KPI Utenti
+        total_users = User.objects.count()
+        active_users = User.objects.filter(is_active=True).count()
+        
+        # Calcolo Nuove Iscrizioni (aziende e utenti) negli ultimi 30 giorni
+        trenta_giorni_fa = timezone.now() - timedelta(days=30)
+        new_companies_last_month = Company.objects.filter(created_at__gte=trenta_giorni_fa).count()
+        new_users_last_month = User.objects.filter(date_joined__gte=trenta_giorni_fa).count()
+
+        context = {
+            'kpi': {
+                'total_companies': total_companies,
+                'active_companies': active_companies,
+                'total_users': total_users,
+                'active_users': active_users,
+                'new_companies_last_month': new_companies_last_month,
+                'new_users_last_month': new_users_last_month,
+            }
+        }
+        return render(request, self.template_name, context)
+    
+
 # === GESTIONE PASSWORD ===
 class UserPasswordChangeView(SuperAdminRequiredMixin, PasswordChangeView):
     """

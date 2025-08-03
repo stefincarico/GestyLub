@@ -11,7 +11,6 @@
     <div class="card mb-4">
         <div class="card-header">Dati Utente</div>
         <div class="card-body">
-            {# === INIZIO CORREZIONE === #}
             {# Se esiste la variabile 'user_form' (siamo in modifica), usa quella. #}
             {# Altrimenti, usa la variabile di default 'form' (siamo in creazione). #}
             {% if user_form %}
@@ -19,7 +18,6 @@
             {% else %}
                 {{ form.as_p }}
             {% endif %}
-            {# === FINE CORREZIONE === #}
         </div>
     </div>
 
@@ -46,9 +44,6 @@
 
     <div class="mt-4">
         <a href="{% url 'superadmin:user_list' %}" class="btn btn-secondary">Annulla</a>
-        {% if object %}
-        <a href="{% url 'superadmin:user_password_change' object.pk %}" class="btn btn-warning">Reset Password</a>
-        {% endif %}
         <button type="submit" class="btn btn-primary">Salva</button>
     </div>
 

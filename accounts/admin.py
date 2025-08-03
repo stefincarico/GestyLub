@@ -59,4 +59,4 @@ class CustomUserAdmin(UserAdmin):
                     messages.error(request, "Azione non consentita: non puoi cancellare l'ultimo Super Amministratore.")
                     return queryset.exclude(pk=request.user.pk).order_by('username', 'pk')
                  
-        return queryset.order_by('username', 'pk')
+        return queryset

@@ -1,7 +1,48 @@
 {% extends "superadmin/base_superadmin.html" %}
 {% block title %}Dashboard Superadmin{% endblock %}
 {% block content %}
-<h1 class="h2 mb-4">Dashboard Superadmin</h1>
-<p>Benvenuto, {{ request.user.username }}.</p>
-<!-- Qui in futuro aggiungeremo i KPI della piattaforma -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h2">Dashboard Piattaforma</h1>
+</div>
+
+<div class="row">
+    <div class="col-md-6 col-lg-3 mb-4">
+        <div class="card">
+            <div class="card-body text-center">
+                <h6 class="card-title text-muted">Aziende Totali</h6>
+                <h2 class="display-5 fw-bold">{{ kpi.total_companies }}</h2>
+                <small class="text-muted">Attive: {{ kpi.active_companies }}</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-lg-3 mb-4">
+        <div class="card">
+            <div class="card-body text-center">
+                <h6 class="card-title text-muted">Utenti Totali</h6>
+                <h2 class="display-5 fw-bold">{{ kpi.total_users }}</h2>
+                <small class="text-muted">Attivi: {{ kpi.active_users }}</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-lg-3 mb-4">
+        <div class="card">
+            <div class="card-body text-center">
+                <h6 class="card-title text-muted">Nuove Aziende</h6>
+                <h2 class="display-5 fw-bold">{{ kpi.new_companies_last_month }}</h2>
+                <small class="text-muted">(ultimi 30 giorni)</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-lg-3 mb-4">
+        <div class="card">
+            <div class="card-body text-center">
+                <h6 class="card-title text-muted">Nuovi Utenti</h6>
+                <h2 class="display-5 fw-bold">{{ kpi.new_users_last_month }}</h2>
+                <small class="text-muted">(ultimi 30 giorni)</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Qui potremmo aggiungere altre sezioni, come una lista delle ultime aziende registrate -->
 {% endblock %}
