@@ -1,69 +1,80 @@
 @echo off
-REM =================================================================
-REM == Script di avvio per GestionaleDjango                          ==
-REM =================================================================
+TITLE GestionaleDjango - SERVER IN ESECUZIONE (NON CHIUDERE QUESTA FINESTRA)
 
-TITLE GestionaleDjango Server
+:: =================================================================
+:: == Script di avvio per GestionaleDjango                          ==
+:: =================================================================
 
+:: --- 1. CONTROLLO E RICHIESTA PERMESSI DI AMMINISTRATORE ---
+>nul 2>&1 "%SYSTEMROOT%\system32\cacls.exe" "%SYSTEMROOT%\system32\config\system"
+IF '%ERRORLEVEL%' NEQ '0' (
+    ECHO **************************************************************
+    ECHO *          Richiedo i permessi di Amministratore...          *
+    ECHO *          PREMI 'Si' Quando ti sara' richiesto              *
+    ECHO **************************************************************
+    powershell -Command "Start-Process '%~f0' -Verb RunAs"
+    EXIT
+)
+CD /D "%~dp0"
+CLS
+
+:: --- 2. MESSAGGIO DI BENVENUTO ---
 ECHO.
 ECHO =================================================
 ECHO  AVVIO SERVER GESTIONALEDJANGO
 ECHO =================================================
 ECHO.
 
-REM --- PASSO 1: CONTROLLO E AVVIO DI POSTGRESQL ---
-ECHO Verifico lo stato del servizio PostgreSQL...
-SC QUERY "postgresql-x64-17" | FIND "STATE" | FIND "RUNNING" > nul
+:: --- 3. CONTROLLO E AVVIO DI POSTGRESQL (Metodo PowerShell) ---
+ECHO Verificando lo stato del servizio PostgreSQL...
+SET PG_SERVICE_NAME=postgresql-x64-17
+
+powershell -Command "Get-Service -Name '%PG_SERVICE_NAME%' | Where-Object {$_.Status -eq 'Running'}" | FIND "Running" > nul
 IF %ERRORLEVEL% == 0 (
-    ECHO   [OK] Il servizio PostgreSQL e' gia' in esecuzione.
+    ECHO   [OK] Servizio PostgreSQL e' gia' in esecuzione.
 ) ELSE (
-    ECHO   [AVVISO] Il servizio PostgreSQL non e' in esecuzione. Tento l'avvio...
-    NET START "postgresql-x64-17"
-    IF %ERRORLEVEL% == 0 (
-        ECHO   [OK] Servizio PostgreSQL avviato con successo.
-    ) ELSE (
-        ECHO   [ERRORE FATALE] Impossibile avviare PostgreSQL. Contattare l'assistenza.
+    ECHO   [INFO] Servizio PostgreSQL non e' in esecuzione. Tentativo di avvio...
+    NET START "%PG_SERVICE_NAME%" > nul
+    TIMEOUT /T 3 /NOBREAK > nul
+    powershell -Command "Get-Service -Name '%PG_SERVICE_NAME%' | Where-Object {$_.Status -eq 'Running'}" | FIND "Running" > nul
+    IF %ERRORLEVEL% NEQ 0 (
+        ECHO   [ERRORE FATALE] Impossibile avviare il servizio PostgreSQL.
         PAUSE
         EXIT
     )
+    ECHO   [OK] PostgreSQL avviato con successo.
 )
 ECHO.
 
-REM --- PASSO 2: INDIVIDUAZIONE DELL'INDIRIZZO IP ---
-ECHO Cerco l'indirizzo IP della macchina nella rete locale...
+:: --- 4. INDIVIDUAZIONE INDIRIZZO IP ---
+ECHO Rilevo indirizzo IP locale...
 FOR /F "tokens=2 delims=:" %%a IN ('ipconfig ^| find "IPv4"') DO (
     FOR /F "tokens=*" %%b IN ("%%a") DO SET LOCAL_IP=%%b
 )
 ECHO.
-ECHO   *********************************************************
-ECHO   *                                                       *
-ECHO   *   Gestionale accessibile all'indirizzo:               *
-ECHO   *                                                       *
-ECHO   *         http://%LOCAL_IP%:8000                         *
-ECHO   *                                                       *
-ECHO   *   Comunicare questo indirizzo ai colleghi.            *
-ECHO   *                                                       *
-ECHO   *********************************************************
-ECHO.
-ECHO Per fermare il server, chiudere questa finestra.
+ECHO   **************************************************************
+ECHO   *   Indirizzo da comunicare agli utenti della rete locale:   *
+ECHO                 http://%LOCAL_IP%:8000                        
+ECHO   *                                                            *
+ECHO   *          Invece per accedere da questo PC usare:           *
+ECHO   *            usare http://localhost:8000                     *
+ECHO   **************************************************************
 ECHO.
 
-REM --- PASSO 3: AVVIO DELL'APPLICAZIONE DJANGO CON WAITRESS ---
+:: --- 5. APERTURA BROWSER ---
+ECHO Avvio del browser sulla pagina di login tra 3 secondi...
+TIMEOUT /T 3 /NOBREAK > nul
+start "" "http://127.0.0.1:8000/accounts/login/"
+
+:: --- 6. AVVIO APPLICAZIONE DJANGO ---
+ECHO.
 ECHO Avvio del server dell'applicazione...
+ECHO.
+ECHO =============================================================================
+ECHO =                    IL SERVER E' ORA ATTIVO.                               =
+ECHO =  NON CHIUDERE QUESTA FINESTRA PER MANTENERE IL GESTIONALE IN FUNZIONE.    =
+ECHO =============================================================================
+ECHO.
 
-REM Attiva l'ambiente virtuale
 CALL .\venv\Scripts\activate
-
-REM Lancia Waitress per servire l'applicazione Django
-REM --host=0.0.0.0 : Ascolta su tutte le interfacce di rete (necessario per essere visibile in LAN)
-REM --port=8000   : Usa la porta 8000
-REM --threads=8   : Numero di thread per gestire le richieste (buon punto di partenza per 10 utenti)
-waitress-serve --host=0.0.0.0 --port=8000 --threads=8 config.wsgi:application
-
-REM --- PASSO 4: APERTURA DEL BROWSER (Opzionale, eseguito quasi in parallelo) ---
-REM Lo script arriverà qui solo dopo che waitress si è chiuso.
-REM Per un avvio immediato, potremmo usare 'start'.
-
-REM Creiamo un piccolo file VBS per lanciare il browser in background.
-ECHO CreateObject("WScript.Shell").Run "http://127.0.0.1:8000/", 1, false > temp_open_browser.vbs
-start temp_open_browser.vbs
+waitress-serve --host=0.0.0.0 --port=8000 --threads=8 config.wsgi:application 2>nul
