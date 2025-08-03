@@ -654,9 +654,12 @@ class CausaleForm(forms.ModelForm):
             'attivo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
-    def clean_descrizione(self):
-        data = self.cleaned_data.get('descrizione')
-        return data.upper() if data else data
+    def clean(self):
+        cleaned_data = super().clean()
+        for field_name, value in cleaned_data.items():
+            if isinstance(value, str):
+                cleaned_data[field_name] = value.upper()
+        return cleaned_data
 
 class ContoFinanziarioForm(forms.ModelForm):
     """

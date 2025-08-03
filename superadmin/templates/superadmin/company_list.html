@@ -26,7 +26,8 @@
                     <tr>
                         <th>ID</th>
                         <th>Nome Azienda</th>
-                        
+                        <th>Telefono</th>
+                        <th>Email</th>
                         <th>Stato</th>
                         <th>Azioni</th>
                     </tr>
@@ -36,6 +37,8 @@
                     <tr>
                         <td>{{ azienda.pk }}</td>
                         <td>{{ azienda.company_name }}</td>
+                        <td>{{ azienda.phone|default:"<span class='text-muted'>n/d</span>" }}</td>
+                        <td>{{ azienda.email|default:"<span class='text-muted'>n/d</span>" }}</td>
                         
                         <td>
                             {% if azienda.is_active %}

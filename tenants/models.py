@@ -10,6 +10,15 @@ class Company(models.Model):
     company_name = models.CharField(max_length=255, unique=True, verbose_name="Nome Azienda")
     vat_number = models.CharField(max_length=20, blank=True, null=True, verbose_name="Partita IVA")
     is_active = models.BooleanField(default=True, verbose_name="Attiva")
+    address = models.CharField(max_length=255, blank=True, null=True, verbose_name="Indirizzo")
+    email = models.EmailField(blank=True, null=True, verbose_name="Email")
+    phone = models.CharField(max_length=20, blank=True, null=True, verbose_name="Telefono")
+    pec = models.EmailField(blank=True, null=True, verbose_name="PEC")
+    iban = models.CharField(max_length=34, blank=True, null=True, verbose_name="IBAN")
+    notes = models.TextField(blank=True, null=True, verbose_name="Note")
+    cap = models.CharField(max_length=5, blank=True, null=True, verbose_name="CAP")
+    city = models.CharField(max_length=100, blank=True, null=True, verbose_name="Città")
+    province = models.CharField(max_length=2, blank=True, null=True, verbose_name="Provincia")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Data Creazione")
 
     def __str__(self):

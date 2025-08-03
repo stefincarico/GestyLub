@@ -5,7 +5,105 @@
 <div class="card"><div class="card-body">
     <form method="post">
         {% csrf_token %}
-        {{ form.as_p }}
+        {% if form.non_field_errors %}
+            <div class="alert alert-danger" role="alert">
+                {% for error in form.non_field_errors %}
+                    {{ error }}
+                {% endfor %}
+            </div>
+        {% endif %}
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label for="{{ form.company_name.id_for_label }}" class="form-label">{{ form.company_name.label }}</label>
+                {{ form.company_name }}
+                {% if form.company_name.errors %}
+                    <div class="text-danger">{% for error in form.company_name.errors %}{{ error }}{% endfor %}</div>
+                {% endif %}
+            </div>
+            <div class="col-md-6 mb-3">
+                <label for="{{ form.vat_number.id_for_label }}" class="form-label">{{ form.vat_number.label }}</label>
+                {{ form.vat_number }}
+                {% if form.vat_number.errors %}
+                    <div class="text-danger">{% for error in form.vat_number.errors %}{{ error }}{% endfor %}</div>
+                {% endif %}
+            </div>
+        </div>
+        <div class="mb-3">
+            <label for="{{ form.address.id_for_label }}" class="form-label">{{ form.address.label }}</label>
+            {{ form.address }}
+            {% if form.address.errors %}
+                <div class="text-danger">{% for error in form.address.errors %}{{ error }}{% endfor %}</div>
+            {% endif %}
+        </div>
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label for="{{ form.email.id_for_label }}" class="form-label">{{ form.email.label }}</label>
+                {{ form.email }}
+                {% if form.email.errors %}
+                    <div class="text-danger">{% for error in form.email.errors %}{{ error }}{% endfor %}</div>
+                {% endif %}
+            </div>
+            <div class="col-md-6 mb-3">
+                <label for="{{ form.pec.id_for_label }}" class="form-label">{{ form.pec.label }}</label>
+                {{ form.pec }}
+                {% if form.pec.errors %}
+                    <div class="text-danger">{% for error in form.pec.errors %}{{ error }}{% endfor %}</div>
+                {% endif %}
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label for="{{ form.phone.id_for_label }}" class="form-label">{{ form.phone.label }}</label>
+                {{ form.phone }}
+                {% if form.phone.errors %}
+                    <div class="text-danger">{% for error in form.phone.errors %}{{ error }}{% endfor %}</div>
+                {% endif %}
+            </div>
+            <div class="col-md-6 mb-3">
+                <label for="{{ form.iban.id_for_label }}" class="form-label">{{ form.iban.label }}</label>
+                {{ form.iban }}
+                {% if form.iban.errors %}
+                    <div class="text-danger">{% for error in form.iban.errors %}{{ error }}{% endfor %}</div>
+                {% endif %}
+            </div>
+        </div>
+        <div class="mb-3">
+            <label for="{{ form.notes.id_for_label }}" class="form-label">{{ form.notes.label }}</label>
+            {{ form.notes }}
+            {% if form.notes.errors %}
+                <div class="text-danger">{% for error in form.notes.errors %}{{ error }}{% endfor %}</div>
+            {% endif %}
+        </div>
+        <div class="row">
+            <div class="col-md-4 mb-3">
+                <label for="{{ form.cap.id_for_label }}" class="form-label">{{ form.cap.label }}</label>
+                {{ form.cap }}
+                {% if form.cap.errors %}
+                    <div class="text-danger">{% for error in form.cap.errors %}{{ error }}{% endfor %}</div>
+                {% endif %}
+            </div>
+            <div class="col-md-4 mb-3">
+                <label for="{{ form.city.id_for_label }}" class="form-label">{{ form.city.label }}</label>
+                {{ form.city }}
+                {% if form.city.errors %}
+                    <div class="text-danger">{% for error in form.city.errors %}{{ error }}{% endfor %}</div>
+                {% endif %}
+            </div>
+            <div class="col-md-4 mb-3">
+                <label for="{{ form.province.id_for_label }}" class="form-label">{{ form.province.label }}</label>
+                {{ form.province }}
+                {% if form.province.errors %}
+                    <div class="text-danger">{% for error in form.province.errors %}{{ error }}{% endfor %}</div>
+                {% endif %}
+            </div>
+        </div>
+        <div class="form-check mb-3">
+            {{ form.is_active }}
+            <label for="{{ form.is_active.id_for_label }}" class="form-check-label">{{ form.is_active.label }}</label>
+            {% if form.is_active.errors %}
+                <div class="text-danger">{% for error in form.is_active.errors %}{{ error }}{% endfor %}</div>
+            {% endif %}
+        </div>
         <div class="mt-4">
             <button type="submit" class="btn btn-primary">Salva</button>
             <a href="{% url 'superadmin:company_list' %}" class="btn btn-secondary">Annulla</a>

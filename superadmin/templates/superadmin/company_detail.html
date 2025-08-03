@@ -5,8 +5,47 @@
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h2 mb-0">Gestione Aziende / {{ company.company_name }}</h1>
     <div>
-        <a href="{% url 'superadmin:company_data_export' company.pk %}" class="btn btn-outline-primary">Esporta Dati Azienda (Excel)</a>
+        <a href="{% url 'superadmin:company_update' company.pk %}" class="btn btn-primary">Modifica Dati Azienda</a>
+        <a href="{% url 'superadmin:company_data_export' company.pk %}" class="btn btn-outline-primary">Esporta Utenti (Excel)</a>
         <a href="{% url 'superadmin:company_list' %}" class="btn btn-secondary ms-2">← Torna alla Lista Aziende</a>
+    </div>
+</div>
+
+<!-- Dettagli Azienda -->
+<div class="card mb-4">
+    <div class="card-header">Dati Anagrafici Azienda</div>
+    <div class="card-body">
+        <dl class="row">
+            <dt class="col-sm-3">Partita IVA</dt>
+            <dd class="col-sm-9">{{ company.vat_number|default:"<span class='text-muted'>n/d</span>" }}</dd>
+
+            <dt class="col-sm-3">Indirizzo</dt>
+            <dd class="col-sm-9">{{ company.address|default:"<span class='text-muted'>n/d</span>" }}</dd>
+
+            <dt class="col-sm-3">Email</dt>
+            <dd class="col-sm-9">{{ company.email|default:"<span class='text-muted'>n/d</span>" }}</dd>
+
+            <dt class="col-sm-3">Telefono</dt>
+            <dd class="col-sm-9">{{ company.phone|default:"<span class='text-muted'>n/d</span>" }}</dd>
+
+            <dt class="col-sm-3">PEC</dt>
+            <dd class="col-sm-9">{{ company.pec|default:"<span class='text-muted'>n/d</span>" }}</dd>
+
+            <dt class="col-sm-3">IBAN</dt>
+            <dd class="col-sm-9">{{ company.iban|default:"<span class='text-muted'>n/d</span>" }}</dd>
+
+            <dt class="col-sm-3">Note</dt>
+            <dd class="col-sm-9">{{ company.notes|default:"<span class='text-muted'>n/d</span>" }}</dd>
+
+            <dt class="col-sm-3">CAP</dt>
+            <dd class="col-sm-9">{{ company.cap|default:"<span class='text-muted'>n/d</span>" }}</dd>
+
+            <dt class="col-sm-3">Città</dt>
+            <dd class="col-sm-9">{{ company.city|default:"<span class='text-muted'>n/d</span>" }}</dd>
+
+            <dt class="col-sm-3">Provincia</dt>
+            <dd class="col-sm-9">{{ company.province|default:"<span class='text-muted'>n/d</span>" }}</dd>
+        </dl>
     </div>
 </div>
 
