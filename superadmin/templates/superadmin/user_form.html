@@ -1,0 +1,56 @@
+{% extends "superadmin/base_superadmin.html" %}
+
+{% block title %}{% if object %}Modifica Utente{% else %}Nuovo Utente{% endif %}{% endblock %}
+
+{% block content %}
+<h1 class="h2 mb-4">{% if object %}Modifica Utente: {{ object.username }}{% else %}Crea Nuovo Utente{% endif %}</h1>
+
+<form method="post">
+    {% csrf_token %}
+    
+    <div class="card mb-4">
+        <div class="card-header">Dati Utente</div>
+        <div class="card-body">
+            {# === INIZIO CORREZIONE === #}
+            {# Se esiste la variabile 'user_form' (siamo in modifica), usa quella. #}
+            {# Altrimenti, usa la variabile di default 'form' (siamo in creazione). #}
+            {% if user_form %}
+                {{ user_form.as_p }}
+            {% else %}
+                {{ form.as_p }}
+            {% endif %}
+            {# === FINE CORREZIONE === #}
+        </div>
+    </div>
+
+    {# Mostra la sezione dei permessi solo se siamo in modalità modifica (cioè, l'oggetto utente esiste) #}
+    {% if object %}
+    <div class="card">
+        <div class="card-header">Permessi Aziendali</div>
+        <div class="card-body">
+            {{ permission_formset.management_form }}
+            {% for perm_form in permission_formset %}
+                <div class="row align-items-center mb-3 border-bottom pb-3">
+                    <div class="col-md-5">{{ perm_form.company }}</div>
+                    <div class="col-md-5">{{ perm_form.company_role }}</div>
+                    <div class="col-md-2">
+                        {% if perm_form.instance.pk %}{{ perm_form.DELETE }} <label for="{{ perm_form.DELETE.id_for_label }}">Elimina</label>{% endif %}
+                    </div>
+                    {# Includiamo i campi nascosti necessari per il formset #}
+                    {{ perm_form.id }}
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="mt-4">
+        <a href="{% url 'superadmin:user_list' %}" class="btn btn-secondary">Annulla</a>
+        {% if object %}
+        <a href="{% url 'superadmin:user_password_change' object.pk %}" class="btn btn-warning">Reset Password</a>
+        {% endif %}
+        <button type="submit" class="btn btn-primary">Salva</button>
+    </div>
+
+</form>
+{% endblock %}

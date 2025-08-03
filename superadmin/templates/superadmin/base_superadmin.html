@@ -14,7 +14,7 @@
         <nav class="d-flex align-items-center">
             <!-- I link avranno la classe 'nav-link' per lo stile di Bootstrap -->
             <a href="{% url 'superadmin:company_list' %}" class="nav-link text-white fw-bold me-3">Aziende</a>
-            <a href="#" class="nav-link text-white fw-bold me-3">Utenti</a>
+            <a href="{% url 'superadmin:user_list' %}" class="nav-link text-white fw-bold me-3">Utenti</a>
             
             <!-- Il form di logout rimane invariato -->
             <form action="{% url 'logout' %}" method="post" class="m-0">
