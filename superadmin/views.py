@@ -176,21 +176,37 @@ class CompanyToggleActiveView(SuperAdminRequiredMixin, View):
 class CompanyDataExportView(SuperAdminRequiredMixin, View):
     def get(self, request, *args, **kwargs):
         company = get_object_or_404(Company, pk=kwargs['pk'])
+
+        # Recupera gli utenti e i loro ruoli per questa azienda
+        permissions = UserCompanyPermission.objects.filter(company=company).select_related('user')
+
+        tenant_name = company.company_name
+        report_title = f'Export Utenti Abilitati - {tenant_name}'
         
-        # Attiva lo schema del tenant specifico
-        with company.activate():
-            # Ora, qualsiasi query sui modelli tenant-aware verrà eseguita su questo schema
-            anagrafiche_qs = Anagrafica.objects.all()
-            
-            tenant_name = company.company_name
-            report_title = f'Export Dati Completo - {tenant_name}'
-            # ... (costruisci headers, data_rows come negli altri export)
-            headers = ["Codice", "Tipo", "Nome"]
-            data_rows = [[a.codice, a.tipo, a.nome_cognome_ragione_sociale] for a in anagrafiche_qs]
-            report_sections = [{'title': 'Anagrafiche', 'headers': headers, 'rows': data_rows}]
+        headers = ["Username", "Email", "Ruolo Aziendale", "Stato Utente"]
+        
+        data_rows = []
+        for perm in permissions:
+            user = perm.user
+            data_rows.append([
+                user.username,
+                user.email,
+                perm.get_company_role_display(),
+                "Attivo" if user.is_active else "Non Attivo"
+            ])
+
+        report_sections = [{'title': 'Utenti Abilitati', 'headers': headers, 'rows': data_rows}]
+
+        # Costruisci il nome del file personalizzato
+        filename_prefix = f"UtentiAbilitati_Azienda_{company.company_name.replace(' ', '_')}"
 
         return generate_excel_report(
-            tenant_name, report_title, "Tutti i dati", None, report_sections
+            tenant_name, 
+            report_title, 
+            "Elenco utenti abilitati", 
+            None, 
+            report_sections,
+            filename_prefix=filename_prefix
         )
 
 # === VISTE CRUD PER GLI UTENTI ===

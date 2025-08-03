@@ -13,7 +13,13 @@
             <td>{{ utente.username }}</td>
             <td>{{ utente.email }}</td>
             <td>{{ utente.get_system_role_display }}</td>
-            <td>{% if utente.is_active %}Attivo{% else %}Disattivato{% endif %}</td>
+            <td>
+                {% if utente.is_active %}
+                    <span class="badge bg-success">Attivo</span>
+                {% else %}
+                    <span class="badge bg-danger">Disattivato</span>
+                {% endif %}
+            </td>
             <td><a href="{% url 'superadmin:user_update' utente.pk %}" class="btn btn-sm btn-outline-primary">Modifica</a></td>
         </tr>
         {% endfor %}

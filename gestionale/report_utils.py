@@ -27,8 +27,8 @@ def generate_excel_report(tenant_name, report_title, filters_string, kpi_data, r
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     )
     local_time = timezone.localtime(timezone.now())
-    timestamp = local_time.strftime('%Y%m%d-%H%M')
-    filename = f"{timestamp}-{filename_prefix}.xlsx"
+    timestamp = local_time.strftime('%Y%m%d_%H%M%S')
+    filename = f"{timestamp}_{filename_prefix}.xlsx"
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
 
     workbook = Workbook()
