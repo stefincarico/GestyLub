@@ -4,7 +4,7 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1 class="h2">Dashboard HR / Planning Giornaliero</h1>
     <!-- Navigazione Data -->
-<div>
+<div class="d-flex flex-wrap align-items-center gap-2">
     <div class="btn-group" role="group">
         <a href="{% url 'dashboard_hr_data' year=giorno_precedente.year month=giorno_precedente.month day=giorno_precedente.day %}" class="btn btn-outline-secondary">← Prec.</a>
         
@@ -14,7 +14,7 @@
         <a href="{% url 'dashboard_hr_data' year=giorno_successivo.year month=giorno_successivo.month day=giorno_successivo.day %}" class="btn btn-outline-secondary">Succ. →</a>
     </div>
     <!-- Il pulsante per tornare a oggi -->
-    <a href="{% url 'dashboard_hr' %}" class="btn btn-primary ms-2">Oggi</a>
+    <a href="{% url 'dashboard_hr' %}" class="btn btn-primary">Oggi</a>
 </div>
 </div>
 
