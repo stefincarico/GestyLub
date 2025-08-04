@@ -27,6 +27,62 @@
     </div>
 </div>
 
+<!-- === NUOVA SEZIONE RIASSUNTIVA === -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">Riepilogo Economico Cantiere</h5>
+    </div>
+    <div class="card-body">
+        <div class="row text-center">
+            <!-- Colonna Redditività -->
+            <div class="col-md-3">
+                <div class="card bg-light h-100">
+                    <div class="card-body">
+                        <h6 class="card-title text-muted">Redditività (Ricavi - Costi)</h6>
+                        <p class="card-text fs-4 fw-bold {% if riepilogo.redditivita < 0 %}text-danger{% else %}text-success{% endif %}">
+                            {{ riepilogo.redditivita|format_currency }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <!-- Colonna Cash Flow -->
+            <div class="col-md-3">
+                <div class="card bg-light h-100">
+                    <div class="card-body">
+                        <h6 class="card-title text-muted">Cash Flow (Incassi - Pagamenti)</h6>
+                        <p class="card-text fs-4 fw-bold {% if riepilogo.cash_flow < 0 %}text-danger{% else %}text-success{% endif %}">
+                            {{ riepilogo.cash_flow|format_currency }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <!-- Colonna Esposizione Clienti -->
+            <div class="col-md-3">
+                <div class="card bg-light h-100">
+                    <div class="card-body">
+                        <h6 class="card-title text-muted">Crediti vs Clienti</h6>
+                        <p class="card-text fs-4 {% if riepilogo.esposizione_clienti > 0 %}text-warning{% endif %}">
+                            {{ riepilogo.esposizione_clienti|format_currency }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <!-- Colonna Esposizione Fornitori -->
+            <div class="col-md-3">
+                <div class="card bg-light h-100">
+                    <div class="card-body">
+                        <h6 class="card-title text-muted">Debiti vs Fornitori</h6>
+                        <p class="card-text fs-4 {% if riepilogo.esposizione_fornitori > 0 %}text-danger{% endif %}">
+                            {{ riepilogo.esposizione_fornitori|format_currency }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- === FINE NUOVA SEZIONE === -->
+
 <!-- Filtri di Data (invariati) -->
 <div class="card mb-4">
     <div class="card-body">

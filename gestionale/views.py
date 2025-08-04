@@ -24,6 +24,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
+from django.db.models import Sum, Q
 from functools import wraps
 from django.views import View
 from django.views.generic import DetailView, ListView
@@ -3241,12 +3242,61 @@ class CantiereDetailView(TenantRequiredMixin, RoleRequiredMixin, View):
                 documenti_qs = documenti_qs.filter(data_documento__lte=data_a)
                 movimenti_qs = movimenti_qs.filter(data_registrazione__lte=data_a)
         
+        # === NUOVA SEZIONE: CALCOLO RIASSUNTIVO ===
+    
+        # 1. Calcolo Fatturato e Costi da Documenti
+        documenti_cantiere = DocumentoTestata.objects.filter(cantiere=cantiere, stato=DocumentoTestata.Stato.CONFERMATO)
+        
+        tot_fatture_vendita = documenti_cantiere.filter(tipo_doc=DocumentoTestata.TipoDoc.FATTURA_VENDITA).aggregate(tot=Sum('totale'))['tot'] or 0
+        tot_nc_vendita = documenti_cantiere.filter(tipo_doc=DocumentoTestata.TipoDoc.NOTA_CREDITO_VENDITA).aggregate(tot=Sum('totale'))['tot'] or 0
+        fatturato_netto = tot_fatture_vendita - tot_nc_vendita
+
+        tot_fatture_acquisto = documenti_cantiere.filter(tipo_doc=DocumentoTestata.TipoDoc.FATTURA_ACQUISTO).aggregate(tot=Sum('totale'))['tot'] or 0
+        tot_nc_acquisto = documenti_cantiere.filter(tipo_doc=DocumentoTestata.TipoDoc.NOTA_CREDITO_ACQUISTO).aggregate(tot=Sum('totale'))['tot'] or 0
+        costi_fatturati_netti = tot_fatture_acquisto - tot_nc_acquisto
+
+        # 2. Calcolo Incassi e Pagamenti da Prima Nota (legati a scadenze del cantiere)
+        movimenti_cantiere = PrimaNota.objects.filter(cantiere=cantiere)
+        
+        incassi_totali = movimenti_cantiere.filter(tipo_movimento=PrimaNota.TipoMovimento.ENTRATA).aggregate(tot=Sum('importo'))['tot'] or 0
+        pagamenti_totali = movimenti_cantiere.filter(tipo_movimento=PrimaNota.TipoMovimento.USCITA).aggregate(tot=Sum('importo'))['tot'] or 0
+
+        # 3. Calcolo Costi/Ricavi diretti da Prima Nota (se non derivanti da fatture)
+        costi_diretti = movimenti_cantiere.filter(
+            conto_operativo__tipo=ContoOperativo.Tipo.COSTO
+        ).aggregate(tot=Sum('importo'))['tot'] or 0
+        
+        ricavi_diretti = movimenti_cantiere.filter(
+            conto_operativo__tipo=ContoOperativo.Tipo.RICAVO
+        ).aggregate(tot=Sum('importo'))['tot'] or 0
+
+        # 4. KPI
+        redditivita = (fatturato_netto + ricavi_diretti) - (costi_fatturati_netti + costi_diretti)
+        cash_flow = incassi_totali - pagamenti_totali
+        esposizione_clienti = fatturato_netto - incassi_totali
+        esposizione_fornitori = costi_fatturati_netti - pagamenti_totali
+
+        riepilogo = {
+            "fatturato_netto": fatturato_netto,
+            "costi_fatturati_netti": costi_fatturati_netti,
+            "incassi_totali": incassi_totali,
+            "pagamenti_totali": pagamenti_totali,
+            "costi_diretti": costi_diretti,
+            "ricavi_diretti": ricavi_diretti,
+            "redditivita": redditivita,
+            "cash_flow": cash_flow,
+            "esposizione_clienti": esposizione_clienti,
+            "esposizione_fornitori": esposizione_fornitori,
+        }
+        # === FINE NUOVA SEZIONE ===
+
         return {
             "cantiere": cantiere,
             "filter_form": filter_form,
             "dipendenti_assegnati": dipendenti_qs,
             "documenti_associati": documenti_qs,
             "movimenti_associati": movimenti_qs,
+            "riepilogo": riepilogo, # Aggiungiamo il riepilogo al dizionario
         }
 
     def get(self, request, *args, **kwargs):
