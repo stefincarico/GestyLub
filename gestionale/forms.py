@@ -128,6 +128,35 @@ class AnagraficaForm(forms.ModelForm):
         
         return cleaned_data
 
+class AnagraficaFilterForm(forms.Form):
+    """
+    Form per i filtri della lista anagrafiche.
+    """
+    TIPO_CHOICES = (('', 'Tutti i Tipi'),) + tuple(Anagrafica.Tipo.choices)
+    STATO_CHOICES = (
+        ('', 'Tutti gli Stati'),
+        ('true', 'Attivo'),
+        ('false', 'Non Attivo'),
+    )
+
+    q = forms.CharField(
+        required=False,
+        label="Cerca",
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nome, P.IVA, Città...'})
+    )
+    tipo = forms.ChoiceField(
+        choices=TIPO_CHOICES,
+        required=False,
+        label="Tipo",
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+    attivo = forms.ChoiceField(
+        choices=STATO_CHOICES,
+        required=False,
+        label="Stato",
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+
 class DipendenteDettaglioForm(forms.ModelForm):
     """
     Form per la creazione e modifica dei dettagli di un Dipendente.

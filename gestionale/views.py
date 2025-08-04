@@ -17,7 +17,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.paginator import Paginator
 from django.db import models, transaction
-from django.db.models import Q, Sum, Value, Case, When, F
+from django.db.models import Q, Sum, Value, Case, When, F, Count, DecimalField
 from django.db.models.functions import Coalesce
 from django.http import HttpResponse, HttpResponseRedirect, JsonResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
@@ -42,7 +42,8 @@ from .forms import (
     AliquotaIVAForm, AnagraficaForm, CausaleForm, ContoFinanziarioForm, ContoOperativoForm, DiarioAttivitaForm, DipendenteDettaglioForm,
     DocumentoFilterForm, DocumentoRigaForm, DocumentoTestataForm, MezzoAziendaleForm, ModalitaPagamentoForm,
     PagamentoForm, PartitarioFilterForm, PrimaNotaFilterForm, PrimaNotaForm, ScadenzaPersonaleForm,
-    ScadenzarioFilterForm, ScadenzaWizardForm,PrimaNotaUpdateForm,PagamentoUpdateForm, TipoScadenzaPersonaleForm, CantiereForm
+    ScadenzarioFilterForm, ScadenzaWizardForm,PrimaNotaUpdateForm,PagamentoUpdateForm, TipoScadenzaPersonaleForm, CantiereForm,
+    AnagraficaFilterForm
 )
 from .models import (
     AliquotaIVA, Anagrafica, Cantiere, Causale, ContoFinanziario,
@@ -120,13 +121,49 @@ def tenant_required(view_func):
 # === VISTE PRINCIPALI, ANAGRAFICHE E DOCUMENTI                             ===
 # ==============================================================================
 
-class AnagraficaListView(TenantRequiredMixin, RoleRequiredMixin, ListView):
+class AnagraficaListView(TenantRequiredMixin, RoleRequiredMixin, View):
+    """
+    Mostra la lista delle anagrafiche, con paginazione e filtri.
+    """
     allowed_roles = ['admin', 'contabile', 'visualizzatore']
-    """Mostra l'elenco paginato delle anagrafiche."""
-    model = Anagrafica
     template_name = 'gestionale/anagrafica_list.html'
-    context_object_name = 'anagrafiche'
-    paginate_by = 15
+    
+    def get(self, request, *args, **kwargs):
+        # Inizializza il form con i dati da request.GET
+        filter_form = AnagraficaFilterForm(request.GET)
+        
+        anagrafiche_list = Anagrafica.objects.all().order_by('nome_cognome_ragione_sociale')
+        
+        # Applica i filtri se il form è valido
+        if filter_form.is_valid():
+            q = filter_form.cleaned_data.get('q')
+            tipo = filter_form.cleaned_data.get('tipo')
+            attivo_str = filter_form.cleaned_data.get('attivo')
+
+            if q:
+                anagrafiche_list = anagrafiche_list.filter(
+                    Q(nome_cognome_ragione_sociale__icontains=q) |
+                    Q(citta__icontains=q) |
+                    Q(p_iva__icontains=q)
+                )
+            
+            if tipo:
+                anagrafiche_list = anagrafiche_list.filter(tipo=tipo)
+            
+            if attivo_str:
+                attivo_bool = (attivo_str == 'true')
+                anagrafiche_list = anagrafiche_list.filter(attivo=attivo_bool)
+
+        paginator = Paginator(anagrafiche_list, 15)
+        page_number = request.GET.get('page')
+        page_obj = paginator.get_page(page_number)
+        
+        context = {
+            'anagrafiche': page_obj,
+            'page_obj': page_obj,
+            'filter_form': filter_form, # Passa il form al template
+        }
+        return render(request, self.template_name, context)
 
 class AnagraficaCreateView(TenantRequiredMixin, RoleRequiredMixin, CreateView):
     allowed_roles = ['admin', 'contabile']
@@ -1015,56 +1052,92 @@ class AnagraficaPartitarioExportPdfView(AnagraficaDetailView):
             'gestionale/partitario_pdf_template.html', 
             context
         )
-class AnagraficaListExportExcelView(AnagraficaListView):
+
+
+class AnagraficaListExportExcelView(TenantRequiredMixin, RoleRequiredMixin, View):
+    allowed_roles = ['admin', 'contabile', 'visualizzatore']
+
     def get(self, request, *args, **kwargs):
-        anagrafiche_qs = self.get_queryset()
+        # Riutilizziamo la stessa logica di filtraggio
+        filter_form = AnagraficaFilterForm(request.GET)
+        query = Anagrafica.objects.all().order_by('nome_cognome_ragione_sociale')
         
-        tenant_name = request.session.get('active_tenant_name', 'GestionaleDjango')
-        report_title = 'Elenco Anagrafiche'
-        filename_prefix = 'Elenco_Anagrafiche'
+        if filter_form.is_valid():
+            q = filter_form.cleaned_data.get('q')
+            tipo = filter_form.cleaned_data.get('tipo')
+            attivo_str = filter_form.cleaned_data.get('attivo')
+            if q:
+                query = query.filter(Q(nome_cognome_ragione_sociale__icontains=q) | Q(citta__icontains=q) | Q(p_iva__icontains=q))
+            if tipo:
+                query = query.filter(tipo=tipo)
+            if attivo_str:
+                query = query.filter(attivo=(attivo_str == 'true'))
+
+        report_sections = [{
+            'title': 'Lista Anagrafiche',
+            'headers': ['Codice', 'Nome/Ragione Sociale', 'Tipo', 'P.IVA', 'C.F.', 'Città', 'Stato'],
+            'rows': [[a.codice, a.nome_cognome_ragione_sociale, a.get_tipo_display(), a.p_iva, a.codice_fiscale, a.citta, "Attivo" if a.attivo else "Non Attivo"] for a in query]
+        }]
         
-        headers = ["Codice", "Tipo", "Nome/Ragione Sociale", "P.IVA", "Codice Fiscale", "Città", "Stato"]
-        data_rows = []
-        for anag in anagrafiche_qs:
-            data_rows.append([
-                anag.codice, anag.get_tipo_display(), anag.nome_cognome_ragione_sociale,
-                anag.p_iva, anag.codice_fiscale, anag.citta, "Attivo" if anag.attivo else "Non Attivo"
-            ])
-            
-        # === CORREZIONE ===
-        # Creiamo la lista di sezioni, anche se ne contiene solo una.
-        report_sections = [{'title': 'Elenco Anagrafiche', 'headers': headers, 'rows': data_rows}]
-        
-        # Ora la chiamata è corretta.
         return generate_excel_report(
-            tenant_name=tenant_name,
-            report_title=report_title,
-            filters_string="Nessun filtro applicato",
+            tenant_name=request.session.get('active_tenant_name', 'N/A'),
+            report_title="Lista Anagrafiche",
+            filters_string=build_filters_string(filter_form),
             kpi_data=None,
-            report_sections=report_sections, # Passiamo la lista di sezioni
-            filename_prefix=filename_prefix
+            report_sections=report_sections,
+            filename_prefix="anagrafiche"
         )
 
-class AnagraficaListExportPdfView(AnagraficaListView):
+class AnagraficaListExportPdfView(TenantRequiredMixin, RoleRequiredMixin, View):
     """
-    Esporta la lista delle anagrafiche (non paginata) in formato PDF.
+    Esporta la lista filtrata delle anagrafiche in formato PDF.
     """
+    allowed_roles = ['admin', 'contabile', 'visualizzatore']
+
     def get(self, request, *args, **kwargs):
-        anagrafiche_qs = self.get_queryset()
+        # 1. Inizializziamo il form con i parametri GET, proprio come nella vista elenco
+        filter_form = AnagraficaFilterForm(request.GET)
         
+        # 2. Partiamo dal queryset di base
+        query = Anagrafica.objects.all().order_by('nome_cognome_ragione_sociale')
+        
+        # 3. Applichiamo la stessa, identica logica di filtraggio
+        if filter_form.is_valid():
+            q = filter_form.cleaned_data.get('q')
+            tipo = filter_form.cleaned_data.get('tipo')
+            attivo_str = filter_form.cleaned_data.get('attivo')
+
+            if q:
+                query = query.filter(
+                    Q(nome_cognome_ragione_sociale__icontains=q) |
+                    Q(citta__icontains=q) |
+                    Q(p_iva__icontains=q)
+                )
+            
+            if tipo:
+                query = query.filter(tipo=tipo)
+            
+            if attivo_str:
+                attivo_bool = (attivo_str == 'true')
+                query = query.filter(attivo=attivo_bool)
+
+        # 4. Prepariamo il contesto per il template PDF
         context = {
             'tenant_name': request.session.get('active_tenant_name'),
             'report_title': 'Elenco Anagrafiche',
             'timestamp': timezone.now().strftime('%d/%m/%Y %H:%M:%S'),
-            'anagrafiche': anagrafiche_qs,
+            'anagrafiche': query,  # Usiamo il queryset filtrato
+            'filters_string': build_filters_string(filter_form), # Aggiungiamo la stringa dei filtri
+            'request': request, # WeasyPrint ha bisogno del request per gli URL assoluti delle risorse statiche
         }
         
+        # 5. Chiamiamo la funzione di generazione del report
         return generate_pdf_report(
             request,
-            'gestionale/anagrafica_list_pdf.html',
+            'gestionale/anagrafica_list_pdf.html', 
             context
         )
-    
+
 # ==============================================================================
 # === VISTE PAGAMENTI                                                       ===
 # ==============================================================================
@@ -2679,77 +2752,131 @@ class DashboardView(TenantRequiredMixin, RoleRequiredMixin, View):
     template_name = 'gestionale/dashboard.html'
 
     def get(self, request, *args, **kwargs):
-        from datetime import date # Importiamo date qui dentro per chiarezza
-        from django.db.models import Sum, Value, Q, F, Case, When # <-- IMPORTAZIONI NECESSARIE
-
         today = date.today()
+        current_year = today.year
         
-        # --- 1. CALCOLI FINANZIARI (Scadenze e Saldi) ---
-        
+        # --- 1. CALCOLI FINANZIARI ESISTENTI (Scadenze e Saldi) ---
         scadenze_aperte_qs = Scadenza.objects.filter(
             stato__in=[Scadenza.Stato.APERTA, Scadenza.Stato.PARZIALE]
         )
 
         kpi_rate = scadenze_aperte_qs.aggregate(
-            incassi_tot_rate=Coalesce(Sum('importo_rata', filter=Q(tipo_scadenza='Incasso')), Value(0), output_field=models.DecimalField()),
-            incassi_scaduti_rate=Coalesce(Sum('importo_rata', filter=Q(tipo_scadenza='Incasso', data_scadenza__lt=today)), Value(0), output_field=models.DecimalField()),
-            pagamenti_tot_rate=Coalesce(Sum('importo_rata', filter=Q(tipo_scadenza='Pagamento')), Value(0), output_field=models.DecimalField()),
-            pagamenti_scaduti_rate=Coalesce(Sum('importo_rata', filter=Q(tipo_scadenza='Pagamento', data_scadenza__lt=today)), Value(0), output_field=models.DecimalField()),
+            incassi_tot_rate=Coalesce(Sum('importo_rata', filter=Q(tipo_scadenza='Incasso')), Value(0), output_field=DecimalField()),
+            pagamenti_tot_rate=Coalesce(Sum('importo_rata', filter=Q(tipo_scadenza='Pagamento')), Value(0), output_field=DecimalField()),
         )
         
         kpi_pagamenti = PrimaNota.objects.filter(scadenza_collegata__in=scadenze_aperte_qs).aggregate(
-            incassi_pagati=Coalesce(Sum('importo', filter=Q(scadenza_collegata__tipo_scadenza='Incasso')), Value(0), output_field=models.DecimalField()),
-            incassi_scaduti_pagati=Coalesce(Sum('importo', filter=Q(scadenza_collegata__tipo_scadenza='Incasso', scadenza_collegata__data_scadenza__lt=today)), Value(0), output_field=models.DecimalField()),
-            pagamenti_pagati=Coalesce(Sum('importo', filter=Q(scadenza_collegata__tipo_scadenza='Pagamento')), Value(0), output_field=models.DecimalField()),
-            pagamenti_scaduti_pagati=Coalesce(Sum('importo', filter=Q(scadenza_collegata__tipo_scadenza='Pagamento', scadenza_collegata__data_scadenza__lt=today)), Value(0), output_field=models.DecimalField()),
+            incassi_pagati=Coalesce(Sum('importo', filter=Q(scadenza_collegata__tipo_scadenza='Incasso')), Value(0), output_field=DecimalField()),
+            pagamenti_pagati=Coalesce(Sum('importo', filter=Q(scadenza_collegata__tipo_scadenza='Pagamento')), Value(0), output_field=DecimalField()),
         )
 
         incassi_aperti = kpi_rate['incassi_tot_rate'] - kpi_pagamenti['incassi_pagati']
-        incassi_scaduti = kpi_rate['incassi_scaduti_rate'] - kpi_pagamenti['incassi_scaduti_pagati']
-        pagamenti_aperti = kpi_rate['pagamenti_tot_rate'] - kpi_pagamenti['pagamenti_pagati']
-        pagamenti_scaduti = kpi_rate['pagamenti_scaduti_rate'] - kpi_pagamenti['pagamenti_scaduti_pagati']
+        debiti_aperti = kpi_rate['pagamenti_tot_rate'] - kpi_pagamenti['pagamenti_pagati']
+
+        scaduti_agg = scadenze_aperte_qs.filter(data_scadenza__lt=today).annotate(
+            pagato=Coalesce(Sum('pagamenti__importo'), Decimal('0.00'))
+        ).aggregate(
+            crediti_scaduti=Coalesce(Sum(F('importo_rata') - F('pagato'), filter=Q(tipo_scadenza='Incasso')), Decimal('0.00')),
+            debiti_scaduti=Coalesce(Sum(F('importo_rata') - F('pagato'), filter=Q(tipo_scadenza='Pagamento')), Decimal('0.00')),
+        )
         
         conti_finanziari = ContoFinanziario.objects.filter(attivo=True).annotate(
-            saldo=Coalesce(Sum(Case(When(movimenti__tipo_movimento='E', then=F('movimenti__importo')), When(movimenti__tipo_movimento='U', then=-F('movimenti__importo')), default=Value(0), output_field=models.DecimalField())), Value(0), output_field=models.DecimalField())
+            saldo=Coalesce(Sum(Case(When(movimenti__tipo_movimento='E', then=F('movimenti__importo')), When(movimenti__tipo_movimento='U', then=-F('movimenti__importo')), default=Value(0), output_field=DecimalField())), Value(0), output_field=DecimalField())
         ).order_by('nome_conto')
         
         liquidita_totale = sum(c.saldo for c in conti_finanziari)
 
-        # Usiamo il queryset annotato per il residuo, che è più efficiente
-        trenta_giorni_da_oggi = today + timedelta(days=60)
+        # --- 2. NUOVI KPI: ECONOMICI E ANAGRAFICI ---
+
+        kpi_anagrafiche = Anagrafica.objects.aggregate(
+            clienti=Count('id', filter=Q(tipo=Anagrafica.Tipo.CLIENTE, attivo=True)),
+            fornitori=Count('id', filter=Q(tipo=Anagrafica.Tipo.FORNITORE, attivo=True)),
+            dipendenti=Count('id', filter=Q(tipo=Anagrafica.Tipo.DIPENDENTE, attivo=True))
+        )
+
+        fatturato_ytd_agg = DocumentoTestata.objects.filter(
+            data_documento__year=current_year,
+            stato=DocumentoTestata.Stato.CONFERMATO
+        ).aggregate(
+            fatture_vendita=Coalesce(Sum('totale', filter=Q(tipo_doc=DocumentoTestata.TipoDoc.FATTURA_VENDITA)), Decimal('0.00')),
+            note_credito_vendita=Coalesce(Sum('totale', filter=Q(tipo_doc=DocumentoTestata.TipoDoc.NOTA_CREDITO_VENDITA)), Decimal('0.00')),
+            fatture_acquisto=Coalesce(Sum('totale', filter=Q(tipo_doc=DocumentoTestata.TipoDoc.FATTURA_ACQUISTO)), Decimal('0.00')),
+            note_credito_acquisto=Coalesce(Sum('totale', filter=Q(tipo_doc=DocumentoTestata.TipoDoc.NOTA_CREDITO_ACQUISTO)), Decimal('0.00'))
+        )
+        fatturato_attivo = fatturato_ytd_agg['fatture_vendita'] - fatturato_ytd_agg['note_credito_vendita']
+        fatturato_passivo = fatturato_ytd_agg['fatture_acquisto'] - fatturato_ytd_agg['note_credito_acquisto']
+        fatturato_netto_ytd = fatturato_attivo - fatturato_passivo
+
+        cash_flow_ytd_agg = PrimaNota.objects.filter(
+            data_registrazione__year=current_year, 
+            conto_finanziario__isnull=False
+        ).aggregate(
+            entrate=Coalesce(Sum('importo', filter=Q(tipo_movimento='E')), Decimal('0.00')),
+            uscite=Coalesce(Sum('importo', filter=Q(tipo_movimento='U')), Decimal('0.00'))
+        )
+        cash_flow_ytd = cash_flow_ytd_agg['entrate'] - cash_flow_ytd_agg['uscite']
+
+        movimenti_economici_ytd = PrimaNota.objects.filter(
+            data_registrazione__year=current_year,
+            conto_operativo__isnull=False
+        ).aggregate(
+            ricavi=Coalesce(Sum('importo', filter=Q(conto_operativo__tipo=ContoOperativo.Tipo.RICAVO)), Decimal('0.00')),
+            costi=Coalesce(Sum('importo', filter=Q(conto_operativo__tipo=ContoOperativo.Tipo.COSTO)), Decimal('0.00'))
+        )
+        risultato_economico_ytd = movimenti_economici_ytd['ricavi'] - movimenti_economici_ytd['costi']
+
+        # --- 3. NUOVI KPI: OPERATIVI (Margine per Cantiere) ---
+        cantieri_con_margine = Cantiere.objects.filter(stato=Cantiere.Stato.APERTO).annotate(
+            ricavi_totali=Coalesce(Sum('movimenti_primanota__importo', filter=Q(movimenti_primanota__conto_operativo__tipo=ContoOperativo.Tipo.RICAVO)), Decimal('0.00')),
+            costi_totali=Coalesce(Sum('movimenti_primanota__importo', filter=Q(movimenti_primanota__conto_operativo__tipo=ContoOperativo.Tipo.COSTO)), Decimal('0.00'))
+        ).annotate(
+            margine=F('ricavi_totali') - F('costi_totali')
+        ).order_by('-margine')
+
+        # --- 4. WIDGET ESISTENTI (Scadenze e Riepilogo HR) ---
+        sessanta_giorni_da_oggi = today + timedelta(days=60)
         scadenze_imminenti = scadenze_aperte_qs.filter(
             data_scadenza__gte=today,
-            data_scadenza__lte=trenta_giorni_da_oggi
+            data_scadenza__lte=sessanta_giorni_da_oggi
         ).annotate(
-            pagato=Coalesce(Sum('pagamenti__importo'), Value(0), output_field=models.DecimalField()),
+            pagato=Coalesce(Sum('pagamenti__importo'), Value(0), output_field=DecimalField()),
             residuo=F('importo_rata') - F('pagato')
-        ).order_by('data_scadenza')[:5] # Aggiungiamo un ordinamento esplicito
+        ).filter(residuo__gt=0).order_by('data_scadenza')[:5]
 
         dipendenti_presenti = DiarioAttivita.objects.filter(data=today, stato_presenza=DiarioAttivita.StatoPresenza.PRESENTE).count()
-        totale_dipendenti_attivi = Anagrafica.objects.filter(tipo=Anagrafica.Tipo.DIPENDENTE, attivo=True).count()
+        totale_dipendenti_attivi = kpi_anagrafiche['dipendenti']
         cantieri_attivi = Cantiere.objects.filter(stato=Cantiere.Stato.APERTO).count()
         
+        # --- 5. COSTRUZIONE DEL CONTESTO PER IL TEMPLATE ---
         context = {
             'kpi_finanziari': {
                 'crediti_clienti': incassi_aperti,
-                'crediti_scaduti': incassi_scaduti,
-                'debiti_fornitori': pagamenti_aperti,
-                'debiti_scaduti': pagamenti_scaduti,
+                'crediti_scaduti': scaduti_agg['crediti_scaduti'],
+                'debiti_fornitori': debiti_aperti,
+                'debiti_scaduti': scaduti_agg['debiti_scaduti'],
                 'liquidita_totale': liquidita_totale,
-                'saldo_netto': incassi_aperti - pagamenti_aperti,
+                'saldo_netto': incassi_aperti - debiti_aperti,
             },
+            'kpi_economici_e_anagrafici': {
+                'anagrafiche': kpi_anagrafiche,
+                'fatturato_netto_ytd': fatturato_netto_ytd,
+                'cash_flow_ytd': cash_flow_ytd,
+                'risultato_economico_ytd': risultato_economico_ytd,
+            },
+            'cantieri_con_margine': cantieri_con_margine,
             'conti_finanziari': conti_finanziari,
             'scadenze_imminenti': scadenze_imminenti,
             'kpi_operativi': {
                 'dipendenti_presenti': dipendenti_presenti,
                 'totale_dipendenti': totale_dipendenti_attivi,
                 'cantieri_attivi': cantieri_attivi,
-                'note_spese_pendenti': 0,
+                'note_spese_pendenti': 0, # Placeholder
             }
         }
         
         return render(request, self.template_name, context)
-    
+
+
 # ==============================================================================
 # === EXPORT TABELLE DI SISTEMA                                              ===
 # ==============================================================================

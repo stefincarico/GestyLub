@@ -1,29 +1,50 @@
-<!-- gestionale/templates/gestionale/anagrafica_list.html -->
+{% extends "gestionale/base.html" %}
+{% block title %}Elenco Anagrafiche{% endblock %}
 
-{% extends "gestionale/base.html" %} <!-- 1. Estendiamo un template base -->
-
-{% block title %}Elenco Anagrafiche{% endblock %} <!-- 2. Definiamo il titolo della pagina -->
-
-{% block content %} <!-- 3. Iniziamo il blocco del contenuto principale -->
+{% block content %}
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1 class="h2">Elenco Anagrafiche</h1>
-    <div> <!-- NUOVO DIV PER PULSANTI -->
+    <div>
         {% if request.session.user_company_role != 'visualizzatore' %}
         <a href="{% url 'anagrafica_create' %}" class="btn btn-primary ms-2">
             + Nuova Anagrafica
         </a>
         {% endif %}
-        <a href="{% url 'anagrafica_list_export_excel' %}" class="btn" style="background-color: #185C37; color: white;">Esporta Excel</a>
-        <a href="{% url 'anagrafica_list_export_pdf' %}" class="btn" style="background-color: #FF9900; color: white;">Esporta PDF</a>
-
+        <!-- MODIFICA: Aggiungiamo i parametri di filtro agli URL di export -->
+        <a href="{% url 'anagrafica_list_export_excel' %}?{{ request.GET.urlencode }}" class="btn" style="background-color: #185C37; color: white;">Esporta Excel</a>
+        <a href="{% url 'anagrafica_list_export_pdf' %}?{{ request.GET.urlencode }}" class="btn" style="background-color: #FF9900; color: white;">Esporta PDF</a>
     </div>
 </div>
 
-<div class="card">
+<!-- NUOVA SEZIONE FILTRI -->
+<div class="card shadow-sm mb-4">
     <div class="card-body">
+        <h5 class="card-title">Filtri di Ricerca</h5>
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-5">
+                {{ filter_form.q.label_tag }}
+                {{ filter_form.q }}
+            </div>
+            <div class="col-md-3">
+                {{ filter_form.tipo.label_tag }}
+                {{ filter_form.tipo }}
+            </div>
+            <div class="col-md-2">
+                {{ filter_form.attivo.label_tag }}
+                {{ filter_form.attivo }}
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">Filtra</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table table-hover">
+            <table class="table table-hover mb-0">
                 <thead>
                     <tr>
                         <th>Codice</th>
@@ -32,7 +53,7 @@
                         <th>P. IVA</th>
                         <th>Città</th>
                         <th>Stato</th>
-                        <th>Azioni</th>
+                        <th class="text-end">Azioni</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -40,7 +61,6 @@
                     <tr>
                         <td>{{ anagrafica.codice }}</td>
                         <td>
-                        <!-- LINK DINAMICO -->
                         {% if anagrafica.tipo == 'Dipendente' %}
                             <a href="{% url 'dipendente_detail' anagrafica.pk %}">{{ anagrafica.nome_cognome_ragione_sociale }}</a>
                         {% else %}
@@ -57,52 +77,35 @@
                                 <span class="badge bg-danger">Non Attivo</span>
                             {% endif %}
                         </td>
-                        <td>
-                            <!-- 1. Pulsante "Modifica" -->
-                            <!-- Visibile a tutti tranne ai 'visualizzatore' -->
+                        <td class="text-end">
                             {% if request.session.user_company_role != 'visualizzatore' %}
                                 <a href="{% url 'anagrafica_update' anagrafica.pk %}" class="btn btn-sm btn-outline-primary">Modifica</a>
                             {% endif %}
-
-                            <!-- 2. Pulsante "Attiva/Disattiva" -->
-                            <!-- Visibile SOLO agli 'admin' -->
                             {% if request.session.user_company_role == 'admin' %}
-                                
-                                <!-- Spiegazione del Form:
-                                    L'azione di attivare/disattivare modifica i dati. Per sicurezza, le azioni
-                                    che modificano dati dovrebbero sempre essere fatte con una richiesta POST, non GET.
-                                    Un link <a> fa una richiesta GET. Un <form> con un <button type="submit">
-                                    fa una richiesta POST.
-                                    Quindi, creiamo un piccolo form invisibile per ogni riga che contiene solo
-                                    un pulsante.
-                                -->
                                 <form action="{% url 'anagrafica_toggle_attivo' anagrafica.pk %}" method="post" class="d-inline">
-                                    
-                                    <!-- Token di sicurezza obbligatorio per i form POST in Django -->
                                     {% csrf_token %}
-                                    
-                                    <!-- Mostriamo un pulsante diverso a seconda dello stato attuale -->
                                     {% if anagrafica.attivo %}
                                         <button type="submit" class="btn btn-sm btn-outline-danger">Disattiva</button>
                                     {% else %}
                                         <button type="submit" class="btn btn-sm btn-outline-success">Riattiva</button>
                                     {% endif %}
                                 </form>
-                            
                             {% endif %}
                         </td>
-
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="7" class="text-center">Nessuna anagrafica trovata.</td>
+                        <td colspan="7" class="text-center p-4">Nessuna anagrafica trovata con i filtri selezionati.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
+        
         <!-- Paginazione -->
-        {% include "gestionale/partials/_pagination.html" %}
+        {% if page_obj.has_other_pages %}
+            {% include "gestionale/partials/_pagination.html" %}
+        {% endif %}
     </div>
 </div>
 
