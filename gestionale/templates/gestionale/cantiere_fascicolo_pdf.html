@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+{% load currency_filters %}
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ report_title }} - {{ cantiere.codice_cantiere }}</title>
+    <style>
+        @page { size: A4; margin: 1.5cm; }
+        body { font-family: 'Helvetica', sans-serif; font-size: 9pt; }
+        h1, h2 { color: #333; }
+        h1 { font-size: 18pt; text-align: center; }
+        h2 { font-size: 14pt; border-bottom: 2px solid #ccc; padding-bottom: 5px; margin-top: 25px; }
+        .header-info { text-align: center; font-size: 8pt; color: #555; margin-bottom: 20px; }
+        .cantiere-details { border: 1px solid #ccc; padding: 10px; border-radius: 5px; background-color: #f9f9f9; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; page-break-inside: auto; }
+        tr { page-break-inside: avoid; page-break-after: auto; }
+        th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
+        th { background-color: #f2f2f2; font-weight: bold; }
+        .text-right { text-align: right; }
+        .text-success { color: green; }
+        .text-danger { color: red; }
+    </style>
+</head>
+<body>
+    <h1>{{ report_title }}</h1>
+    <div class="header-info">
+        <p><strong>Cantiere:</strong> {{ cantiere.codice_cantiere }} - {{ cantiere.descrizione }}</p>
+        <p><strong>Filtri Applicati:</strong> {{ filtri_str }} | <strong>Generato il:</strong> {{ timestamp }}</p>
+    </div>
+
+    <!-- Sezioni del report -->
+    <h2>Personale Assegnato</h2>
+    <table><thead><tr><th>Data</th><th>Dipendente</th><th>Stato</th><th class="text-right">Ore Ord.</th><th class="text-right">Ore Str.</th></tr></thead><tbody>
+        {% for d in dipendenti_assegnati %}<tr><td>{{ d.data|date:"d/m/Y" }}</td><td>{{ d.dipendente.nome_cognome_ragione_sociale }}</td><td>{{ d.get_stato_presenza_display|default_if_none:"Pianificato" }}</td><td class="text-right">{{ d.ore_ordinarie }}</td><td class="text-right">{{ d.ore_straordinarie }}</td></tr>{% endfor %}
+    </tbody></table>
+
+    <h2>Documenti Associati</h2>
+    <table><thead><tr><th>Data</th><th>Tipo</th><th>Numero</th><th>Anagrafica</th><th class="text-right">Totale</th></tr></thead><tbody>
+        {% for d in documenti_associati %}<tr><td>{{ d.data_documento|date:"d/m/Y" }}</td><td>{{ d.get_tipo_doc_display }}</td><td>{{ d.numero_documento }}</td><td>{{ d.anagrafica.nome_cognome_ragione_sociale }}</td><td class="text-right">€ {{ d.totale|format_currency }}</td></tr>{% endfor %}
+    </tbody></table>
+
+    <h2>Movimenti di Prima Nota</h2>
+    <table><thead><tr><th>Data</th><th>Descrizione</th><th>Causale</th><th class="text-right">Importo</th></tr></thead><tbody>
+        {% for m in movimenti_associati %}<tr><td>{{ m.data_registrazione|date:"d/m/Y" }}</td><td>{{ m.descrizione }}</td><td>{{ m.causale.descrizione }}</td><td class="text-right {% if m.tipo_movimento == 'E' %}text-success{% else %}text-danger{% endif %}">€ {{ m.importo|format_currency }}</td></tr>{% endfor %}
+    </tbody></table>
+</body>
+</html>

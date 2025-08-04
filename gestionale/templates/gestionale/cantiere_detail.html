@@ -1,0 +1,101 @@
+{% extends "gestionale/base.html" %}
+{% load currency_filters %}
+{% block title %}Fascicolo: {{ cantiere.codice_cantiere }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h2">Fascicolo Cantiere: {{ cantiere.codice_cantiere }}</h1>
+    <div>
+        <a href="{% url 'cantiere_fascicolo_export_excel' cantiere.pk %}?{{ request.GET.urlencode }}" class="btn" style="background-color: #185C37; color: white;">Esporta Excel</a>
+        <a href="{% url 'cantiere_fascicolo_export_pdf' cantiere.pk %}?{{ request.GET.urlencode }}" class="btn" style="background-color: #FF9900; color: white;">Esporta PDF</a>
+        <a href="{% url 'dashboard_hr' %}" class="btn btn-secondary ms-2">Torna al Planning</a>
+    </div>
+</div>
+
+<!-- Testata Dati Cantiere -->
+<div class="card mb-4">
+    <div class="card-header fw-bold">Dati Cantiere</div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-8"><p><strong>Descrizione:</strong> {{ cantiere.descrizione }}</p></div>
+            <div class="col-md-4"><p><strong>Stato:</strong> <span class="badge bg-success">{{ cantiere.get_stato_display }}</span></p></div>
+            <div class="col-md-8"><p><strong>Indirizzo:</strong> {{ cantiere.indirizzo|default_if_none:"N/D" }}</p></div>
+            <div class="col-md-4"><p><strong>Cliente:</strong> {{ cantiere.cliente.nome_cognome_ragione_sociale }}</p></div>
+            <div class="col-md-4"><p><strong>Data Inizio:</strong> {{ cantiere.data_inizio|date:"d/m/Y" }}</p></div>
+            <div class="col-md-4"><p><strong>Data Fine Prevista:</strong> {{ cantiere.data_fine_prevista|date:"d/m/Y" }}</p></div>
+        </div>
+    </div>
+</div>
+
+<!-- Filtri di Data -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" action=""><div class="row g-3 align-items-end">
+            <div class="col-md-4"><label for="{{ filter_form.data_da.id_for_label }}" class="form-label">{{ filter_form.data_da.label }}</label>{{ filter_form.data_da }}</div>
+            <div class="col-md-4"><label for="{{ filter_form.data_a.id_for_label }}" class="form-label">{{ filter_form.data_a.label }}</label>{{ filter_form.data_a }}</div>
+            <div class="col-md-4 d-flex"><button type="submit" class="btn btn-primary w-100 me-2">Filtra</button><a href="{% url 'cantiere_detail' cantiere.pk %}" class="btn btn-secondary w-100">Reset</a></div>
+        </div></form>
+    </div>
+</div>
+
+<!-- Sezione Personale Assegnato -->
+<div class="card mb-4">
+    <div class="card-header">Personale Assegnato</div>
+    <div class="card-body p-0"><div class="table-responsive"><table class="table table-striped mb-0">
+        <thead><tr><th>Data</th><th>Dipendente</th><th>Stato</th><th>Ore Ord.</th><th>Ore Str.</th></tr></thead>
+        <tbody>
+            {% for d in dipendenti_assegnati %}
+            <tr><td>{{ d.data|date:"d/m/Y" }}</td><td>{{ d.dipendente.nome_cognome_ragione_sociale }}</td><td>{{ d.get_stato_presenza_display|default_if_none:"Pianificato" }}</td><td>{{ d.ore_ordinarie }}</td><td>{{ d.ore_straordinarie }}</td></tr>
+            {% empty %}<tr><td colspan="5" class="text-center">Nessun dipendente assegnato nel periodo.</td></tr>{% endfor %}
+        </tbody>
+    </table></div></div>
+    {% with page_obj=dipendenti_assegnati %}{% if page_obj.has_other_pages %}<div class="card-footer bg-light">
+        <ul class="pagination justify-content-center mb-0">
+            <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}"><a class="page-link" href="?pagina_dipendenti={{ page_obj.previous_page_number }}&{{ request.GET.urlencode|cut:'pagina_dipendenti' }}">Prec.</a></li>
+            <li class="page-item active"><span class="page-link">Pagina {{ page_obj.number }} di {{ page_obj.paginator.num_pages }}</span></li>
+            <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}"><a class="page-link" href="?pagina_dipendenti={{ page_obj.next_page_number }}&{{ request.GET.urlencode|cut:'pagina_dipendenti' }}">Succ.</a></li>
+        </ul>
+    </div>{% endif %}{% endwith %}
+</div>
+
+<!-- Sezione Documenti Associati -->
+<div class="card mb-4">
+    <div class="card-header">Documenti Associati</div>
+    <div class="card-body p-0"><div class="table-responsive"><table class="table table-striped mb-0">
+        <thead><tr><th>Data</th><th>Tipo</th><th>Numero</th><th>Anagrafica</th><th class="text-end">Totale</th></tr></thead>
+        <tbody>
+            {% for d in documenti_associati %}
+            <tr><td>{{ d.data_documento|date:"d/m/Y" }}</td><td>{{ d.get_tipo_doc_display }}</td><td><a href="{{ d.get_absolute_url }}">{{ d.numero_documento }}</a></td><td>{{ d.anagrafica.nome_cognome_ragione_sociale }}</td><td class="text-end">€ {{ d.totale|format_currency }}</td></tr>
+            {% empty %}<tr><td colspan="5" class="text-center">Nessun documento associato nel periodo.</td></tr>{% endfor %}
+        </tbody>
+    </table></div></div>
+    {% with page_obj=documenti_associati %}{% if page_obj.has_other_pages %}<div class="card-footer bg-light">
+        <ul class="pagination justify-content-center mb-0">
+            <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}"><a class="page-link" href="?pagina_documenti={{ page_obj.previous_page_number }}&{{ request.GET.urlencode|cut:'pagina_documenti' }}">Prec.</a></li>
+            <li class="page-item active"><span class="page-link">Pagina {{ page_obj.number }} di {{ page_obj.paginator.num_pages }}</span></li>
+            <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}"><a class="page-link" href="?pagina_documenti={{ page_obj.next_page_number }}&{{ request.GET.urlencode|cut:'pagina_documenti' }}">Succ.</a></li>
+        </ul>
+    </div>{% endif %}{% endwith %}
+</div>
+
+<!-- Sezione Movimenti Associati -->
+<div class="card">
+    <div class="card-header">Movimenti di Prima Nota Associati</div>
+    <div class="card-body p-0"><div class="table-responsive"><table class="table table-striped mb-0">
+        <thead><tr><th>Data</th><th>Descrizione</th><th>Causale</th><th class="text-end">Importo</th></tr></thead>
+        <tbody>
+            {% for m in movimenti_associati %}
+            <tr><td>{{ m.data_registrazione|date:"d/m/Y" }}</td><td>{{ m.descrizione }}</td><td>{{ m.causale.descrizione }}</td><td class="text-end {% if m.tipo_movimento == 'E' %}text-success{% else %}text-danger{% endif %}">€ {{ m.importo|format_currency }}</td></tr>
+            {% empty %}<tr><td colspan="4" class="text-center">Nessun movimento associato nel periodo.</td></tr>{% endfor %}
+        </tbody>
+    </table></div></div>
+    {% with page_obj=movimenti_associati %}{% if page_obj.has_other_pages %}<div class="card-footer bg-light">
+        <ul class="pagination justify-content-center mb-0">
+            <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}"><a class="page-link" href="?pagina_movimenti={{ page_obj.previous_page_number }}&{{ request.GET.urlencode|cut:'pagina_movimenti' }}">Prec.</a></li>
+            <li class="page-item active"><span class="page-link">Pagina {{ page_obj.number }} di {{ page_obj.paginator.num_pages }}</span></li>
+            <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}"><a class="page-link" href="?pagina_movimenti={{ page_obj.next_page_number }}&{{ request.GET.urlencode|cut:'pagina_movimenti' }}">Succ.</a></li>
+        </ul>
+    </div>{% endif %}{% endwith %}
+</div>
+
+{% endblock %}

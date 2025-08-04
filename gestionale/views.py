@@ -43,7 +43,7 @@ from .forms import (
     DocumentoFilterForm, DocumentoRigaForm, DocumentoTestataForm, MezzoAziendaleForm, ModalitaPagamentoForm,
     PagamentoForm, PartitarioFilterForm, PrimaNotaFilterForm, PrimaNotaForm, ScadenzaPersonaleForm,
     ScadenzarioFilterForm, ScadenzaWizardForm,PrimaNotaUpdateForm,PagamentoUpdateForm, TipoScadenzaPersonaleForm, CantiereForm,
-    AnagraficaFilterForm
+    AnagraficaFilterForm, FascicoloCantiereFilterForm
 )
 from .models import (
     AliquotaIVA, Anagrafica, Cantiere, Causale, ContoFinanziario,
@@ -52,6 +52,7 @@ from .models import (
 )
 from .report_utils import build_filters_string, generate_excel_report, generate_pdf_report
 from tenants.models import Company
+from .templatetags import currency_filters
 
 # ==============================================================================
 # === MIXINS E FUNZIONI HELPER GLOBALI                                      ===
@@ -1713,12 +1714,10 @@ class PrimaNotaListView(TenantRequiredMixin, RoleRequiredMixin, View):
         """
         filter_form = PrimaNotaFilterForm(request.GET or None)
         
-        # Queryset di base con ottimizzazione select_related
         movimenti_qs = PrimaNota.objects.select_related(
             'conto_finanziario', 'causale', 'anagrafica', 'cantiere'
         ).order_by('-data_registrazione', '-pk')
 
-        # Applica i filtri se il form è valido
         if filter_form.is_valid():
             cleaned_data = filter_form.cleaned_data
             if cleaned_data.get('descrizione'):
@@ -1732,6 +1731,14 @@ class PrimaNotaListView(TenantRequiredMixin, RoleRequiredMixin, View):
             if cleaned_data.get('data_a'):
                 movimenti_qs = movimenti_qs.filter(data_registrazione__lte=cleaned_data['data_a'])
         
+        # === INIZIO MODIFICA ===
+        # Aggiungiamo il filtro per cantiere, che non fa parte del form
+        # ma può essere passato come parametro GET da altre parti dell'applicazione.
+        cantiere_id = request.GET.get('cantiere')
+        if cantiere_id:
+            movimenti_qs = movimenti_qs.filter(cantiere_id=cantiere_id)
+        # === FINE MODIFICA ===
+
         return movimenti_qs, filter_form
 
     def get(self, request, *args, **kwargs):
@@ -1740,12 +1747,10 @@ class PrimaNotaListView(TenantRequiredMixin, RoleRequiredMixin, View):
         """
         movimenti_qs, filter_form = self._get_filtered_data(request)
         
-        # Paginazione
         paginator = Paginator(movimenti_qs, self.paginate_by)
         page_number = request.GET.get('page')
         page_obj = paginator.get_page(page_number)
         
-        # Contesto per il template
         context = {
             'movimenti': page_obj,
             'is_paginated': page_obj.has_other_pages(),
@@ -3199,3 +3204,125 @@ class SuperAdminRequiredMixin(AccessMixin):
             return redirect(reverse('tenant_selection')) 
         return super().dispatch(request, *args, **kwargs)
     
+
+# ==============================================================================
+# === VISTE FASCICOLO CANTIERE (DETAIL + EXPORTS)                          ===
+# ==============================================================================
+
+class CantiereDetailView(TenantRequiredMixin, RoleRequiredMixin, View):
+    allowed_roles = ['admin', 'contabile', 'visualizzatore']
+    """
+    Gestisce la visualizzazione del Fascicolo Cantiere e contiene la logica
+    di recupero dati riutilizzata dagli export.
+    """
+    template_name = 'gestionale/cantiere_detail.html'
+
+    def _get_fascicolo_data(self, request, cantiere_pk):
+        """
+        Metodo helper che recupera e filtra TUTTI i dati per il fascicolo.
+        """
+        cantiere = get_object_or_404(Cantiere, pk=cantiere_pk)
+        filter_form = FascicoloCantiereFilterForm(request.GET or None)
+
+        # Queryset di base
+        dipendenti_qs = DiarioAttivita.objects.filter(cantiere_pianificato=cantiere).select_related('dipendente').order_by('-data')
+        documenti_qs = DocumentoTestata.objects.filter(cantiere=cantiere, stato=DocumentoTestata.Stato.CONFERMATO).order_by('-data_documento')
+        movimenti_qs = PrimaNota.objects.filter(cantiere=cantiere).select_related('conto_finanziario').order_by('-data_registrazione')
+
+        if filter_form.is_valid():
+            data_da = filter_form.cleaned_data.get('data_da')
+            data_a = filter_form.cleaned_data.get('data_a')
+            if data_da:
+                dipendenti_qs = dipendenti_qs.filter(data__gte=data_da)
+                documenti_qs = documenti_qs.filter(data_documento__gte=data_da)
+                movimenti_qs = movimenti_qs.filter(data_registrazione__gte=data_da)
+            if data_a:
+                dipendenti_qs = dipendenti_qs.filter(data__lte=data_a)
+                documenti_qs = documenti_qs.filter(data_documento__lte=data_a)
+                movimenti_qs = movimenti_qs.filter(data_registrazione__lte=data_a)
+        
+        return {
+            "cantiere": cantiere,
+            "filter_form": filter_form,
+            "dipendenti_assegnati": dipendenti_qs,
+            "documenti_associati": documenti_qs,
+            "movimenti_associati": movimenti_qs,
+        }
+
+    def get(self, request, *args, **kwargs):
+        """Metodo per la visualizzazione della pagina HTML."""
+        fascicolo_data = self._get_fascicolo_data(request, kwargs['pk'])
+        context = {}
+        context.update(fascicolo_data)
+
+        # Paginazione per i dipendenti
+        paginator_dip = Paginator(fascicolo_data['dipendenti_assegnati'], 10)
+        page_dip = request.GET.get('pagina_dipendenti', 1)
+        context['dipendenti_assegnati'] = paginator_dip.get_page(page_dip)
+
+        # Paginazione per i documenti
+        paginator_doc = Paginator(fascicolo_data['documenti_associati'], 10)
+        page_doc = request.GET.get('pagina_documenti', 1)
+        context['documenti_associati'] = paginator_doc.get_page(page_doc)
+
+        # Paginazione per i movimenti
+        paginator_mov = Paginator(fascicolo_data['movimenti_associati'], 10)
+        page_mov = request.GET.get('pagina_movimenti', 1)
+        context['movimenti_associati'] = paginator_mov.get_page(page_mov)
+
+        return render(request, self.template_name, context)
+
+class CantiereFascicoloExportExcelView(CantiereDetailView):
+    allowed_roles = ['admin', 'contabile', 'visualizzatore']
+    """
+    Esporta il fascicolo cantiere filtrato in formato Excel.
+    Eredita da CantiereDetailView per riutilizzare _get_fascicolo_data.
+    """
+    def get(self, request, *args, **kwargs):
+        fascicolo_data = self._get_fascicolo_data(request, kwargs['pk'])
+        cantiere = fascicolo_data['cantiere']
+
+        tenant_name = request.session.get('active_tenant_name', 'N/A')
+        report_title = f"Fascicolo Cantiere: {cantiere.codice_cantiere}"
+        safe_cantiere_name = "".join(c for c in cantiere.codice_cantiere if c.isalnum()).rstrip()
+        filename_prefix = f"Fascicolo_{safe_cantiere_name}"
+        filtri_str = build_filters_string(fascicolo_data['filter_form'])
+
+        report_sections = []
+
+        # Sezione 1: Dipendenti
+        dip_headers = ["Data", "Dipendente", "Stato", "Ore Ordinarie", "Ore Straordinarie"]
+        dip_rows = [[d.data, d.dipendente.nome_cognome_ragione_sociale, d.get_stato_presenza_display(), d.ore_ordinarie, d.ore_straordinarie] for d in fascicolo_data['dipendenti_assegnati']]
+        report_sections.append({'title': 'Personale Assegnato', 'headers': dip_headers, 'rows': dip_rows})
+
+        # Sezione 2: Documenti
+        doc_headers = ["Data", "Tipo", "Numero", "Anagrafica", "Totale"]
+        doc_rows = [[d.data_documento, d.get_tipo_doc_display(), d.numero_documento, d.anagrafica.nome_cognome_ragione_sociale, d.totale] for d in fascicolo_data['documenti_associati']]
+        report_sections.append({'title': 'Documenti Associati', 'headers': doc_headers, 'rows': doc_rows})
+
+        # Sezione 3: Movimenti
+        mov_headers = ["Data", "Descrizione", "Importo", "Conto", "Causale"]
+        mov_rows = [[m.data_registrazione, m.descrizione, m.importo * (1 if m.tipo_movimento == 'E' else -1), m.conto_finanziario.nome_conto, m.causale.descrizione] for m in fascicolo_data['movimenti_associati']]
+        report_sections.append({'title': 'Movimenti di Prima Nota Associati', 'headers': mov_headers, 'rows': mov_rows})
+
+        return generate_excel_report(tenant_name, report_title, filtri_str, None, report_sections, filename_prefix)
+
+class CantiereFascicoloExportPdfView(CantiereDetailView):
+    allowed_roles = ['admin', 'contabile', 'visualizzatore']
+    """
+    Esporta il fascicolo cantiere filtrato in formato PDF.
+    """
+    def get(self, request, *args, **kwargs):
+        fascicolo_data = self._get_fascicolo_data(request, kwargs['pk'])
+        cantiere = fascicolo_data['cantiere']
+        filtri_str = build_filters_string(fascicolo_data['filter_form'])
+        
+        context = {
+            'tenant_name': request.session.get('active_tenant_name', 'N/A'),
+            'report_title': f"Fascicolo Cantiere",
+            'timestamp': timezone.now().strftime('%d/%m/%Y %H:%M:%S'),
+            'filtri_str': filtri_str,
+            **fascicolo_data
+        }
+        
+        return generate_pdf_report(request, 'gestionale/cantiere_fascicolo_pdf.html', context)

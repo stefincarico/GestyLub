@@ -29,9 +29,9 @@
     </div>
 </div>
 
-<!-- SEZIONE GESTIONE CANTIERI (invariata) -->
+<!-- SEZIONE GESTIONE CANTIERI  -->
 <div class="card mb-4">
-    <!-- ... contenuto della card gestione cantieri ... (lasciato invariato) -->
+    <!-- ... contenuto della card gestione cantieri ...  -->
     <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0">Gestione Cantieri</h5>
         <div class="d-flex align-items-center">
@@ -56,8 +56,11 @@
                 <thead><tr><th>Nome</th><th>Indirizzo</th><th>Stato</th><th>Data Inizio</th><th>Data Fine Prev.</th><th>Azioni</th></tr></thead>
                 <tbody>
                     {% for cantiere in cantieri %}
-                    <tr>
-                        <td><strong>{{ cantiere.codice_cantiere }}</strong><br><small>{{ cantiere.descrizione }}</small></td>
+                    <td>
+                        <!-- MODIFICA QUI -->
+                        <strong><a href="{% url 'cantiere_detail' cantiere.pk %}">{{ cantiere.codice_cantiere }}</a></strong>
+                        <br><small>{{ cantiere.descrizione }}</small>
+                    </td>
                         <td>{{ cantiere.indirizzo|default_if_none:"" }}</td>
                         <td><span class="badge {% if cantiere.stato == 'Aperto' %}bg-success{% elif cantiere.stato == 'Chiuso' %}bg-secondary{% else %}bg-warning text-dark{% endif %}">{{ cantiere.get_stato_display }}</span></td>
                         <td>{{ cantiere.data_inizio|date:"d/m/Y"|default_if_none:"" }}</td>

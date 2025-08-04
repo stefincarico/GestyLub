@@ -854,3 +854,18 @@ class CantiereForm(forms.ModelForm):
         data = self.cleaned_data.get('indirizzo')
         return data.upper() if data else data
 
+class FascicoloCantiereFilterForm(forms.Form):
+    """
+    Form per i filtri di data del Fascicolo Cantiere.
+    """
+    data_da = forms.DateField(
+        required=False,
+        label="Dal",
+        widget=forms.DateInput(attrs={'class': 'form-control', 'type': 'date'})
+    )
+    data_a = forms.DateField(
+        required=False,
+        label="Al",
+        widget=forms.DateInput(attrs={'class': 'form-control', 'type': 'date'})
+    )
+

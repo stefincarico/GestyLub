@@ -153,7 +153,7 @@
                         <tbody>
                             {% for cantiere in cantieri_con_margine %}
                             <tr>
-                                <td><a href="{% url 'primanota_list' %}?cantiere={{ cantiere.pk }}">{{ cantiere.codice_cantiere|truncatechars:25 }}</a></td>
+                                <td><a href="{% url 'cantiere_detail' cantiere.pk %}">{{ cantiere.codice_cantiere|truncatechars:25 }}</a></td>
                                 <td class="text-end text-success">{{ cantiere.ricavi_totali|format_currency }}</td>
                                 <td class="text-end text-danger">{{ cantiere.costi_totali|format_currency }}</td>
                                 <td class="text-end fw-bold {% if cantiere.margine < 0 %}text-danger{% else %}text-success{% endif %}">
