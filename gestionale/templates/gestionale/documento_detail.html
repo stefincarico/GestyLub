@@ -48,7 +48,11 @@
         </div>
     </div>
     <hr>
-    <h4 class="text-end text-danger">SALDO RESIDUO: € {{ saldo_residuo|floatformat:2 }}</h4>
+        {% if saldo_residuo|floatformat:2 != "0.00" and saldo_residuo > 0.1 %}
+         <h4 class="text-left text-danger">SALDO RESIDUO documento: € {{ saldo_residuo|floatformat:2 }}</h4>
+        {% else %}
+            <h4 class="text-left fw-bold" style="color: green;">DOCUMENTO SALDATO</h4>
+        {% endif %}
 </div>
 </div>
 
