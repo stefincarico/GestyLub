@@ -1,0 +1,52 @@
+{% extends "gestionale/base.html" %}
+{% load currency_filters humanize %}
+{% block title %}Dashboard Analisi Dettagliata{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h1 class="h2 mb-0">Dashboard Analisi Dettagliata</h1>
+        <p class="text-muted">Analisi per il periodo: <strong>{{ data_da_corrente|date:"d/m/Y" }}</strong> - <strong>{{ data_a_corrente|date:"d/m/Y" }}</strong></p>
+    </div>
+    <a href="{% url 'dashboard' %}" class="btn btn-secondary">← Torna alla Dashboard Principale</a>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-4">{{ filter_form.data_da.label_tag }}{{ filter_form.data_da }}</div>
+            <div class="col-md-4">{{ filter_form.data_a.label_tag }}{{ filter_form.data_a }}</div>
+            <div class="col-md-4 d-flex">
+                <button type="submit" class="btn btn-primary w-100 me-2">Applica Filtri</button>
+                <a href="{% url 'dashboard_analisi' %}" class="btn btn-outline-secondary w-100">Reset</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="row">
+    <!-- PRIMA COLONNA -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm mb-4"><div class="card-body"><h5 class="card-title text-primary">DSO - Giorni Medi di Incasso</h5><p class="display-4 fw-bold {% if kpi.dso > 60 %}text-danger{% elif kpi.dso > 30 %}text-warning{% else %}text-success{% endif %}">{{ kpi.dso|floatformat:0 }} <span class="fs-5 text-muted">giorni</span></p><small class="text-muted">Efficienza nell'incassare i crediti nel periodo selezionato.</small></div></div>
+        <div class="card shadow-sm mb-4"><div class="card-body"><h5 class="card-title text-primary">Burn Rate Mensile</h5><p class="display-4 fw-bold text-danger">{{ kpi.burn_rate_mensile|format_currency }}</p><small class="text-muted">Costo operativo medio mensile calcolato sul periodo selezionato.</small></div></div>
+        <div class="card shadow-sm mb-4"><div class="card-body"><h5 class="card-title text-primary">Ricavi per Dipendente</h5><p class="display-4 fw-bold text-success">{{ kpi.ricavi_per_dipendente|format_currency }}</p><small class="text-muted">Produttività media nel generare fatturato nel periodo.</small></div></div>
+        <div class="card shadow-sm mb-4"><div class="card-body"><h5 class="card-title text-primary">Liquidità Totale</h5><p class="display-4 fw-bold {% if kpi.liquidita_totale < 0 %}text-danger{% endif %}">{{ kpi.liquidita_totale|format_currency }}</p><small class="text-muted">Saldo dei conti finanziari alla data finale del periodo.</small></div></div>
+        <!-- NUOVA CARD -->
+        <div class="card shadow-sm mb-4"><div class="card-body"><h5 class="card-title text-primary">Crediti vs Clienti</h5><p class="display-4 fw-bold text-success">{{ kpi.crediti_clienti|format_currency }}</p><small class="text-muted">Totale crediti aperti verso clienti alla data finale del periodo.</small></div></div>
+        <!-- NUOVA CARD -->
+        <div class="card shadow-sm mb-4"><div class="card-body"><h5 class="card-title text-primary">Risultato Economico</h5><p class="display-4 fw-bold {% if kpi.risultato_economico_periodo < 0 %}text-danger{% else %}text-success{% endif %}">{{ kpi.risultato_economico_periodo|format_currency }}</p><small class="text-muted">Differenza tra ricavi e costi operativi nel periodo.</small></div></div>
+    </div>
+
+    <!-- SECONDA COLONNA -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm mb-4"><div class="card-body"><h5 class="card-title text-primary">DPO - Giorni Medi di Pagamento</h5><p class="display-4 fw-bold {% if kpi.dpo > 90 %}text-success{% elif kpi.dpo > 120 %}text-warning{% else %}text-info{% endif %}">{{ kpi.dpo|floatformat:0 }} <span class="fs-5 text-muted">giorni</span></p><small class="text-muted">Tempo medio di pagamento dei fornitori nel periodo selezionato.</small></div></div>
+        <div class="card shadow-sm mb-4"><div class="card-body"><h5 class="card-title text-primary">Runway - Autonomia Finanziaria</h5><p class="display-4 fw-bold {% if kpi.runway_mesi < 3 %}text-danger{% elif kpi.runway_mesi < 6 %}text-warning{% else %}text-success{% endif %}">{% if kpi.runway_mesi > 99 %}∞{% else %}{{ kpi.runway_mesi|floatformat:1 }}{% endif %} <span class="fs-5 text-muted">mesi</span></p><small class="text-muted">Stima dei mesi di sopravvivenza con la liquidità alla data finale.</small></div></div>
+        <div class="card shadow-sm mb-4"><div class="card-body"><h5 class="card-title text-primary">Margine Lordo %</h5><p class="display-4 fw-bold {% if kpi.margine_lordo_perc < 10 %}text-danger{% else %}text-success{% endif %}">{{ kpi.margine_lordo_perc|floatformat:1 }}%</p><small class="text-muted">Percentuale di profitto dopo i costi diretti nel periodo.</small></div></div>
+        <div class="card shadow-sm mb-4"><div class="card-body"><h5 class="card-title text-primary">Posizione Finanziaria Netta</h5><p class="display-4 fw-bold {% if kpi.posizione_fin_netta < 0 %}text-danger{% endif %}">{{ kpi.posizione_fin_netta|format_currency }}</p><small class="text-muted">Crediti meno debiti aperti alla data finale del periodo.</small></div></div>
+        <!-- NUOVA CARD -->
+        <div class="card shadow-sm mb-4"><div class="card-body"><h5 class="card-title text-primary">Debiti vs Fornitori</h5><p class="display-4 fw-bold text-danger">{{ kpi.debiti_fornitori|format_currency }}</p><small class="text-muted">Totale debiti aperti verso fornitori alla data finale del periodo.</small></div></div>
+        <!-- NUOVA CARD -->
+        <div class="card shadow-sm mb-4"><div class="card-body"><h5 class="card-title text-primary">Anagrafiche Attive</h5><ul class="list-unstyled mt-3"><li class="d-flex justify-content-between fs-5"><span>Clienti:</span> <span class="fw-bold">{{ kpi.anagrafiche_attive.clienti }}</span></li><li class="d-flex justify-content-between fs-5"><span>Fornitori:</span> <span class="fw-bold">{{ kpi.anagrafiche_attive.fornitori }}</span></li><li class="d-flex justify-content-between fs-5"><span>Dipendenti:</span> <span class="fw-bold">{{ kpi.anagrafiche_attive.dipendenti }}</span></li></ul></div></div>
+    </div>
+</div>
+{% endblock %}

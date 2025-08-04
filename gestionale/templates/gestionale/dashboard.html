@@ -4,7 +4,12 @@
 {% block title %}Dashboard{% endblock %}
 
 {% block content %}
-<h1 class="h2 mb-4">Dashboard Riepilogativa</h1>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h2 mb-0">Dashboard Riepilogativa</h1>
+    <a href="{% url 'dashboard_analisi' %}" class="btn btn-outline-primary">
+        Vai a Dashboard Analisi Dettagliata →
+    </a>
+</div>
 
 <!-- ======================= NUOVA PRIMA RIGA KPI: SINTESI STRATEGICA ======================= -->
 <div class="row">

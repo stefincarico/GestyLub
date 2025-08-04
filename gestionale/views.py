@@ -55,6 +55,10 @@ from .report_utils import build_filters_string, generate_excel_report, generate_
 from tenants.models import Company
 from .templatetags import currency_filters
 
+from django.utils.timezone import now
+from dateutil.relativedelta import relativedelta
+from .forms import AnalisiFilterForm
+
 # ==============================================================================
 # === MIXINS E FUNZIONI HELPER GLOBALI                                      ===
 # ==============================================================================
@@ -2938,6 +2942,97 @@ class DashboardView(TenantRequiredMixin, RoleRequiredMixin, View):
         
         return render(request, self.template_name, context)
 
+class DashboardAnalisiView(TenantRequiredMixin, RoleRequiredMixin, View):
+    allowed_roles = ['admin', 'contabile', 'visualizzatore']
+    template_name = 'gestionale/dashboard_analisi.html'
+
+    def _get_kpi_data(self, data_da, data_a):
+        """
+        Metodo helper che calcola tutti i KPI in base a un intervallo di date.
+        Versione COMPLETA con tutti i KPI.
+        """
+        # ... Sezioni 1 e 2 con i calcoli di stato e di flusso rimangono invariate ...
+        # (copio qui il codice corretto per completezza)
+        movimenti_fino_a_data_a = PrimaNota.objects.filter(data_registrazione__lte=data_a, conto_finanziario__isnull=False)
+        liquidita_totale = movimenti_fino_a_data_a.aggregate(saldo=Coalesce(Sum(Case(When(tipo_movimento='E', then=F('importo')), default=-F('importo'))), Value(0), output_field=DecimalField()))['saldo']
+        scadenze_fino_a_data_a = Scadenza.objects.filter(documento__data_documento__lte=data_a, documento__stato=DocumentoTestata.Stato.CONFERMATO)
+        pagamenti_fino_a_data_a = PrimaNota.objects.filter(data_registrazione__lte=data_a, scadenza_collegata__isnull=False)
+        crediti_emessi = scadenze_fino_a_data_a.filter(tipo_scadenza='Incasso').aggregate(t=Coalesce(Sum('importo_rata'), Value(0), output_field=DecimalField()))['t']
+        incassi_ricevuti = pagamenti_fino_a_data_a.filter(scadenza_collegata__tipo_scadenza='Incasso').aggregate(t=Coalesce(Sum('importo'), Value(0), output_field=DecimalField()))['t']
+        crediti_clienti = crediti_emessi - incassi_ricevuti
+        debiti_ricevuti = scadenze_fino_a_data_a.filter(tipo_scadenza='Pagamento').aggregate(t=Coalesce(Sum('importo_rata'), Value(0), output_field=DecimalField()))['t']
+        pagamenti_effettuati = pagamenti_fino_a_data_a.filter(scadenza_collegata__tipo_scadenza='Pagamento').aggregate(t=Coalesce(Sum('importo'), Value(0), output_field=DecimalField()))['t']
+        debiti_fornitori = debiti_ricevuti - pagamenti_effettuati
+        doc_periodo = DocumentoTestata.objects.filter(data_documento__range=(data_da, data_a), stato=DocumentoTestata.Stato.CONFERMATO)
+        fatturato_attivo_periodo = (doc_periodo.filter(tipo_doc__in=['FTV']).aggregate(t=Coalesce(Sum('totale'), Value(0), output_field=DecimalField()))['t']) - (doc_periodo.filter(tipo_doc__in=['NCV']).aggregate(t=Coalesce(Sum('totale'), Value(0), output_field=DecimalField()))['t'])
+        costi_fatturati_periodo = (doc_periodo.filter(tipo_doc__in=['FTA']).aggregate(t=Coalesce(Sum('totale'), Value(0), output_field=DecimalField()))['t']) - (doc_periodo.filter(tipo_doc__in=['NCA']).aggregate(t=Coalesce(Sum('totale'), Value(0), output_field=DecimalField()))['t'])
+        mov_eco_periodo = PrimaNota.objects.filter(data_registrazione__range=(data_da, data_a), conto_operativo__isnull=False)
+        ricavi_periodo = mov_eco_periodo.filter(conto_operativo__tipo=ContoOperativo.Tipo.RICAVO).aggregate(t=Coalesce(Sum('importo'), Value(0), output_field=DecimalField()))['t']
+        costi_periodo = mov_eco_periodo.filter(conto_operativo__tipo=ContoOperativo.Tipo.COSTO).aggregate(t=Coalesce(Sum('importo'), Value(0), output_field=DecimalField()))['t']
+        risultato_economico_periodo = ricavi_periodo - costi_periodo
+        mov_fin_periodo = PrimaNota.objects.filter(data_registrazione__range=(data_da, data_a), conto_finanziario__isnull=False)
+        entrate_periodo = mov_fin_periodo.filter(tipo_movimento='E').aggregate(t=Coalesce(Sum('importo'), Value(0), output_field=DecimalField()))['t']
+        uscite_periodo = mov_fin_periodo.filter(tipo_movimento='U').aggregate(t=Coalesce(Sum('importo'), Value(0), output_field=DecimalField()))['t']
+        cash_flow_periodo = entrate_periodo - uscite_periodo
+        
+        # === INIZIO MODIFICA: Aggiungiamo il conteggio anagrafiche ===
+        anagrafiche_attive = Anagrafica.objects.filter(attivo=True).aggregate(
+            clienti=Count('id', filter=Q(tipo=Anagrafica.Tipo.CLIENTE)),
+            fornitori=Count('id', filter=Q(tipo=Anagrafica.Tipo.FORNITORE)),
+            dipendenti=Count('id', filter=Q(tipo=Anagrafica.Tipo.DIPENDENTE))
+        )
+        num_dipendenti = anagrafiche_attive['dipendenti']
+        # === FINE MODIFICA ===
+
+        # --- 3. KPI DERIVATI (con aggiornamento num_dipendenti) ---
+        giorni_periodo = (data_a - data_da).days + 1
+        giorni_periodo_decimal = Decimal(giorni_periodo)
+        dso = (crediti_clienti / fatturato_attivo_periodo * giorni_periodo_decimal) if fatturato_attivo_periodo > 0 else Decimal('0')
+        dpo = (debiti_fornitori / costi_fatturati_periodo * giorni_periodo_decimal) if costi_fatturati_periodo > 0 else Decimal('0')
+        mesi_periodo_decimal = giorni_periodo_decimal / Decimal('30.44')
+        burn_rate_mensile = (costi_periodo / mesi_periodo_decimal) if mesi_periodo_decimal > 0 else Decimal('0')
+        runway_mesi = (liquidita_totale / burn_rate_mensile) if burn_rate_mensile > 0 else float('inf')
+        
+        ricavi_per_dipendente = (fatturato_attivo_periodo / num_dipendenti) if num_dipendenti > 0 else Decimal('0')
+        margine_lordo_perc = (risultato_economico_periodo / ricavi_periodo * 100) if ricavi_periodo > 0 else Decimal('0')
+
+        return {
+            'liquidita_totale': liquidita_totale, 'posizione_fin_netta': crediti_clienti - debiti_fornitori,
+            'fatturato_netto_periodo': fatturato_attivo_periodo - costi_fatturati_periodo,
+            'risultato_economico_periodo': risultato_economico_periodo, 'cash_flow_periodo': cash_flow_periodo,
+            'dso': dso, 'dpo': dpo, 'burn_rate_mensile': burn_rate_mensile, 'runway_mesi': runway_mesi,
+            'ricavi_per_dipendente': ricavi_per_dipendente, 'margine_lordo_perc': margine_lordo_perc,
+            'anagrafiche_attive': anagrafiche_attive, # <-- Aggiungiamo al dizionario
+            'crediti_clienti': crediti_clienti,      # <-- Aggiungiamo anche questi per le card
+            'debiti_fornitori': debiti_fornitori,    # <-- Aggiungiamo anche questi per le card
+        }
+    
+
+
+    def get(self, request, *args, **kwargs):
+        filter_form = AnalisiFilterForm(request.GET or None)
+        
+        # Gestione date di default: Anno Corrente fino a Oggi
+        today = date.today()
+        data_da_default = date(today.year, 1, 1)
+        data_a_default = today
+
+        data_da = data_a = None
+        if filter_form.is_valid():
+            data_da = filter_form.cleaned_data.get('data_da')
+            data_a = filter_form.cleaned_data.get('data_a')
+
+        # Se le date non sono fornite, usiamo i default
+        if not data_da: data_da = data_da_default
+        if not data_a: data_a = data_a_default
+
+        context = {
+            'kpi': self._get_kpi_data(data_da, data_a),
+            'filter_form': filter_form,
+            'data_da_corrente': data_da,
+            'data_a_corrente': data_a,
+        }
+        return render(request, self.template_name, context)
 
 # ==============================================================================
 # === EXPORT TABELLE DI SISTEMA                                              ===

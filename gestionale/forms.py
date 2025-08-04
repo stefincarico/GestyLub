@@ -869,3 +869,19 @@ class FascicoloCantiereFilterForm(forms.Form):
         widget=forms.DateInput(attrs={'class': 'form-control', 'type': 'date'})
     )
 
+class AnalisiFilterForm(forms.Form):
+    """
+    Form per i filtri di data della Dashboard di Analisi.
+    """
+    data_da = forms.DateField(
+        required=False,
+        label="Dal",
+        widget=forms.DateInput(attrs={'class': 'form-control', 'type': 'date'})
+    )
+    data_a = forms.DateField(
+        required=False,
+        label="Al",
+        widget=forms.DateInput(attrs={'class': 'form-control', 'type': 'date'})
+    )
+
+
