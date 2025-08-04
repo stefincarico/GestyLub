@@ -12,7 +12,7 @@
     </div>
 </div>
 
-<!-- Testata Dati Cantiere -->
+<!-- Testata Dati Cantiere (invariata) -->
 <div class="card mb-4">
     <div class="card-header fw-bold">Dati Cantiere</div>
     <div class="card-body">
@@ -27,7 +27,7 @@
     </div>
 </div>
 
-<!-- Filtri di Data -->
+<!-- Filtri di Data (invariati) -->
 <div class="card mb-4">
     <div class="card-body">
         <form method="get" action=""><div class="row g-3 align-items-end">
@@ -38,7 +38,7 @@
     </div>
 </div>
 
-<!-- Sezione Personale Assegnato -->
+<!-- Sezione Personale Assegnato (PAGINAZIONE CORRETTA) -->
 <div class="card mb-4">
     <div class="card-header">Personale Assegnato</div>
     <div class="card-body p-0"><div class="table-responsive"><table class="table table-striped mb-0">
@@ -49,16 +49,17 @@
             {% empty %}<tr><td colspan="5" class="text-center">Nessun dipendente assegnato nel periodo.</td></tr>{% endfor %}
         </tbody>
     </table></div></div>
-    {% with page_obj=dipendenti_assegnati %}{% if page_obj.has_other_pages %}<div class="card-footer bg-light">
-        <ul class="pagination justify-content-center mb-0">
-            <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}"><a class="page-link" href="?pagina_dipendenti={{ page_obj.previous_page_number }}&{{ request.GET.urlencode|cut:'pagina_dipendenti' }}">Prec.</a></li>
-            <li class="page-item active"><span class="page-link">Pagina {{ page_obj.number }} di {{ page_obj.paginator.num_pages }}</span></li>
-            <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}"><a class="page-link" href="?pagina_dipendenti={{ page_obj.next_page_number }}&{{ request.GET.urlencode|cut:'pagina_dipendenti' }}">Succ.</a></li>
-        </ul>
+    {% with page_obj=dipendenti_assegnati %}
+    {% if page_obj.has_other_pages %}<div class="card-footer bg-light">
+        <nav aria-label="Paginazione personale"><ul class="pagination justify-content-center mb-0">
+            <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}"><a class="page-link" href="?pagina_dipendenti={% if page_obj.has_previous %}{{ page_obj.previous_page_number }}{% else %}1{% endif %}&pagina_documenti={{ documenti_associati.number }}&pagina_movimenti={{ movimenti_associati.number }}">Precedente</a></li>
+            <li class="page-item active"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+            <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}"><a class="page-link" href="?pagina_dipendenti={% if page_obj.has_next %}{{ page_obj.next_page_number }}{% else %}{{ page_obj.paginator.num_pages }}{% endif %}&pagina_documenti={{ documenti_associati.number }}&pagina_movimenti={{ movimenti_associati.number }}">Successiva</a></li>
+        </ul></nav>
     </div>{% endif %}{% endwith %}
 </div>
 
-<!-- Sezione Documenti Associati -->
+<!-- Sezione Documenti Associati (PAGINAZIONE CORRETTA) -->
 <div class="card mb-4">
     <div class="card-header">Documenti Associati</div>
     <div class="card-body p-0"><div class="table-responsive"><table class="table table-striped mb-0">
@@ -70,15 +71,15 @@
         </tbody>
     </table></div></div>
     {% with page_obj=documenti_associati %}{% if page_obj.has_other_pages %}<div class="card-footer bg-light">
-        <ul class="pagination justify-content-center mb-0">
-            <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}"><a class="page-link" href="?pagina_documenti={{ page_obj.previous_page_number }}&{{ request.GET.urlencode|cut:'pagina_documenti' }}">Prec.</a></li>
-            <li class="page-item active"><span class="page-link">Pagina {{ page_obj.number }} di {{ page_obj.paginator.num_pages }}</span></li>
-            <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}"><a class="page-link" href="?pagina_documenti={{ page_obj.next_page_number }}&{{ request.GET.urlencode|cut:'pagina_documenti' }}">Succ.</a></li>
-        </ul>
+        <nav aria-label="Paginazione documenti"><ul class="pagination justify-content-center mb-0">
+            <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}"><a class="page-link" href="?pagina_documenti={% if page_obj.has_previous %}{{ page_obj.previous_page_number }}{% else %}1{% endif %}&pagina_dipendenti={{ dipendenti_assegnati.number }}&pagina_movimenti={{ movimenti_associati.number }}">Precedente</a></li>
+            <li class="page-item active"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+            <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}"><a class="page-link" href="?pagina_documenti={% if page_obj.has_next %}{{ page_obj.next_page_number }}{% else %}{{ page_obj.paginator.num_pages }}{% endif %}&pagina_dipendenti={{ dipendenti_assegnati.number }}&pagina_movimenti={{ movimenti_associati.number }}">Successiva</a></li>
+        </ul></nav>
     </div>{% endif %}{% endwith %}
 </div>
 
-<!-- Sezione Movimenti Associati -->
+<!-- Sezione Movimenti Associati (PAGINAZIONE CORRETTA) -->
 <div class="card">
     <div class="card-header">Movimenti di Prima Nota Associati</div>
     <div class="card-body p-0"><div class="table-responsive"><table class="table table-striped mb-0">
@@ -90,12 +91,11 @@
         </tbody>
     </table></div></div>
     {% with page_obj=movimenti_associati %}{% if page_obj.has_other_pages %}<div class="card-footer bg-light">
-        <ul class="pagination justify-content-center mb-0">
-            <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}"><a class="page-link" href="?pagina_movimenti={{ page_obj.previous_page_number }}&{{ request.GET.urlencode|cut:'pagina_movimenti' }}">Prec.</a></li>
-            <li class="page-item active"><span class="page-link">Pagina {{ page_obj.number }} di {{ page_obj.paginator.num_pages }}</span></li>
-            <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}"><a class="page-link" href="?pagina_movimenti={{ page_obj.next_page_number }}&{{ request.GET.urlencode|cut:'pagina_movimenti' }}">Succ.</a></li>
-        </ul>
+        <nav aria-label="Paginazione movimenti"><ul class="pagination justify-content-center mb-0">
+            <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}"><a class="page-link" href="?pagina_movimenti={% if page_obj.has_previous %}{{ page_obj.previous_page_number }}{% else %}1{% endif %}&pagina_dipendenti={{ dipendenti_assegnati.number }}&pagina_documenti={{ documenti_associati.number }}">Precedente</a></li>
+            <li class="page-item active"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+            <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}"><a class="page-link" href="?pagina_movimenti={% if page_obj.has_next %}{{ page_obj.next_page_number }}{% else %}{{ page_obj.paginator.num_pages }}{% endif %}&pagina_dipendenti={{ dipendenti_assegnati.number }}&pagina_documenti={{ documenti_associati.number }}">Successiva</a></li>
+        </ul></nav>
     </div>{% endif %}{% endwith %}
 </div>
-
 {% endblock %}

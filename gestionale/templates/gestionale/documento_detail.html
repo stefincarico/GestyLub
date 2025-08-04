@@ -32,6 +32,7 @@
         <div class="col-md-6">
             <p><strong>Data Documento:</strong> {{ documento.data_documento|date:"d/m/Y" }}</p>
             <p><strong>IVA:</strong> € {{ documento.iva|floatformat:2 }}</p>
+            
             <p><strong>Stato:</strong>
                 {% if documento.stato == 'Confermato' %}<span class="badge bg-success">{{ documento.stato }}</span>{% endif %}
                 {% if documento.stato == 'Bozza' %}<span class="badge bg-warning text-dark">{{ documento.stato }}</span>{% endif %}
