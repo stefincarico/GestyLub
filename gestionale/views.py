@@ -2671,15 +2671,6 @@ class ScadenzaPersonaleDeleteView(TenantRequiredMixin, RoleRequiredMixin, Delete
 # === DASHBOARD PRINCIPALE                                                   ===
 # ==============================================================================
 
-class DashboardView(TenantRequiredMixin, View):
-    """Mostra la dashboard principale."""
-    def get(self, request, *args, **kwargs):
-        active_tenant_name = request.session.get('active_tenant_name')
-        user_company_role = request.session.get('user_company_role')
-        context = {'active_tenant_name': active_tenant_name, 'user_company_role': user_company_role}
-        return render(request, 'gestionale/dashboard.html', context)
-
-
 class DashboardView(TenantRequiredMixin, RoleRequiredMixin, View):
     allowed_roles = ['admin', 'contabile', 'visualizzatore']
     """
