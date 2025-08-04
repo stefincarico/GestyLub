@@ -1138,6 +1138,7 @@ class AnagraficaListExportPdfView(TenantRequiredMixin, RoleRequiredMixin, View):
             context
         )
 
+
 # ==============================================================================
 # === VISTE PAGAMENTI                                                       ===
 # ==============================================================================

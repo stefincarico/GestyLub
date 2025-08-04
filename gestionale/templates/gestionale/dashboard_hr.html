@@ -3,126 +3,81 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1 class="h2">Dashboard HR / Planning Giornaliero</h1>
-    <!-- Navigazione Data -->
-<div class="d-flex flex-wrap align-items-center gap-2">
-    <div class="btn-group" role="group">
-        <a href="{% url 'dashboard_hr_data' year=giorno_precedente.year month=giorno_precedente.month day=giorno_precedente.day %}" class="btn btn-outline-secondary">← Prec.</a>
-        
-        <!-- Il nostro selettore di data -->
-        <input type="date" id="datePicker" class="form-control" value="{{ data_riferimento|date:'Y-m-d' }}" style="border-radius: 0; max-width: 160px;">
-        
-        <a href="{% url 'dashboard_hr_data' year=giorno_successivo.year month=giorno_successivo.month day=giorno_successivo.day %}" class="btn btn-outline-secondary">Succ. →</a>
+    <div class="d-flex flex-wrap align-items-center gap-2">
+        <div class="btn-group" role="group">
+            <a href="{% url 'dashboard_hr_data' year=giorno_precedente.year month=giorno_precedente.month day=giorno_precedente.day %}" class="btn btn-outline-secondary">← Prec.</a>
+            <input type="date" id="datePicker" class="form-control" value="{{ data_riferimento|date:'Y-m-d' }}" style="border-radius: 0; max-width: 160px;">
+            <a href="{% url 'dashboard_hr_data' year=giorno_successivo.year month=giorno_successivo.month day=giorno_successivo.day %}" class="btn btn-outline-secondary">Succ. →</a>
+        </div>
+        <a href="{% url 'dashboard_hr' %}" class="btn btn-primary">Oggi</a>
     </div>
-    <!-- Il pulsante per tornare a oggi -->
-    <a href="{% url 'dashboard_hr' %}" class="btn btn-primary">Oggi</a>
-</div>
 </div>
 
-    <!-- ======================= KPI CARDS ======================= -->
-    <div class="row mb-4">
-        <div class="col-md-3">
-            <div class="card text-center">
-                <div class="card-body">
-                    <h6 class="card-title text-muted">Disponibili</h6>
-                    <h2 class="display-5 fw-bold">{{ kpi.disponibili }}</h2>
-                    <small class="text-muted">Dipendenti liberi</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card text-center">
-                <div class="card-body">
-                    <h6 class="card-title text-muted">Assegnati</h6>
-                    <h2 class="display-5 fw-bold">{{ kpi.assegnati }}</h2>
-                    <small class="text-muted">Pianificati su cantiere</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card text-center">
-                <div class="card-body">
-                    <h6 class="card-title text-muted">Presenti</h6>
-                    <h2 class="display-5 fw-bold text-success">{{ kpi.presenti }}</h2>
-                    <small class="text-muted">Con ore consuntivate</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card text-center">
-                <div class="card-body">
-                    <h6 class="card-title text-muted">Assenti</h6>
-                    <h2 class="display-5 fw-bold text-danger">{{ kpi.assenti }}</h2>
-                    <small class="text-muted">Ferie, malattia, etc.</small>
-                </div>
-            </div>
-        </div>
+<!-- KPI CARDS (invariate) -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-center"><div class="card-body"><h6 class="card-title text-muted">Disponibili</h6><h2 class="display-5 fw-bold">{{ kpi.disponibili }}</h2><small class="text-muted">Dipendenti liberi</small></div></div>
     </div>
-    <!-- ===================== FINE KPI CARDS ===================== -->
-<!-- ======================= SEZIONE GESTIONE CANTIERI ======================= -->
-    <div class="card mb-4">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">Gestione Cantieri</h5>
-            <div class="d-flex align-items-center">
-                <!-- Filtro per Stato -->
-                <form method="get" action="" class="d-flex me-2">
-                    <select name="stato_cantiere" class="form-select form-select-sm" onchange="this.form.submit()">
-                        <option value="TUTTI" {% if stato_cantiere_selezionato == 'TUTTI' %}selected{% endif %}>Mostra Tutti</option>
-                        {% for value, label in stati_cantiere %}
-                            <option value="{{ value }}" {% if stato_cantiere_selezionato == value %}selected{% endif %}>{{ label }}</option>
-                        {% endfor %}
-                    </select>
-                </form>
+    <div class="col-md-3">
+        <div class="card text-center"><div class="card-body"><h6 class="card-title text-muted">Assegnati</h6><h2 class="display-5 fw-bold">{{ kpi.assegnati }}</h2><small class="text-muted">Pianificati su cantiere</small></div></div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center"><div class="card-body"><h6 class="card-title text-muted">Presenti</h6><h2 class="display-5 fw-bold text-success">{{ kpi.presenti }}</h2><small class="text-muted">Con ore consuntivate</small></div></div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center"><div class="card-body"><h6 class="card-title text-muted">Assenti</h6><h2 class="display-5 fw-bold text-danger">{{ kpi.assenti }}</h2><small class="text-muted">Ferie, malattia, etc.</small></div></div>
+    </div>
+</div>
 
-                <!-- Pulsanti di Azione -->
-                <a href="{% url 'cantiere_list_export_excel' %}?{{ request.GET.urlencode }}" class="btn btn-sm" style="background-color: #185C37; color: white;">Esporta Excel</a>
-                <a href="{% url 'cantiere_list_export_pdf' %}?{{ request.GET.urlencode }}" class="btn btn-sm ms-2" style="background-color: #FF9900; color: white;">Esporta PDF</a>
-                {% if request.session.user_company_role == 'admin' or request.session.user_company_role == 'contabile' %}
-                    <a href="{% url 'cantiere_create' %}" class="btn btn-primary btn-sm ms-2">+ Aggiungi Cantiere</a>
-                {% endif %}
-            </div>
-        </div>
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-hover mb-0">
-                    <thead>
-                        <tr>
-                            <th>Nome</th>
-                            <th>Indirizzo</th>
-                            <th>Stato</th>
-                            <th>Data Inizio</th>
-                            <th>Data Fine Prev.</th>
-                            <th>Azioni</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for cantiere in cantieri %}
-                        <tr>
-                            <td><strong>{{ cantiere.codice_cantiere }}</strong><br><small>{{ cantiere.descrizione }}</small></td>
-                            <td>{{ cantiere.indirizzo|default_if_none:"" }}</td>
-                            <td><span class="badge 
-                                {% if cantiere.stato == 'Aperto' %}bg-success
-                                {% elif cantiere.stato == 'Chiuso' %}bg-secondary
-                                {% else %}bg-warning text-dark
-                                {% endif %}">{{ cantiere.get_stato_display }}</span>
-                            </td>
-                            <td>{{ cantiere.data_inizio|date:"d/m/Y"|default_if_none:"" }}</td>
-                            <td>{{ cantiere.data_fine_prevista|date:"d/m/Y"|default_if_none:"" }}</td>
-                            <td>
-                                {% if request.session.user_company_role == 'admin' or request.session.user_company_role == 'contabile' %}
-                                    <a href="{% url 'cantiere_update' cantiere.pk %}" class="btn btn-sm btn-outline-primary">Modifica</a>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr><td colspan="6" class="text-center text-muted">Nessun cantiere trovato con i filtri selezionati.</td></tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+<!-- SEZIONE GESTIONE CANTIERI (invariata) -->
+<div class="card mb-4">
+    <!-- ... contenuto della card gestione cantieri ... (lasciato invariato) -->
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Gestione Cantieri</h5>
+        <div class="d-flex align-items-center">
+            <form method="get" action="" class="d-flex me-2">
+                <select name="stato_cantiere" class="form-select form-select-sm" onchange="this.form.submit()">
+                    <option value="TUTTI" {% if stato_cantiere_selezionato == 'TUTTI' %}selected{% endif %}>Mostra Tutti</option>
+                    {% for value, label in stati_cantiere %}
+                        <option value="{{ value }}" {% if stato_cantiere_selezionato == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+            <a href="{% url 'cantiere_list_export_excel' %}?{{ request.GET.urlencode }}" class="btn btn-sm" style="background-color: #185C37; color: white;">Esporta Excel</a>
+            <a href="{% url 'cantiere_list_export_pdf' %}?{{ request.GET.urlencode }}" class="btn btn-sm ms-2" style="background-color: #FF9900; color: white;">Esporta PDF</a>
+            {% if request.session.user_company_role == 'admin' or request.session.user_company_role == 'contabile' %}
+                <a href="{% url 'cantiere_create' %}" class="btn btn-primary btn-sm ms-2">+ Aggiungi Cantiere</a>
+            {% endif %}
         </div>
     </div>
-    <!-- ===================== FINE SEZIONE GESTIONE CANTIERI ===================== -->
-<!-- Tabella Stato Dipendenti -->
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead><tr><th>Nome</th><th>Indirizzo</th><th>Stato</th><th>Data Inizio</th><th>Data Fine Prev.</th><th>Azioni</th></tr></thead>
+                <tbody>
+                    {% for cantiere in cantieri %}
+                    <tr>
+                        <td><strong>{{ cantiere.codice_cantiere }}</strong><br><small>{{ cantiere.descrizione }}</small></td>
+                        <td>{{ cantiere.indirizzo|default_if_none:"" }}</td>
+                        <td><span class="badge {% if cantiere.stato == 'Aperto' %}bg-success{% elif cantiere.stato == 'Chiuso' %}bg-secondary{% else %}bg-warning text-dark{% endif %}">{{ cantiere.get_stato_display }}</span></td>
+                        <td>{{ cantiere.data_inizio|date:"d/m/Y"|default_if_none:"" }}</td>
+                        <td>{{ cantiere.data_fine_prevista|date:"d/m/Y"|default_if_none:"" }}</td>
+                        <td>
+                            {% if request.session.user_company_role == 'admin' or request.session.user_company_role == 'contabile' %}
+                                <a href="{% url 'cantiere_update' cantiere.pk %}" class="btn btn-sm btn-outline-primary">Modifica</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="text-center text-muted">Nessun cantiere trovato con i filtri selezionati.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ======================= INIZIO SEZIONE MODIFICATA: Tabella Stato Dipendenti ======================= -->
 <div class="card">
     <div class="card-header">
         Stato Dipendenti per il giorno {{ data_riferimento|date:"d/m/Y" }}
@@ -132,78 +87,82 @@
             <table class="table table-hover mb-0">
                 <thead>
                     <tr>
-                        <th>Dipendente</th>
-                        <th>Mansione</th>
-                        <th>Stato / Assegnazione</th>
-                        <th>Ore Cons.</th>
-                        <th>Note</th>
-                        <th>Azioni</th>
+                        <th style="width: 18%;">Dipendente</th>
+                        <th style="width: 15%;">Mansione</th>
+                        <th style="width: 12%;">Stato</th>
+                        <th style="width: 35%;">Dettagli Attività</th> 
+                        <th style="width: 10%;">Ore Cons.</th>
+                        <th style="width: 10%;" class="text-center">Azioni</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for dipendente in dipendenti %}
                     <tr>
                         <td>
-                        <!-- MODIFICA QUI -->
-                        <a href="{% url 'dipendente_detail' dipendente.pk %}">{{ dipendente.nome_cognome_ragione_sociale }}</a>
+                            <a href="{% url 'dipendente_detail' dipendente.pk %}">{{ dipendente.nome_cognome_ragione_sociale }}</a>
                         </td>
                         <td>{{ dipendente.dettaglio_dipendente.mansione }}</td>
+                        
+                        <!-- Colonna STATO semplificata -->
                         <td>
-                            {% if dipendente.attivita %}
-                                {% if dipendente.attivita.stato_presenza == 'Presente' %}
-                                    <span class="badge bg-success">PRESENTE</span>
-                                {% elif dipendente.attivita.stato_presenza %}
-                                    <span class="badge bg-danger">ASSENTE</span> 
-                                    <small class="text-muted">({{ dipendente.attivita.tipo_assenza_giustificata }})</small>
-                                {% elif dipendente.attivita.cantiere_pianificato %}
-                                    <span class="badge bg-primary">ASSEGNATO</span>
-                                    @ {{ dipendente.attivita.cantiere_pianificato.codice_cantiere }}
-                                    {% if dipendente.attivita.mezzo_pianificato %}
-                                    <small class="text-muted">(Mezzo: {{ dipendente.attivita.mezzo_pianificato.targa }})</small>
-                                    {% endif %}
-                                {% else %}
-                                    <span class="badge bg-info">PIANIFICATO (Altro)</span>
-                                {% endif %}
+                            {% if dipendente.attivita.stato_presenza == 'Presente' %}
+                                <span class="badge bg-success">PRESENTE</span>
+                            {% elif dipendente.attivita.stato_presenza %}
+                                <span class="badge bg-danger">ASSENTE</span>
+                            {% elif dipendente.attivita %}
+                                <span class="badge bg-primary">PIANIFICATO</span>
                             {% else %}
                                 <span class="badge bg-secondary">LIBERO</span>
                             {% endif %}
                         </td>
+
+                        <!-- NUOVA Colonna DETTAGLI ATTIVITÀ -->
+                        <td>
+                            {% if dipendente.attivita %}
+                                {% if dipendente.attivita.cantiere_pianificato %}
+                                    <span class="me-2">@ {{ dipendente.attivita.cantiere_pianificato.codice_cantiere }}</span>
+                                {% endif %}
+                                {% if dipendente.attivita.mezzo_pianificato %}
+                                    <span>(Mezzo: {{ dipendente.attivita.mezzo_pianificato.targa }})</span>
+                                {% endif %}
+                                {% if dipendente.attivita.stato_presenza and dipendente.attivita.stato_presenza != 'Presente' %}
+                                    <small class="text-muted fst-italic">({{ dipendente.attivita.tipo_assenza_giustificata }})</small>
+                                {% endif %}
+                            {% endif %}
+                        </td>
+
                         <td>
                             {% if dipendente.attivita and dipendente.attivita.stato_presenza == 'Presente' %}
                                 {{ dipendente.attivita.ore_ordinarie|default_if_none:"0.00" }}
                             {% else %} - {% endif %}
                         </td>
-                        <td>{{ dipendente.attivita.note_giornaliere|default_if_none:"" }}</td>
-                        <td>
-                        <!-- TODO: Pulsanti di azione -->
-                            {% if request.session.user_company_role == 'admin' or request.session.user_company_role == 'contabile' %}
-                        <button type="button" class="btn btn-sm btn-outline-primary"
-                                data-bs-toggle="modal" 
-                                data-bs-target="#attivitaModal"
-                                data-dipendente-id="{{ dipendente.pk }}"
-                                data-dipendente-nome="{{ dipendente.nome_cognome_ragione_sociale }}"
-                                data-data="{{ data_riferimento|date:"Y-m-d" }}"
-                                data-ore-default="{{ dipendente.ore_default }}"
-                                data-attivita-json='{
-                                    "cantiere_id": "{{ dipendente.attivita.cantiere_pianificato.pk|default_if_none:"" }}",
-                                    "mezzo_id": "{{ dipendente.attivita.mezzo_pianificato.pk|default_if_none:"" }}",
-                                    "stato_presenza": "{{ dipendente.attivita.stato_presenza|default_if_none:"" }}",
-                                    "tipo_assenza": "{{ dipendente.attivita.tipo_assenza_giustificata|default_if_none:"" }}",
-                                    
-                                    {# === INIZIO CORREZIONE === #}
-                                    {# Usiamo il filtro 'unlocalize' per forzare il punto come separatore decimale #}
-                                    {% load l10n %}
-                                    "ore_ord": "{{ dipendente.attivita.ore_ordinarie|unlocalize|default_if_none:"0.00" }}",
-                                    "ore_str": "{{ dipendente.attivita.ore_straordinarie|unlocalize|default_if_none:"0.00" }}",
-                                    {# === FINE CORREZIONE === #}
+                        
+                        <!-- COLONNA NOTE RIMOSSA -->
 
-                                    "note": "{{ dipendente.attivita.note_giornaliere|escapejs|default_if_none:"" }}"
-                                }'>
-                            Pianifica/Consuntiva
-                        </button>
-                        {% else %}
-                            -
-                        {% endif %}
+                        <td class="text-end">
+                            {% if request.session.user_company_role == 'admin' or request.session.user_company_role == 'contabile' %}
+                            <button type="button" class="btn btn-sm btn-outline-primary"
+                                    data-bs-toggle="modal" 
+                                    data-bs-target="#attivitaModal"
+                                    data-dipendente-id="{{ dipendente.pk }}"
+                                    data-dipendente-nome="{{ dipendente.nome_cognome_ragione_sociale }}"
+                                    data-data="{{ data_riferimento|date:"Y-m-d" }}"
+                                    data-ore-default="{{ dipendente.ore_default }}"
+                                    data-attivita-json='{
+                                        "cantiere_id": "{{ dipendente.attivita.cantiere_pianificato.pk|default_if_none:"" }}",
+                                        "mezzo_id": "{{ dipendente.attivita.mezzo_pianificato.pk|default_if_none:"" }}",
+                                        "stato_presenza": "{{ dipendente.attivita.stato_presenza|default_if_none:"" }}",
+                                        "tipo_assenza": "{{ dipendente.attivita.tipo_assenza_giustificata|default_if_none:"" }}",
+                                        {% load l10n %}
+                                        "ore_ord": "{{ dipendente.attivita.ore_ordinarie|unlocalize|default_if_none:"0.00" }}",
+                                        "ore_str": "{{ dipendente.attivita.ore_straordinarie|unlocalize|default_if_none:"0.00" }}",
+                                        "note": "{{ dipendente.attivita.note_giornaliere|escapejs|default_if_none:"" }}"
+                                    }'>
+                                Pianifica
+                            </button>
+                            {% else %}
+                                -
+                            {% endif %}
                         </td>
                     </tr>
                     {% empty %}
@@ -214,80 +173,49 @@
         </div>
     </div>
 </div>
-<!-- ================= MODALE PIANIFICAZIONE/CONSUNTIVAZIONE ================= -->
+<!-- ======================= FINE SEZIONE MODIFICATA ======================= -->
+
+<!-- MODALE (invariata) -->
 <div class="modal fade" id="attivitaModal" tabindex="-1" aria-labelledby="attivitaModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="attivitaModalLabel">Pianifica/Consuntiva Attività</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    <div class="modal-dialog modal-lg"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title" id="attivitaModalLabel">Pianifica/Consuntiva Attività</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+        <form action="{% url 'salva_attivita_diario' %}" method="post">
+            {% csrf_token %}
+            <input type="hidden" name="data" id="attivita_data">
+            <input type="hidden" name="dipendente_id" id="attivita_dipendente_id">
+            <div class="modal-body">
+                <p>Stai modificando l'attività di <strong id="dipendenteNome"></strong> per il giorno <strong>{{ data_riferimento|date:"d/m/Y" }}</strong>.</p><hr>
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5>Pianificazione</h5>
+                        <div class="mb-3">{{ attivita_form.cantiere_pianificato.label_tag }}{{ attivita_form.cantiere_pianificato }}</div>
+                        <div class="mb-3">{{ attivita_form.mezzo_pianificato.label_tag }}{{ attivita_form.mezzo_pianificato }}</div>
+                    </div>
+                    <div class="col-md-6">
+                        <h5>Consuntivo</h5>
+                        <div class="mb-3">{{ attivita_form.stato_presenza.label_tag }}{{ attivita_form.stato_presenza }}</div>
+                        <div class="mb-3">{{ attivita_form.tipo_assenza_giustificata.label_tag }}{{ attivita_form.tipo_assenza_giustificata }}</div>
+                        <div class="row"><div class="col">{{ attivita_form.ore_ordinarie.label_tag }}{{ attivita_form.ore_ordinarie }}</div><div class="col">{{ attivita_form.ore_straordinarie.label_tag }}{{ attivita_form.ore_straordinarie }}</div></div>
+                    </div>
+                </div>
+                <div class="mb-3 mt-3">{{ attivita_form.note_giornaliere.label_tag }}{{ attivita_form.note_giornaliere }}</div>
             </div>
-            <form action="{% url 'salva_attivita_diario' %}" method="post">
-                {% csrf_token %}
-                <!-- Campi nascosti per passare dati chiave -->
-                <input type="hidden" name="data" id="attivita_data">
-                <input type="hidden" name="dipendente_id" id="attivita_dipendente_id">
-                
-                <div class="modal-body">
-                    <p>Stai modificando l'attività di <strong id="dipendenteNome"></strong> per il giorno <strong>{{ data_riferimento|date:"d/m/Y" }}</strong>.</p>
-                    <hr>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <h5>Pianificazione</h5>
-                            <div class="mb-3">
-                                {{ attivita_form.cantiere_pianificato.label_tag }}
-                                {{ attivita_form.cantiere_pianificato }}
-                            </div>
-                            <div class="mb-3">
-                                {{ attivita_form.mezzo_pianificato.label_tag }}
-                                {{ attivita_form.mezzo_pianificato }}
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <h5>Consuntivo</h5>
-                            <div class="mb-3">
-                                {{ attivita_form.stato_presenza.label_tag }}
-                                {{ attivita_form.stato_presenza }}
-                            </div>
-                            <div class="mb-3">
-                                {{ attivita_form.tipo_assenza_giustificata.label_tag }}
-                                {{ attivita_form.tipo_assenza_giustificata }}
-                            </div>
-                            <div class="row">
-                                <div class="col">{{ attivita_form.ore_ordinarie.label_tag }}{{ attivita_form.ore_ordinarie }}</div>
-                                <div class="col">{{ attivita_form.ore_straordinarie.label_tag }}{{ attivita_form.ore_straordinarie }}</div>
-                            </div>
-                        </div>
-                    </div>
-                     <div class="mb-3 mt-3">
-                        {{ attivita_form.note_giornaliere.label_tag }}
-                        {{ attivita_form.note_giornaliere }}
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
-                    <button type="submit" class="btn btn-primary">Salva Modifiche</button>
-                </div>
-            </form>
-        </div>
-    </div>
+            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button><button type="submit" class="btn btn-primary">Salva Modifiche</button></div>
+        </form>
+    </div></div>
 </div>
 
 {% endblock content %}
 {% block scripts %}
     {{ block.super }}
-
-    {# 2. Aggiungiamo solo lo script specifico per QUESTA pagina. #}
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const datePicker = document.getElementById('datePicker');
             if(datePicker) {
                 datePicker.addEventListener('change', function() {
-                    const selectedDate = this.value; // Formato YYYY-MM-DD
+                    const selectedDate = this.value;
                     if (selectedDate) {
                         const [year, month, day] = selectedDate.split('-');
-                        // Costruiamo l'URL dinamicamente. L'URL hardcoded qui è accettabile
-                        // perché la struttura di questo URL è molto stabile.
                         const url = `/app/hr/${year}/${month}/${day}/`;
                         window.location.href = url;
                     }
