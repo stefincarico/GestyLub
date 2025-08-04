@@ -37,6 +37,13 @@
                 {% if documento.stato == 'Bozza' %}<span class="badge bg-warning text-dark">{{ documento.stato }}</span>{% endif %}
                 {% if documento.stato == 'Annullato' %}<span class="badge bg-secondary">{{ documento.stato }}</span>{% endif %}
             </p>
+            <p><strong>Cantiere Associato:</strong>
+                    {% if documento.cantiere %}
+                    <a href="{% url 'cantiere_detail' documento.cantiere.pk %}">{{ documento.cantiere.codice_cantiere }}</a>
+                {% else %}
+                    <span class="text-muted">Nessuno</span>
+                {% endif %}
+            </p>
         </div>
     </div>
     <hr>

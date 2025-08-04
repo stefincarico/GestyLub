@@ -41,7 +41,7 @@
                         <li class="nav-item"><a class="nav-link" href="{% url 'scadenzario_list' %}">Scadenziario</a></li>
                         <li class="nav-item"><a class="nav-link" href="{% url 'primanota_list' %}">Prima Nota</a></li>
                         <li class="nav-item"><a class="nav-link" href="{% url 'tesoreria_dashboard' %}">Tesoreria</a></li>
-                        <li class="nav-item"><a class="nav-link" href="{% url 'dashboard_hr' %}">Planning</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'dashboard_hr' %}">Planning HR</a></li>
                         {% if request.session.user_company_role == 'admin' %}
                             <li class="nav-item"><a class="nav-link" href="{% url 'admin_dashboard' %}">Admin</a></li>
                         {% endif %}
