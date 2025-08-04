@@ -3321,16 +3321,17 @@ class CantiereDetailView(TenantRequiredMixin, RoleRequiredMixin, View):
         context['movimenti_associati'] = paginator_mov.get_page(page_mov)
 
         return render(request, self.template_name, context)
-
 class CantiereFascicoloExportExcelView(CantiereDetailView):
-    allowed_roles = ['admin', 'contabile', 'visualizzatore']
     """
     Esporta il fascicolo cantiere filtrato in formato Excel.
     Eredita da CantiereDetailView per riutilizzare _get_fascicolo_data.
     """
+    allowed_roles = ['admin', 'contabile', 'visualizzatore'] # Assicurati che questa riga sia presente
+    
     def get(self, request, *args, **kwargs):
         fascicolo_data = self._get_fascicolo_data(request, kwargs['pk'])
         cantiere = fascicolo_data['cantiere']
+        riepilogo = fascicolo_data['riepilogo'] # <-- Recuperiamo il dizionario con i KPI
 
         tenant_name = request.session.get('active_tenant_name', 'N/A')
         report_title = f"Fascicolo Cantiere: {cantiere.codice_cantiere}"
@@ -3338,25 +3339,37 @@ class CantiereFascicoloExportExcelView(CantiereDetailView):
         filename_prefix = f"Fascicolo_{safe_cantiere_name}"
         filtri_str = build_filters_string(fascicolo_data['filter_form'])
 
+        # === INIZIO MODIFICA: PREPARAZIONE DEI KPI PER L'EXPORT ===
+        # Creiamo un dizionario ordinato e con etichette leggibili per il report
+        kpi_report = {
+            "Redditività (Ricavi - Costi)": riepilogo['redditivita'],
+            "Cash Flow (Incassi - Pagamenti)": riepilogo['cash_flow'],
+            "Crediti vs Clienti": riepilogo['esposizione_clienti'],
+            "Debiti vs Fornitori": riepilogo['esposizione_fornitori']
+        }
+        # === FINE MODIFICA ===
+
         report_sections = []
 
-        # Sezione 1: Dipendenti
+        # Sezione 1: Dipendenti (invariata)
         dip_headers = ["Data", "Dipendente", "Stato", "Ore Ordinarie", "Ore Straordinarie"]
         dip_rows = [[d.data, d.dipendente.nome_cognome_ragione_sociale, d.get_stato_presenza_display(), d.ore_ordinarie, d.ore_straordinarie] for d in fascicolo_data['dipendenti_assegnati']]
         report_sections.append({'title': 'Personale Assegnato', 'headers': dip_headers, 'rows': dip_rows})
 
-        # Sezione 2: Documenti
+        # Sezione 2: Documenti (invariata)
         doc_headers = ["Data", "Tipo", "Numero", "Anagrafica", "Totale"]
         doc_rows = [[d.data_documento, d.get_tipo_doc_display(), d.numero_documento, d.anagrafica.nome_cognome_ragione_sociale, d.totale] for d in fascicolo_data['documenti_associati']]
         report_sections.append({'title': 'Documenti Associati', 'headers': doc_headers, 'rows': doc_rows})
 
-        # Sezione 3: Movimenti
+        # Sezione 3: Movimenti (invariata)
         mov_headers = ["Data", "Descrizione", "Importo", "Conto", "Causale"]
         mov_rows = [[m.data_registrazione, m.descrizione, m.importo * (1 if m.tipo_movimento == 'E' else -1), m.conto_finanziario.nome_conto, m.causale.descrizione] for m in fascicolo_data['movimenti_associati']]
         report_sections.append({'title': 'Movimenti di Prima Nota Associati', 'headers': mov_headers, 'rows': mov_rows})
 
-        return generate_excel_report(tenant_name, report_title, filtri_str, None, report_sections, filename_prefix)
-
+        # MODIFICA: Passiamo kpi_report alla funzione generate_excel_report
+        return generate_excel_report(tenant_name, report_title, filtri_str, kpi_report, report_sections, filename_prefix)
+    
+    
 class CantiereFascicoloExportPdfView(CantiereDetailView):
     allowed_roles = ['admin', 'contabile', 'visualizzatore']
     """

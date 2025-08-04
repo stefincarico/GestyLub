@@ -11,7 +11,32 @@
         h1 { font-size: 18pt; text-align: center; }
         h2 { font-size: 14pt; border-bottom: 2px solid #ccc; padding-bottom: 5px; margin-top: 25px; }
         .header-info { text-align: center; font-size: 8pt; color: #555; margin-bottom: 20px; }
-        .cantiere-details { border: 1px solid #ccc; padding: 10px; border-radius: 5px; background-color: #f9f9f9; }
+        
+        /* === INIZIO NUOVI STILI KPI (ROBUSTI PER PDF) === */
+        .kpi-container {
+            display: table; /* Il contenitore si comporta come una <table> */
+            width: 100%;
+            border-spacing: 10px; /* Spazio tra le celle */
+            border-collapse: separate; /* Necessario per far funzionare border-spacing */
+            margin-bottom: 20px;
+            page-break-inside: avoid;
+        }
+        .kpi-row {
+            display: table-row; /* Ogni riga si comporta come un <tr> */
+        }
+        .kpi-box {
+            display: table-cell; /* Ogni box si comporta come un <td> */
+            width: 50%; /* Forziamo due colonne di larghezza uguale */
+            padding: 10px;
+            text-align: center;
+            border: 1px solid #ddd;
+            background-color: #f9f9f9;
+            vertical-align: top;
+        }
+        .kpi-title { font-size: 8pt; color: #555; margin-bottom: 5px; }
+        .kpi-value { font-size: 12pt; font-weight: bold; }
+        /* === FINE NUOVI STILI KPI === */
+
         table { width: 100%; border-collapse: collapse; margin-top: 10px; page-break-inside: auto; }
         tr { page-break-inside: avoid; page-break-after: auto; }
         th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
@@ -27,6 +52,38 @@
         <p><strong>Cantiere:</strong> {{ cantiere.codice_cantiere }} - {{ cantiere.descrizione }}</p>
         <p><strong>Filtri Applicati:</strong> {{ filtri_str }} | <strong>Generato il:</strong> {{ timestamp }}</p>
     </div>
+
+    <!-- ================== STRUTTURA RIASSUNTIVA PDF CORRETTA ================== -->
+    <h2>Riepilogo Economico</h2>
+    <div class="kpi-container">
+        <!-- Prima Riga -->
+        <div class="kpi-row">
+            <div class="kpi-box">
+                <div class="kpi-title">Redditività</div>
+                <div class="kpi-value {% if riepilogo.redditivita < 0 %}text-danger{% else %}text-success{% endif %}">
+                    {{ riepilogo.redditivita|format_currency }}
+                </div>
+            </div>
+            <div class="kpi-box">
+                <div class="kpi-title">Cash Flow</div>
+                <div class="kpi-value {% if riepilogo.cash_flow < 0 %}text-danger{% else %}text-success{% endif %}">
+                    {{ riepilogo.cash_flow|format_currency }}
+                </div>
+            </div>
+        </div>
+        <!-- Seconda Riga -->
+        <div class="kpi-row">
+            <div class="kpi-box">
+                <div class="kpi-title">Crediti vs Clienti</div>
+                <div class="kpi-value">{{ riepilogo.esposizione_clienti|format_currency }}</div>
+            </div>
+            <div class="kpi-box">
+                <div class="kpi-title">Debiti vs Fornitori</div>
+                <div class="kpi-value text-danger">{{ riepilogo.esposizione_fornitori|format_currency }}</div>
+            </div>
+        </div>
+    </div>
+    <!-- ================== FINE STRUTTURA CORRETTA ================== -->
 
     <!-- Sezioni del report -->
     <h2>Personale Assegnato</h2>
