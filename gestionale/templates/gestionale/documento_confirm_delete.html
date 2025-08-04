@@ -1,0 +1,63 @@
+{% extends "gestionale/base.html" %}
+{% load currency_filters %}
+{% block title %}Conferma Eliminazione Documento{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <h1 class="h2 mb-4 text-center text-danger">Eliminazione Definitiva Documento</h1>
+        <div class="card border-danger">
+            <div class="card-body">
+                
+                <div class="alert alert-danger text-center">
+                    <p class="fs-5">Stai per eliminare definitivamente il seguente documento:</p>
+                    <p class="mb-0"><strong>{{ documento.get_tipo_doc_display }} N. {{ documento.numero_documento }}</strong> del {{ documento.data_documento|date:"d/m/Y" }}</p>
+                    <p><strong>Anagrafica:</strong> {{ documento.anagrafica.nome_cognome_ragione_sociale }}</p>
+                    <p class="mb-0"><strong>Totale:</strong> € {{ documento.totale|format_currency }}</p>
+                </div>
+                
+                {% if has_pagamenti %}
+                    <!-- Caso 1: Eliminazione BLOCCATA -->
+                    <div class="alert alert-dark mt-4" role="alert">
+                        <h4 class="alert-heading">Azione non permessa!</h4>
+                        <p>Questo documento non può essere eliminato perché sono stati registrati dei pagamenti o incassi ad esso collegati.</p>
+                        <hr>
+                        <p class="mb-0">Per procedere, è necessario prima eliminare manualmente tutti i pagamenti dalla <a href="{% url 'documento_detail' documento.pk %}">pagina di dettaglio del documento</a>.</p>
+                    </div>
+                    <div class="mt-4 text-center">
+                        <a href="{% url 'documento_detail' documento.pk %}" class="btn btn-secondary">Torna al Documento</a>
+                    </div>
+
+                {% else %}
+                    <!-- Caso 2: Eliminazione PERMESSA -->
+                    <p class="mt-4">Questa azione è <strong>IRREVERSIBILE</strong>. Verranno cancellati anche:</p>
+                    <ul>
+                        <li>Tutte le righe del documento.</li>
+                        <li>Tutte le scadenze associate.</li>
+                    </ul>
+                    <p>I dati non potranno essere recuperati.</p>
+
+                    <form method="post" class="mt-4 border p-3 rounded bg-light">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="conferma_checkbox" name="conferma_checkbox">
+                            <label class="form-check-label" for="conferma_checkbox"><strong>Ho letto e comprendo che l'azione è irreversibile.</strong></label>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="conferma_testo" class="form-label">Per confermare, digita la parola <strong class="text-danger">ELIMINA</strong> qui sotto (tutto maiuscolo):</label>
+                            <input type="text" class="form-control" id="conferma_testo" name="conferma_testo" autocomplete="off">
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                             <button type="submit" class="btn btn-danger btn-lg">Sì, elimina definitivamente</button>
+                             <a href="{% url 'documento_detail' documento.pk %}" class="btn btn-secondary">Annulla</a>
+                        </div>
+                    </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

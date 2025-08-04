@@ -541,6 +541,61 @@ def get_scadenza_initial_data(testata_data, scadenze_data, residuo_da_scadenzare
         'data_scadenza': data_proposta.strftime('%Y-%m-%d')
     }
 
+class DocumentoDeleteView(TenantRequiredMixin, RoleRequiredMixin, View):
+    """
+    Gestisce l'eliminazione sicura di un DocumentoTestata con un meccanismo
+    di doppia conferma.
+    L'eliminazione è permessa solo agli admin e solo se non esistono
+    pagamenti collegati al documento.
+    """
+    allowed_roles = ['admin']
+    template_name = 'gestionale/documento_confirm_delete.html'
+
+    def get(self, request, *args, **kwargs):
+        documento = get_object_or_404(DocumentoTestata, pk=kwargs['pk'])
+        
+        # Regola di Sicurezza: Controlla se esistono pagamenti
+        has_pagamenti = PrimaNota.objects.filter(scadenza_collegata__documento=documento).exists()
+        
+        context = {
+            'documento': documento,
+            'has_pagamenti': has_pagamenti,
+        }
+        return render(request, self.template_name, context)
+
+    def post(self, request, *args, **kwargs):
+        documento = get_object_or_404(DocumentoTestata, pk=kwargs['pk'])
+        
+        # Regola di Sicurezza: Ricontrolla anche nella richiesta POST per massima sicurezza
+        if PrimaNota.objects.filter(scadenza_collegata__documento=documento).exists():
+            messages.error(request, "Impossibile eliminare il documento: sono presenti pagamenti/incassi collegati.")
+            return redirect('documento_detail', pk=documento.pk)
+        
+        # Validazione della doppia conferma
+        conferma_checkbox = request.POST.get('conferma_checkbox')
+        conferma_testo = request.POST.get('conferma_testo')
+
+        if not conferma_checkbox:
+            messages.error(request, "Devi spuntare la casella di conferma per procedere.")
+            return redirect('documento_delete', pk=documento.pk)
+
+        if conferma_testo != 'ELIMINA': # Usiamo una parola in maiuscolo per aumentare l'attenzione
+            messages.error(request, "La parola di conferma digitata non è corretta. Riprova.")
+            return redirect('documento_delete', pk=documento.pk)
+
+        # Se tutti i controlli sono superati, procedi con l'eliminazione
+        try:
+            with transaction.atomic():
+                # Grazie a on_delete=CASCADE, Django cancellerà automaticamente
+                # righe, scadenze e movimenti di primanota collegati.
+                documento_info = f"{documento.get_tipo_doc_display()} N. {documento.numero_documento}"
+                documento.delete()
+                messages.success(request, f"Il documento '{documento_info}' e tutti i suoi dati collegati sono stati eliminati con successo.")
+                return redirect('documento_list')
+        except Exception as e:
+            messages.error(request, f"Si è verificato un errore imprevisto durante l'eliminazione: {e}")
+            return redirect('documento_detail', pk=kwargs['pk'])
+
 
 # ==============================================================================
 # === VISTE API (per richieste AJAX)                                        ===
@@ -3369,7 +3424,7 @@ class CantiereFascicoloExportExcelView(CantiereDetailView):
         # MODIFICA: Passiamo kpi_report alla funzione generate_excel_report
         return generate_excel_report(tenant_name, report_title, filtri_str, kpi_report, report_sections, filename_prefix)
     
-    
+
 class CantiereFascicoloExportPdfView(CantiereDetailView):
     allowed_roles = ['admin', 'contabile', 'visualizzatore']
     """

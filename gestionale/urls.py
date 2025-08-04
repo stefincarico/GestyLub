@@ -3,7 +3,7 @@ from django.urls import path
 from .views import (
     AdminDashboardView, AliquotaIVACreateView, AliquotaIVAListView, AliquotaIVAToggleAttivoView, AliquotaIVAUpdateView, AnagraficaListExportExcelView, AnagraficaListExportPdfView, AnagraficaPartitarioExportPdfView, CantiereCreateView, CantiereDetailView, CantiereFascicoloExportExcelView, CantiereFascicoloExportPdfView, CantiereListExportExcelView, CantiereListExportPdfView, CantiereUpdateView, CausaleCreateView, CausaleListView, CausaleToggleAttivoView, CausaleUpdateView, ContoFinanziarioCreateView, ContoFinanziarioListView, ContoFinanziarioToggleAttivoView, ContoFinanziarioUpdateView, ContoOperativoCreateView, ContoOperativoListView, ContoOperativoToggleAttivoView, ContoOperativoUpdateView, DashboardView, AnagraficaListView, AnagraficaCreateView, DipendenteDetailView, 
     DipendenteDettaglioCreateView, AnagraficaUpdateView, AnagraficaDetailView,
-    AnagraficaToggleAttivoView, DipendenteUpdateView, DocumentoListExportExcelView, DocumentoListExportPdfView, 
+    AnagraficaToggleAttivoView, DipendenteUpdateView, DocumentoDeleteView, DocumentoListExportExcelView, DocumentoListExportPdfView, 
     DocumentoListView, DocumentoDetailView, ExportTabelleContabiliView, ExportTabelleSistemaView, MezzoAziendaleCreateView, MezzoAziendaleListView, MezzoAziendaleToggleAttivoView, MezzoAziendaleUpdateView, ModalitaPagamentoCreateView, ModalitaPagamentoListView, ModalitaPagamentoToggleAttivoView, ModalitaPagamentoUpdateView, PagamentoDeleteView, PagamentoUpdateView, PrimaNotaCreateView, PrimaNotaListExportExcelView, PrimaNotaListExportPdfView, PrimaNotaListView,RegistraPagamentoView, SalvaAttivitaDiarioView, ScadenzaPersonaleCreateView, ScadenzaPersonaleDeleteView, ScadenzaPersonaleUpdateView, ScadenzarioExportPdfView,
     ScadenzarioListView, ScadenzarioExportExcelView, AnagraficaPartitarioExportExcelView,
     DashboardHRView, PrimaNotaCreateView, PrimaNotaUpdateView, PrimaNotaDeleteView, DocumentoDetailExportPdfView, TesoreriaDashboardView, TesoreriaExportExcelView, TesoreriaExportPdfView, TipoScadenzaPersonaleCreateView, TipoScadenzaPersonaleListView, TipoScadenzaPersonaleToggleAttivoView, TipoScadenzaPersonaleUpdateView, GetContoFinanziarioSaldoView
@@ -105,6 +105,8 @@ urlpatterns = [
     # NUOVI URL PER FASCICOLO CANTIERE
     path('cantieri/<int:pk>/', CantiereDetailView.as_view(), name='cantiere_detail'),
     path('cantieri/<int:pk>/export/excel/', CantiereFascicoloExportExcelView.as_view(), name='cantiere_fascicolo_export_excel'),
-    path('cantieri/<int:pk>/export/pdf/', CantiereFascicoloExportPdfView.as_view(), name='cantiere_fascicolo_export_pdf'),
+    path('cantieri/<int:pk>/export/pdf/', CantiereFascicoloExportPdfView.as_view(), name='cantiere_fascicolo_export_pdf'), 
+    # NUOVO URL PER ELIMINARE DOCUMENTO   
+    path('documenti/<int:pk>/elimina/', DocumentoDeleteView.as_view(), name='documento_delete'),
 
 ]
