@@ -3370,16 +3370,58 @@ class CantiereDetailView(TenantRequiredMixin, RoleRequiredMixin, View):
 
     def _get_fascicolo_data(self, request, cantiere_pk):
         """
-        Metodo helper che recupera e filtra TUTTI i dati per il fascicolo.
+        Metodo helper che recupera, calcola e filtra TUTTI i dati per il fascicolo cantiere.
+        La logica è ottimizzata per ridurre le query al database.
         """
+        # --- FASE 1: PREPARAZIONE INIZIALE ---
         cantiere = get_object_or_404(Cantiere, pk=cantiere_pk)
         filter_form = FascicoloCantiereFilterForm(request.GET or None)
 
-        # Queryset di base
-        dipendenti_qs = DiarioAttivita.objects.filter(cantiere_pianificato=cantiere).select_related('dipendente').order_by('-data')
-        documenti_qs = DocumentoTestata.objects.filter(cantiere=cantiere, stato=DocumentoTestata.Stato.CONFERMATO).order_by('-data_documento')
-        movimenti_qs = PrimaNota.objects.filter(cantiere=cantiere).select_related('conto_finanziario').order_by('-data_registrazione')
+        # --- FASE 2: CALCOLO DEI KPI TOTALI (SULL'INTERA VITA DEL CANTIERE) ---
+        # Eseguiamo prima i calcoli aggregati sull'intero storico del cantiere.
+        # Questi valori verranno mostrati nelle card di riepilogo e non cambieranno con i filtri di data.
 
+        # Queryset di base per i totali (non ancora filtrati per data)
+        documenti_totali_cantiere = DocumentoTestata.objects.filter(cantiere=cantiere, stato=DocumentoTestata.Stato.CONFERMATO)
+        movimenti_totali_cantiere = PrimaNota.objects.filter(cantiere=cantiere)
+        
+        # 2.1 Calcolo Fatturato e Costi da Documenti
+        fatturato_netto = (documenti_totali_cantiere.filter(tipo_doc=DocumentoTestata.TipoDoc.FATTURA_VENDITA).aggregate(tot=Coalesce(Sum('totale'), Value(0), output_field=DecimalField()))['tot']) - \
+                          (documenti_totali_cantiere.filter(tipo_doc=DocumentoTestata.TipoDoc.NOTA_CREDITO_VENDITA).aggregate(tot=Coalesce(Sum('totale'), Value(0), output_field=DecimalField()))['tot'])
+
+        costi_fatturati_netti = (documenti_totali_cantiere.filter(tipo_doc=DocumentoTestata.TipoDoc.FATTURA_ACQUISTO).aggregate(tot=Coalesce(Sum('totale'), Value(0), output_field=DecimalField()))['tot']) - \
+                                (documenti_totali_cantiere.filter(tipo_doc=DocumentoTestata.TipoDoc.NOTA_CREDITO_ACQUISTO).aggregate(tot=Coalesce(Sum('totale'), Value(0), output_field=DecimalField()))['tot'])
+
+        # 2.2 Calcolo Incassi, Pagamenti e Costi/Ricavi diretti da Prima Nota
+        incassi_totali = movimenti_totali_cantiere.filter(tipo_movimento=PrimaNota.TipoMovimento.ENTRATA).aggregate(tot=Coalesce(Sum('importo'), Value(0), output_field=DecimalField()))['tot']
+        pagamenti_totali = movimenti_totali_cantiere.filter(tipo_movimento=PrimaNota.TipoMovimento.USCITA).aggregate(tot=Coalesce(Sum('importo'), Value(0), output_field=DecimalField()))['tot']
+        
+        costi_diretti = movimenti_totali_cantiere.filter(conto_operativo__tipo=ContoOperativo.Tipo.COSTO).aggregate(tot=Coalesce(Sum('importo'), Value(0), output_field=DecimalField()))['tot']
+        ricavi_diretti = movimenti_totali_cantiere.filter(conto_operativo__tipo=ContoOperativo.Tipo.RICAVO).aggregate(tot=Coalesce(Sum('importo'), Value(0), output_field=DecimalField()))['tot']
+
+        # 2.3 Assemblaggio dei KPI finali
+        redditivita = (fatturato_netto + ricavi_diretti) - (costi_fatturati_netti + costi_diretti)
+        cash_flow = incassi_totali - pagamenti_totali
+        esposizione_clienti = fatturato_netto - incassi_totali
+        esposizione_fornitori = costi_fatturati_netti - pagamenti_totali
+
+        riepilogo = {
+            "redditivita": redditivita,
+            "cash_flow": cash_flow,
+            "esposizione_clienti": esposizione_clienti,
+            "esposizione_fornitori": esposizione_fornitori,
+        }
+
+        # --- FASE 3: PREPARAZIONE DEI DATI PER LA VISUALIZZAZIONE NELLE TABELLE ---
+        # Ora prepariamo i queryset che verranno mostrati nelle tabelle paginate.
+        # Questi verranno filtrati in base alle date selezionate dall'utente.
+
+        # Queryset di base per le tabelle (non ancora filtrati per data)
+        dipendenti_qs = DiarioAttivita.objects.filter(cantiere_pianificato=cantiere).select_related('dipendente').order_by('-data')
+        documenti_qs = documenti_totali_cantiere.order_by('-data_documento') # Riutilizziamo il queryset dei totali
+        movimenti_qs = movimenti_totali_cantiere.select_related('conto_finanziario', 'causale').order_by('-data_registrazione') # Riutilizziamo e ottimizziamo
+
+        # Applichiamo i filtri di data, se presenti nel form
         if filter_form.is_valid():
             data_da = filter_form.cleaned_data.get('data_da')
             data_a = filter_form.cleaned_data.get('data_a')
@@ -3391,62 +3433,16 @@ class CantiereDetailView(TenantRequiredMixin, RoleRequiredMixin, View):
                 dipendenti_qs = dipendenti_qs.filter(data__lte=data_a)
                 documenti_qs = documenti_qs.filter(data_documento__lte=data_a)
                 movimenti_qs = movimenti_qs.filter(data_registrazione__lte=data_a)
-        
-        # === NUOVA SEZIONE: CALCOLO RIASSUNTIVO ===
-    
-        # 1. Calcolo Fatturato e Costi da Documenti
-        documenti_cantiere = DocumentoTestata.objects.filter(cantiere=cantiere, stato=DocumentoTestata.Stato.CONFERMATO)
-        
-        tot_fatture_vendita = documenti_cantiere.filter(tipo_doc=DocumentoTestata.TipoDoc.FATTURA_VENDITA).aggregate(tot=Sum('totale'))['tot'] or 0
-        tot_nc_vendita = documenti_cantiere.filter(tipo_doc=DocumentoTestata.TipoDoc.NOTA_CREDITO_VENDITA).aggregate(tot=Sum('totale'))['tot'] or 0
-        fatturato_netto = tot_fatture_vendita - tot_nc_vendita
 
-        tot_fatture_acquisto = documenti_cantiere.filter(tipo_doc=DocumentoTestata.TipoDoc.FATTURA_ACQUISTO).aggregate(tot=Sum('totale'))['tot'] or 0
-        tot_nc_acquisto = documenti_cantiere.filter(tipo_doc=DocumentoTestata.TipoDoc.NOTA_CREDITO_ACQUISTO).aggregate(tot=Sum('totale'))['tot'] or 0
-        costi_fatturati_netti = tot_fatture_acquisto - tot_nc_acquisto
-
-        # 2. Calcolo Incassi e Pagamenti da Prima Nota (legati a scadenze del cantiere)
-        movimenti_cantiere = PrimaNota.objects.filter(cantiere=cantiere)
-        
-        incassi_totali = movimenti_cantiere.filter(tipo_movimento=PrimaNota.TipoMovimento.ENTRATA).aggregate(tot=Sum('importo'))['tot'] or 0
-        pagamenti_totali = movimenti_cantiere.filter(tipo_movimento=PrimaNota.TipoMovimento.USCITA).aggregate(tot=Sum('importo'))['tot'] or 0
-
-        # 3. Calcolo Costi/Ricavi diretti da Prima Nota (se non derivanti da fatture)
-        costi_diretti = movimenti_cantiere.filter(
-            conto_operativo__tipo=ContoOperativo.Tipo.COSTO
-        ).aggregate(tot=Sum('importo'))['tot'] or 0
-        
-        ricavi_diretti = movimenti_cantiere.filter(
-            conto_operativo__tipo=ContoOperativo.Tipo.RICAVO
-        ).aggregate(tot=Sum('importo'))['tot'] or 0
-
-        # 4. KPI
-        redditivita = (fatturato_netto + ricavi_diretti) - (costi_fatturati_netti + costi_diretti)
-        cash_flow = incassi_totali - pagamenti_totali
-        esposizione_clienti = fatturato_netto - incassi_totali
-        esposizione_fornitori = costi_fatturati_netti - pagamenti_totali
-
-        riepilogo = {
-            "fatturato_netto": fatturato_netto,
-            "costi_fatturati_netti": costi_fatturati_netti,
-            "incassi_totali": incassi_totali,
-            "pagamenti_totali": pagamenti_totali,
-            "costi_diretti": costi_diretti,
-            "ricavi_diretti": ricavi_diretti,
-            "redditivita": redditivita,
-            "cash_flow": cash_flow,
-            "esposizione_clienti": esposizione_clienti,
-            "esposizione_fornitori": esposizione_fornitori,
-        }
-        # === FINE NUOVA SEZIONE ===
-
+        # --- FASE 4: RESTITUZIONE DEL CONTESTO COMPLETO ---
+        # Raggruppiamo tutti i dati calcolati in un unico dizionario.
         return {
             "cantiere": cantiere,
             "filter_form": filter_form,
-            "dipendenti_assegnati": dipendenti_qs,
-            "documenti_associati": documenti_qs,
-            "movimenti_associati": movimenti_qs,
-            "riepilogo": riepilogo, # Aggiungiamo il riepilogo al dizionario
+            "dipendenti_assegnati": dipendenti_qs,   # Dati filtrati per la tabella
+            "documenti_associati": documenti_qs,    # Dati filtrati per la tabella
+            "movimenti_associati": movimenti_qs,    # Dati filtrati per la tabella
+            "riepilogo": riepilogo,                 # KPI totali per le card
         }
 
     def get(self, request, *args, **kwargs):
@@ -3471,6 +3467,8 @@ class CantiereDetailView(TenantRequiredMixin, RoleRequiredMixin, View):
         context['movimenti_associati'] = paginator_mov.get_page(page_mov)
 
         return render(request, self.template_name, context)
+
+
 class CantiereFascicoloExportExcelView(CantiereDetailView):
     """
     Esporta il fascicolo cantiere filtrato in formato Excel.
