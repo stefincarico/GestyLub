@@ -260,6 +260,7 @@ class DipendenteDettaglioCreateView(TenantRequiredMixin, RoleRequiredMixin, Crea
     def form_valid(self, form):
         dettaglio = form.save(commit=False)
         dettaglio.anagrafica = self.anagrafica
+        dettaglio.tenant = self.request.tenant # Assegna il tenant all'istanza
         dettaglio.save()
         self.object = dettaglio
         return HttpResponseRedirect(self.get_success_url())
@@ -1253,6 +1254,11 @@ class RegistraPagamentoView(TenantRequiredMixin, RoleRequiredMixin, View):
                     tipo_movimento = PrimaNota.TipoMovimento.USCITA
                 
                 PrimaNota.objects.create(
+                    # === RIGA AGGIUNTA ===
+                    # Poiché PrimaNota eredita da TenantAwareModel, dobbiamo associare
+                    # il tenant attivo al momento della creazione.
+                    tenant=request.tenant,
+                    
                     data_registrazione=form.cleaned_data['data_pagamento'],
                     descrizione=f"{causale.descrizione} - Doc. {scadenza.documento.numero_documento} - {scadenza.anagrafica.nome_cognome_ragione_sociale}",
                     importo=importo_pagato,
@@ -1662,7 +1668,13 @@ class DashboardHRView(TenantRequiredMixin, RoleRequiredMixin, View):
 
             # === INIZIO LOGICA MANCANTE AGGIUNTA QUI ===
             # Calcoliamo le ore giornaliere di default per QUESTO dipendente
-            dettaglio = dip.dettaglio_dipendente
+            dettaglio = None
+            try:
+                dettaglio = dip.dettaglio_dipendente
+            except Anagrafica.dettaglio_dipendente.RelatedObjectDoesNotExist:
+                # Se il dettaglio dipendente non esiste, 'dettaglio' rimane None
+                pass
+
             ore_default = "0.00" # Default di sicurezza
             if dettaglio and dettaglio.giorni_lavorativi_settimana and dettaglio.giorni_lavorativi_settimana > 0:
                 ore_calcolate = dettaglio.ore_settimanali_contratto / dettaglio.giorni_lavorativi_settimana
@@ -1695,7 +1707,7 @@ class DashboardHRView(TenantRequiredMixin, RoleRequiredMixin, View):
             'dipendenti': lista_dipendenti_con_stato,
             'cantieri_disponibili': Cantiere.objects.filter(stato=Cantiere.Stato.APERTO),
             'mezzi_disponibili': MezzoAziendale.objects.filter(attivo=True),
-            'attivita_form': DiarioAttivitaForm(),
+            'attivita_form': DiarioAttivitaForm(tenant=request.tenant),
             'kpi': kpi,
             'cantieri': cantieri_qs,
             'stati_cantiere': Cantiere.Stato.choices, # Passiamo le scelte per il dropdown

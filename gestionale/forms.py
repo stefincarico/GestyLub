@@ -12,6 +12,14 @@ class AnagraficaForm(forms.ModelForm):
     """
     Form per la creazione e modifica di un'Anagrafica.
     """
+    def __init__(self, *args, **kwargs):
+        # Rimuovi l'argomento 'tenant' dai kwargs prima di passarlo al super()
+        tenant = kwargs.pop('tenant', None)
+        super().__init__(*args, **kwargs)
+        # Se in futuro ci fossero campi ModelChoiceField in AnagraficaForm
+        # che devono essere filtrati per tenant, la logica andrebbe qui.
+        # Per ora, basta accettare l'argomento per evitare il TypeError.
+
     class Meta:
         # 1. Dice al ModelForm da quale modello creare il form.
         model = Anagrafica
@@ -179,6 +187,7 @@ class DipendenteDettaglioForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        tenant = kwargs.pop('tenant', None)
         """
         Inizializzazione personalizzata per formattare le date
         per i widget HTML di tipo 'date'.
