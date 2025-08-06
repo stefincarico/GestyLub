@@ -1,5 +1,8 @@
 # File .gitignore
 
+_cartella_di_servizio/
+# Ignora i file e le cartelle di servizio che non devono essere tracciati
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
