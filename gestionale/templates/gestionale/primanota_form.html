@@ -59,58 +59,61 @@
 {% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // === SETUP ===
     const causaleSelect = document.getElementById('id_causale');
-    const girocontoCausaleId = "{{ giroconto_causale_id }}";
+    // La mappa delle proprietà delle causali che arriva dalla vista
+    const causaliData = JSON.parse('{{ causali_data_json|safe|default:"{}" }}');
 
-    // Selezioniamo i contenitori e gli input
+    // Selezioniamo tutti gli elementi che dobbiamo manipolare
+    const tipoMovimentoInput = document.getElementById('id_tipo_movimento');
     const contoDestinazioneContainer = document.getElementById('container_conto_destinazione');
     const contoDestinazioneInput = document.getElementById('id_conto_destinazione');
-    
     const datiOpzionaliContainer = document.getElementById('container_dati_opzionali');
     
-    const tipoMovimentoContainer = document.getElementById('container_tipo_movimento');
-    const tipoMovimentoInput = document.getElementById('id_tipo_movimento');
+    // Lista dei campi opzionali da disabilitare/abilitare
+    const opzionaliInputs = datiOpzionaliContainer.querySelectorAll('select');
 
-    // Selezioniamo anche i campi che nascondiamo in 'dati_opzionali'
-    const contoOperativoInput = document.getElementById('id_conto_operativo');
-    const anagraficaInput = document.getElementById('id_anagrafica');
-    const cantiereInput = document.getElementById('id_cantiere');
+    // === FUNZIONE DI AGGIORNAMENTO UI ===
+    function aggiornaFormInBaseAllaCausale() {
+        const causaleId = causaleSelect.value;
+        const causaleSelezionata = causaliData[causaleId];
 
-    function toggleGirocontoFields() {
-        if (causaleSelect.value === girocontoCausaleId) {
-            // Mostra e rendi obbligatorio il conto di destinazione
-            contoDestinazioneContainer.style.display = 'block';
-            contoDestinazioneInput.required = true;
-            
-            // Nascondi e DISABILITA gli altri campi
-            datiOpzionaliContainer.style.display = 'none';
-            tipoMovimentoContainer.style.display = 'none';
-            tipoMovimentoInput.disabled = true;
-            contoOperativoInput.disabled = true;
-            anagraficaInput.disabled = true;
-            cantiereInput.disabled = true;
-
-        } else {
-            // Nascondi il conto di destinazione
+        // Se non abbiamo informazioni sulla causale, mostriamo tutto di default
+        if (!causaleSelezionata) {
             contoDestinazioneContainer.style.display = 'none';
-            contoDestinazioneInput.required = false;
-
-            // Mostra e ABILITA gli altri campi
             datiOpzionaliContainer.style.display = 'block';
-            tipoMovimentoContainer.style.display = 'block';
             tipoMovimentoInput.disabled = false;
-            contoOperativoInput.disabled = false;
-            anagraficaInput.disabled = false;
-            cantiereInput.disabled = false;
+            opzionaliInputs.forEach(i => i.disabled = false);
+            return;
+        }
+
+        const tipoDefault = causaleSelezionata.tipo;
+        const isGiroconto = tipoDefault === 'M';
+
+        // --- Logica Giroconto ---
+        contoDestinazioneContainer.style.display = isGiroconto ? 'block' : 'none';
+        contoDestinazioneInput.required = isGiroconto;
+
+        // --- Logica Campi Nascosti/Disabilitati ---
+        datiOpzionaliContainer.style.display = isGiroconto ? 'none' : 'block';
+        opzionaliInputs.forEach(i => i.disabled = isGiroconto);
+        tipoMovimentoInput.disabled = isGiroconto;
+        
+        // --- Logica Pre-Compilazione Automatica ---
+        if (isGiroconto) {
+            // Per i giroconti, il tipo è implicito, lo svuotiamo per sicurezza
+            tipoMovimentoInput.value = '';
+        } else if (tipoDefault) {
+            // Se la causale ha un tipo di default (E o U), lo pre-selezioniamo
+            tipoMovimentoInput.value = tipoDefault;
         }
     }
     
-    causaleSelect.addEventListener('change', toggleGirocontoFields);
-    const hasError = contoDestinazioneInput.classList.contains('is-invalid');
-    if (hasError) {
-         contoDestinazioneContainer.style.display = 'block';
-        }
-    toggleGirocontoFields();
+    // === AGGANCIO EVENTO ===
+    causaleSelect.addEventListener('change', aggiornaFormInBaseAllaCausale);
+    
+    // Esegui la funzione una volta al caricamento per impostare lo stato iniziale del form
+    aggiornaFormInBaseAllaCausale();
 });
 </script>
 {% endblock %}

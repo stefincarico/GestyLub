@@ -60,13 +60,26 @@ class ModalitaPagamento(TenantAwareModel):
         ordering = ['descrizione']
 
 class Causale(TenantAwareModel):
+    # Reintroduciamo le scelte in modo strutturato per la logica
+    class Tipo(models.TextChoices):
+        ENTRATA = 'E', 'Entrata'
+        USCITA = 'U', 'Uscita'
+        MISTO = 'M', 'Misto/Giroconto'
+
     descrizione = models.CharField(max_length=255, unique=True)
-    # Potremmo usare delle choices anche qui, ma per ora un testo libero è sufficiente.
-    tipo_movimento = models.CharField(max_length=50, blank=True, null=True, help_text="Es: Pagamento Fattura, Incasso, Costo")
+    # Usiamo un ChoiceField per il tipo di movimento.
+    tipo_movimento_default = models.CharField(
+        max_length=1, 
+        choices=Tipo.choices,
+        blank=True, null=True,
+        verbose_name="Tipo Movimento di Default",
+        help_text="Se impostato, pre-compilerà il tipo di movimento nella Prima Nota."
+    )
     attivo = models.BooleanField(default=True)
 
     def __str__(self):
         return self.descrizione
+        
     class Meta:
         verbose_name = "Causale"
         verbose_name_plural = "Causali"

@@ -221,8 +221,13 @@ class DocumentoTestataForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        tenant = kwargs.pop('tenant', None)
         super().__init__(*args, **kwargs)
-        self.fields['cantiere'].queryset = Cantiere.objects.filter(attivo=True)
+        if tenant:
+            # Popoliamo i queryset con i dati del tenant corrente
+            self.fields['modalita_pagamento'].queryset = ModalitaPagamento.objects.filter(tenant=tenant, attivo=True)
+            self.fields['cantiere'].queryset = Cantiere.objects.filter(tenant=tenant, attivo=True)
+        # Inizializziamo l'anagrafica a vuoto, verrà popolata da JS
         self.fields['anagrafica'].queryset = Anagrafica.objects.none()
 
         if 'tipo_doc' in self.data:
@@ -288,9 +293,12 @@ class DocumentoRigaForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        tenant = kwargs.pop('tenant', None)
         super().__init__(*args, **kwargs)
-        # Filtriamo per mostrare solo le aliquote IVA attive.
-        self.fields['aliquota_iva'].queryset = AliquotaIVA.objects.filter(attivo=True)
+        queryset = AliquotaIVA.objects.filter(attivo=True)
+        if tenant:
+            queryset = queryset.filter(tenant=tenant)
+        self.fields['aliquota_iva'].queryset = queryset
 
     def clean_descrizione(self):
         data = self.cleaned_data.get('descrizione')
@@ -312,6 +320,14 @@ class PagamentoForm(forms.Form):
     Form per registrare un pagamento/incasso di una scadenza.
     Non è un ModelForm perché crea un PrimaNota ma con logica custom.
     """
+    def __init__(self, *args, **kwargs):
+        tenant = kwargs.pop('tenant', None)
+        super().__init__(*args, **kwargs)
+        queryset = ContoFinanziario.objects.filter(attivo=True)
+        if tenant:
+            queryset = queryset.filter(tenant=tenant)
+        self.fields['conto_finanziario'].queryset = queryset
+
     # Usiamo un campo nascosto per passare l'ID della scadenza
     scadenza_id = forms.IntegerField(widget=forms.HiddenInput())
     
@@ -405,14 +421,11 @@ class DiarioAttivitaForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        tenant = kwargs.pop('tenant', None)
         super().__init__(*args, **kwargs)
-        # Popoliamo i queryset con le opzioni valide e attive.
-        self.fields['cantiere_pianificato'].queryset = Cantiere.objects.filter(stato=Cantiere.Stato.APERTO)
-        self.fields['mezzo_pianificato'].queryset = MezzoAziendale.objects.filter(attivo=True)
-        
-        # Rendiamo i campi non obbligatori, la logica sarà gestita dalla vista.
-        for field in self.fields.values():
-            field.required = False
+        if tenant:
+            self.fields['cantiere_pianificato'].queryset = Cantiere.objects.filter(tenant=tenant, stato=Cantiere.Stato.APERTO)
+            self.fields['mezzo_pianificato'].queryset = MezzoAziendale.objects.filter(tenant=tenant, attivo=True)
 
 class DocumentoFilterForm(forms.Form):
     """
@@ -505,14 +518,16 @@ class PrimaNotaForm(forms.ModelForm):
         }
     
     def __init__(self, *args, **kwargs):
+        tenant = kwargs.pop('tenant', None)
         super().__init__(*args, **kwargs)
         # Ottimizziamo i queryset per i menu a tendina
-        self.fields['conto_finanziario'].queryset = ContoFinanziario.objects.filter(attivo=True)
-        self.fields['conto_destinazione'].queryset = ContoFinanziario.objects.filter(attivo=True)
-        self.fields['conto_operativo'].queryset = ContoOperativo.objects.filter(attivo=True)
-        self.fields['causale'].queryset = Causale.objects.filter(attivo=True)
-        self.fields['anagrafica'].queryset = Anagrafica.objects.filter(attivo=True)
-        self.fields['cantiere'].queryset = Cantiere.objects.filter(stato=Cantiere.Stato.APERTO)
+        if tenant:
+            self.fields['conto_finanziario'].queryset = ContoFinanziario.objects.filter(tenant=tenant, attivo=True)
+            self.fields['conto_operativo'].queryset = ContoOperativo.objects.filter(tenant=tenant, attivo=True)
+            self.fields['causale'].queryset = Causale.objects.filter(tenant=tenant, attivo=True)
+            self.fields['anagrafica'].queryset = Anagrafica.objects.filter(tenant=tenant, attivo=True)
+            self.fields['cantiere'].queryset = Cantiere.objects.filter(tenant=tenant, stato=Cantiere.Stato.APERTO)
+            self.fields['conto_destinazione'].queryset = ContoFinanziario.objects.filter(tenant=tenant, attivo=True)
         
         # Rendiamo il tipo_movimento non obbligatorio a livello di form.
         # La sua obbligatorietà verrà gestita nella logica del metodo clean().
@@ -600,12 +615,13 @@ class PagamentoUpdateForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        tenant = kwargs.pop('tenant', None)
         super().__init__(*args, **kwargs)
-        self.fields['conto_finanziario'].queryset = ContoFinanziario.objects.filter(attivo=True)
-        
-        # Formatta la data iniziale nel formato YYYY-MM-DD
-        if self.instance and self.instance.data_registrazione:
-            self.initial['data_registrazione'] = self.instance.data_registrazione.strftime('%Y-%m-%d')
+        # ... (logica formattazione data)
+        queryset = ContoFinanziario.objects.filter(attivo=True)
+        if tenant:
+            queryset = queryset.filter(tenant=tenant)
+        self.fields['conto_finanziario'].queryset = queryset
 
     def clean_importo(self):
         """
@@ -676,19 +692,19 @@ class CausaleForm(forms.ModelForm):
     """
     class Meta:
         model = Causale
-        fields = ['descrizione', 'tipo_movimento', 'attivo']
+        # === CORREZIONE: usiamo il nome del campo corretto 'tipo_movimento_default' ===
+        fields = ['descrizione', 'tipo_movimento_default', 'attivo']
+        
         widgets = {
             'descrizione': forms.TextInput(attrs={'class': 'form-control'}),
-            'tipo_movimento': forms.TextInput(attrs={'class': 'form-control'}),
+            # Usiamo il nome corretto anche qui
+            'tipo_movimento_default': forms.Select(attrs={'class': 'form-select'}),
             'attivo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
-    def clean(self):
-        cleaned_data = super().clean()
-        for field_name, value in cleaned_data.items():
-            if isinstance(value, str):
-                cleaned_data[field_name] = value.upper()
-        return cleaned_data
+    def clean_descrizione(self):
+        data = self.cleaned_data.get('descrizione')
+        return data.upper() if data else data
 
 class ContoFinanziarioForm(forms.ModelForm):
     """
@@ -789,9 +805,10 @@ class ScadenzaPersonaleForm(forms.ModelForm):
         - Popolare il queryset del tipo scadenza.
         - Formattare correttamente le date iniziali per il widget HTML.
         """
+        tenant = kwargs.pop('tenant', None)
         super().__init__(*args, **kwargs)
-        # Popoliamo il queryset con i tipi di scadenza attivi
-        self.fields['tipo_scadenza'].queryset = TipoScadenzaPersonale.objects.filter(attivo=True)
+        if tenant:
+            self.fields['tipo_scadenza'].queryset = TipoScadenzaPersonale.objects.filter(tenant=tenant, attivo=True)
 
         # === INIZIO CORREZIONE ===
         # Se il form è legato a un'istanza esistente (siamo in modalità modifica)...
@@ -830,11 +847,10 @@ class CantiereForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        tenant = kwargs.pop('tenant', None)
         super().__init__(*args, **kwargs)
-        self.fields['cliente'].queryset = Anagrafica.objects.filter(
-            tipo=Anagrafica.Tipo.CLIENTE, 
-            attivo=True
-        )
+        if tenant:
+            self.fields['cliente'].queryset = Anagrafica.objects.filter(tenant=tenant, tipo=Anagrafica.Tipo.CLIENTE, attivo=True)
         if self.instance and self.instance.pk:
             if self.instance.data_inizio:
                 self.initial['data_inizio'] = self.instance.data_inizio.strftime('%Y-%m-%d')

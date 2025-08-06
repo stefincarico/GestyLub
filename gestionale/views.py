@@ -178,6 +178,11 @@ class AnagraficaCreateView(TenantRequiredMixin, RoleRequiredMixin, CreateView):
     form_class = AnagraficaForm
     template_name = 'gestionale/anagrafica_form.html'
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['tenant'] = self.request.tenant
+        return kwargs
+
     def get_success_url(self):
         if self.object.tipo == Anagrafica.Tipo.DIPENDENTE:
             return reverse('dipendente_dettaglio_create', kwargs={'anagrafica_id': self.object.pk})
@@ -213,6 +218,11 @@ class AnagraficaUpdateView(TenantRequiredMixin, RoleRequiredMixin, UpdateView):
     template_name = 'gestionale/anagrafica_form.html'
     success_url = reverse_lazy('anagrafica_list')
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['tenant'] = self.request.tenant
+        return kwargs
+
     def form_valid(self, form):
         form.instance.updated_by = self.request.user
         return super().form_valid(form)
@@ -234,6 +244,12 @@ class DipendenteDettaglioCreateView(TenantRequiredMixin, RoleRequiredMixin, Crea
     form_class = DipendenteDettaglioForm
     template_name = 'gestionale/dipendente_dettaglio_form.html'
     success_url = reverse_lazy('anagrafica_list')
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['tenant'] = self.request.tenant
+        return kwargs
+
     def dispatch(self, request, *args, **kwargs):
         self.anagrafica = get_object_or_404(Anagrafica, pk=kwargs['anagrafica_id'], tipo=Anagrafica.Tipo.DIPENDENTE)
         return super().dispatch(request, *args, **kwargs)
@@ -259,9 +275,13 @@ def documento_create_step1_testata(request):
     """
     Step 1 del wizard: inserimento dati della testata.
     """
+    tenant = request.tenant # django-tenants
     if request.method == 'POST':
-        form = DocumentoTestataForm(request.POST)
+        form = DocumentoTestataForm(request.POST, tenant=tenant)
         if form.is_valid():
+            # === DEBUG ===
+            print("DATI SALVATI IN SESSIONE:", form.cleaned_data)
+            # === FINE DEBUG ===
             request.session['doc_testata_data'] = {
                 'tipo_doc': form.cleaned_data['tipo_doc'],
                 'anagrafica_id': form.cleaned_data['anagrafica'].pk,
@@ -275,7 +295,7 @@ def documento_create_step1_testata(request):
             request.session.pop('doc_scadenze_data', None)
             return redirect(reverse('documento_create_step2_righe'))
     else:
-        form = DocumentoTestataForm()
+        form = DocumentoTestataForm(tenant=tenant)
 
     # Definiamo la lista di tipi passivi e la passiamo al template come JSON
     tipi_passivi = [
@@ -296,6 +316,7 @@ def documento_create_step2_righe(request):
     """
     Step 2 del wizard: inserimento delle righe del documento.
     """
+    tenant = request.tenant
     testata_data = request.session.get('doc_testata_data')
     # Se per qualche motivo mancano i dati del passo 1, torna all'inizio.
     if not testata_data:
@@ -318,6 +339,7 @@ def documento_create_step2_righe(request):
 
     if request.method == 'POST':
         # Controlliamo se l'utente vuole andare al passo 3
+        form = DocumentoTestataForm(request.POST, tenant=tenant)
         if 'prosegui_step3' in request.POST:
             if not righe_data:
                 # Non si può procedere senza almeno una riga
@@ -374,128 +396,118 @@ def documento_create_step2_righe(request):
 @role_required(allowed_roles=['admin', 'contabile'])
 def documento_create_step3_scadenze(request):
     """
-    Step 3 del wizard: inserimento scadenze e finalizzazione.
+    Step 3 del wizard: inserimento scadenze e finalizzazione del documento.
+    Questa versione include una gestione robusta degli errori durante il salvataggio finale.
     """
+    # 1. RECUPERO DATI DALLA SESSIONE (invariato)
     testata_data = request.session.get('doc_testata_data')
     righe_data = request.session.get('doc_righe_data')
     scadenze_data = request.session.get('doc_scadenze_data', [])
 
+    # Se mancano i dati dei passi precedenti, reindirizza all'inizio del wizard.
     if not testata_data or not righe_data:
+        messages.warning(request, "Sessione scaduta o dati incompleti. Si prega di ricominciare.")
         return redirect(reverse('documento_create_step1_testata'))
     
-    # === NUOVA LOGICA DI ELIMINAZIONE SCADENZA (GESTITA CON GET) ===
+    # 2. GESTIONE ELIMINAZIONE SCADENZA DALLA SESSIONE (invariato)
     scadenza_da_eliminare_idx = request.GET.get('delete_scadenza')
     if scadenza_da_eliminare_idx is not None:
         try:
             scadenze_data.pop(int(scadenza_da_eliminare_idx))
             request.session['doc_scadenze_data'] = scadenze_data
-            messages.success(request, "Scadenza eliminata con successo.")
+            messages.success(request, "Scadenza rimossa con successo.")
         except (ValueError, IndexError):
-            messages.error(request, "Errore durante l'eliminazione della scadenza.")
+            messages.error(request, "Errore durante la rimozione della scadenza.")
         return redirect(reverse('documento_create_step3_scadenze'))
 
-    # Riconvertiamo le stringhe dalla sessione in Decimal prima di sommarle.
+    # 3. CALCOLI PRELIMINARI (invariato)
     totale_documento = sum(Decimal(r['imponibile_riga']) + Decimal(r['iva_riga']) for r in righe_data)
     totale_scadenze = sum(Decimal(s['importo_rata']) for s in scadenze_data)
     residuo_da_scadenzare = totale_documento - totale_scadenze
 
+    # 4. GESTIONE DELLA RICHIESTA (POST o GET)
     if request.method == 'POST':
-        # Creiamo un'istanza del form per aggiunta scadenza, che potrebbe servirci
         form = ScadenzaWizardForm(request.POST)
 
+        # Caso A: L'utente clicca "Finalizza Documento"
         if 'finalizza_documento' in request.POST:
             if residuo_da_scadenzare != 0:
-                messages.error(request, "L'importo delle scadenze non corrisponde al totale del documento.")
-                # Non facciamo return qui, lasciamo che la vista prosegua e mostri
-                # la pagina con il messaggio di errore e il form vuoto pre-compilato.
-                # Per farlo, dobbiamo ricreare il form con i valori di default.
+                messages.error(request, "Impossibile finalizzare: l'importo delle scadenze non corrisponde al totale del documento.")
+                # Ricrea il form con i dati iniziali per ripresentare la pagina
                 form = ScadenzaWizardForm(initial=get_scadenza_initial_data(testata_data, scadenze_data, residuo_da_scadenzare))
-
             else:
-                # ... LA LOGICA DI SALVATAGGIO FINALE ... (la copio qui sotto per completezza)
-                with transaction.atomic():
-                    anagrafica = Anagrafica.objects.get(pk=testata_data['anagrafica_id'])
-                    modalita_pagamento = ModalitaPagamento.objects.get(pk=testata_data['modalita_pagamento_id'])
-                    cantiere = Cantiere.objects.get(pk=testata_data['cantiere_id']) if testata_data['cantiere_id'] else None
+                # --- INIZIO BLOCCO DI FINALIZZAZIONE SICURO ---
+                try:
+                    with transaction.atomic():
+                        # Recupera gli oggetti collegati in modo sicuro
+                        anagrafica = get_object_or_404(Anagrafica, pk=testata_data.get('anagrafica_id'))
+                        modalita_pagamento = get_object_or_404(ModalitaPagamento, pk=testata_data.get('modalita_pagamento_id'))
+                        cantiere = None
+                        if testata_data.get('cantiere_id'):
+                            cantiere = get_object_or_404(Cantiere, pk=testata_data.get('cantiere_id'))
 
-                    # === INIZIO LOGICA DI NUMERAZIONE AUTOMATICA ===
-                    tipo_doc = testata_data['tipo_doc']
-                    numero_doc_finale = "" # Inizializziamo la variabile
-
-                    active_tenant_id = request.session.get('active_tenant_id')
-                    tenant_obj = Company.objects.get(pk=active_tenant_id) if active_tenant_id else None
-
-                    # Definiamo i prefissi per i documenti di vendita
-                    prefissi_vendita = {
-                        DocumentoTestata.TipoDoc.FATTURA_VENDITA: 'FT',
-                        DocumentoTestata.TipoDoc.NOTA_CREDITO_VENDITA: 'NC',
-                    }
-
-                    if tipo_doc in prefissi_vendita:
-                        prefisso = prefissi_vendita[tipo_doc]
-                        anno_corrente = date.today().year
-                        
-                        # Troviamo l'ultimo documento dello stesso tipo e dello stesso anno
-                        ultimo_documento = DocumentoTestata.objects.filter(
-                            tipo_doc=tipo_doc,
-                            data_documento__year=anno_corrente
-                        ).order_by('numero_documento').last()
-
-                        if ultimo_documento and ultimo_documento.numero_documento:
-                            # Estraiamo il numero progressivo dall'ultimo numero documento
-                            try:
-                                ultimo_progressivo = int(ultimo_documento.numero_documento.split('-')[-1])
-                                nuovo_progressivo = ultimo_progressivo + 1
-                            except (IndexError, ValueError):
-                                # Fallback se il formato non è quello atteso
+                        # Logica di numerazione automatica (invariata)
+                        tipo_doc = testata_data['tipo_doc']
+                        numero_doc_finale = ""
+                        prefissi_vendita = {
+                            DocumentoTestata.TipoDoc.FATTURA_VENDITA: 'FT',
+                            DocumentoTestata.TipoDoc.NOTA_CREDITO_VENDITA: 'NC',
+                        }
+                        if tipo_doc in prefissi_vendita:
+                            prefisso = prefissi_vendita[tipo_doc]
+                            anno_corrente = date.today().year
+                            ultimo_documento = DocumentoTestata.objects.filter(tipo_doc=tipo_doc, data_documento__year=anno_corrente).order_by('numero_documento').last()
+                            if ultimo_documento and ultimo_documento.numero_documento:
+                                try:
+                                    nuovo_progressivo = int(ultimo_documento.numero_documento.split('-')[-1]) + 1
+                                except (IndexError, ValueError):
+                                    nuovo_progressivo = 1
+                            else:
                                 nuovo_progressivo = 1
+                            numero_doc_finale = f"{prefisso}-{anno_corrente}-{nuovo_progressivo:06d}"
                         else:
-                            nuovo_progressivo = 1
+                            numero_doc_finale = testata_data.get('numero_documento_manuale', 'ERRORE_NUM_MANCANTE')
+
+                        # Creazione degli oggetti nel database
+                        nuova_testata = DocumentoTestata.objects.create(
+                            tipo_doc=tipo_doc, anagrafica=anagrafica,
+                            data_documento=date.fromisoformat(testata_data['data_documento']),
+                            numero_documento=numero_doc_finale, modalita_pagamento=modalita_pagamento,
+                            cantiere=cantiere, note=testata_data['note'],
+                            imponibile=sum(Decimal(r['imponibile_riga']) for r in righe_data),
+                            iva=sum(Decimal(r['iva_riga']) for r in righe_data),
+                            totale=totale_documento, stato=DocumentoTestata.Stato.CONFERMATO,
+                            created_by=request.user, updated_by=request.user
+                        )
+                        for riga in righe_data:
+                            DocumentoRiga.objects.create(
+                                testata=nuova_testata, descrizione=riga['descrizione'], quantita=riga['quantita'],
+                                prezzo_unitario=riga['prezzo_unitario'], aliquota_iva_id=riga['aliquota_iva_id'],
+                                imponibile_riga=riga['imponibile_riga'], iva_riga=riga['iva_riga']
+                            )
+                        for scadenza in scadenze_data:
+                            Scadenza.objects.create(
+                                documento=nuova_testata, anagrafica=anagrafica,
+                                data_scadenza=date.fromisoformat(scadenza['data_scadenza']),
+                                importo_rata=scadenza['importo_rata'],
+                                tipo_scadenza=Scadenza.Tipo.INCASSO if 'V' in nuova_testata.tipo_doc else Scadenza.Tipo.PAGAMENTO
+                            )
                         
-                        # Componiamo il numero finale
-                        numero_doc_finale = f"{prefisso}-{anno_corrente}-{nuovo_progressivo:06d}"
-                    else:
-                        numero_doc_finale = testata_data.get('numero_documento_manuale', 'ERRORE_NUM_MANCANTE')
+                        clear_doc_wizard_session(request.session)
+                        messages.success(request, f"Documento {nuova_testata} creato con successo!")
+                        return redirect(nuova_testata.get_absolute_url())
 
-                    # === FINE LOGICA DI NUMERAZIONE AUTOMATICA ===
-
-
-
-                    nuova_testata = DocumentoTestata.objects.create(
-                        tipo_doc=tipo_doc,
-                        anagrafica=anagrafica,
-                        data_documento=date.fromisoformat(testata_data['data_documento']),
-                        numero_documento=numero_doc_finale, # <-- USIAMO IL NUMERO GENERATO
-                        modalita_pagamento=modalita_pagamento,
-                        cantiere=cantiere,
-                        note=testata_data['note'],
-                        imponibile=sum(Decimal(r['imponibile_riga']) for r in righe_data),
-                        iva=sum(Decimal(r['iva_riga']) for r in righe_data),
-                        totale=totale_documento,
-                        stato=DocumentoTestata.Stato.CONFERMATO,
-                        created_by=request.user,
-                        updated_by=request.user
-                    )
-                    
-                    for riga in righe_data:
-                        DocumentoRiga.objects.create(
-                            testata=nuova_testata, descrizione=riga['descrizione'], quantita=riga['quantita'],
-                            prezzo_unitario=riga['prezzo_unitario'], aliquota_iva_id=riga['aliquota_iva_id'],
-                            imponibile_riga=riga['imponibile_riga'], iva_riga=riga['iva_riga']
-                        )
-                    
-                    for scadenza in scadenze_data:
-                        Scadenza.objects.create(
-                            documento=nuova_testata, anagrafica=anagrafica,
-                            data_scadenza=date.fromisoformat(scadenza['data_scadenza']),
-                            importo_rata=scadenza['importo_rata'],
-                            tipo_scadenza=Scadenza.Tipo.INCASSO if 'V' in nuova_testata.tipo_doc else Scadenza.Tipo.PAGAMENTO
-                        )
-                    
+                except (Anagrafica.DoesNotExist, ModalitaPagamento.DoesNotExist, Cantiere.DoesNotExist):
+                    messages.error(request, "Errore critico: uno dei record selezionati (cliente, modalità di pagamento o cantiere) non esiste più. Il processo è stato annullato. Si prega di ricominciare.")
                     clear_doc_wizard_session(request.session)
-                    messages.success(request, f"Documento {nuova_testata} creato con successo!")
-                    return redirect(nuova_testata.get_absolute_url())
-
+                    return redirect(reverse('documento_create_step1_testata'))
+                except Exception as e:
+                    messages.error(request, f"Si è verificato un errore imprevisto durante il salvataggio: {e}. Il processo è stato annullato.")
+                    clear_doc_wizard_session(request.session)
+                    return redirect(reverse('documento_create_step1_testata'))
+                # --- FINE BLOCCO DI FINALIZZAZIONE SICURO ---
+        
+        # Caso B: L'utente aggiunge una nuova scadenza
         elif form.is_valid():
             nuova_scadenza = form.cleaned_data
             scadenze_data.append({
@@ -508,15 +520,18 @@ def documento_create_step3_scadenze(request):
     else: # GET
         form = ScadenzaWizardForm(initial=get_scadenza_initial_data(testata_data, scadenze_data, residuo_da_scadenzare))
 
+    # 5. PREPARAZIONE CONTESTO E RENDER (invariato)
     context = {
-        'form': form, 'totale_documento': totale_documento,
-        'scadenze_inserite': scadenze_data, 'totale_scadenze': totale_scadenze,
+        'form': form,
+        'totale_documento': totale_documento,
+        'scadenze_inserite': scadenze_data,
+        'totale_scadenze': totale_scadenze,
         'residuo_da_scadenzare': residuo_da_scadenzare
     }
     return render(request, 'gestionale/documento_create_step3.html', context)
 
 # === NUOVA FUNZIONE HELPER ===
-# Per non ripetere il codice, ho estratto la logica di calcolo dei dati iniziali.
+
 def get_scadenza_initial_data(testata_data, scadenze_data, residuo_da_scadenzare):
     data_proposta = None
     if scadenze_data:
@@ -1727,7 +1742,7 @@ class SalvaAttivitaDiarioView(TenantRequiredMixin, RoleRequiredMixin, View):
             defaults={'created_by': request.user}
         )
         
-        form = DiarioAttivitaForm(request.POST, instance=attivita)
+        form = DiarioAttivitaForm(request.POST, instance=attivita, tenant=request.tenant)
 
         if form.is_valid():
             # ... (tutta la logica di 'form_valid' rimane identica a prima) ...
@@ -1847,17 +1862,18 @@ class PrimaNotaUpdateView(TenantRequiredMixin, RoleRequiredMixin, UpdateView):
     model = PrimaNota
     form_class = PrimaNotaUpdateForm # Usa il form specifico per la modifica (per la data)
     template_name = 'gestionale/primanota_form.html'
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['tenant'] = self.request.tenant
+        return kwargs
     
     def dispatch(self, request, *args, **kwargs):
-        """
-        Controlla se il movimento è un giroconto prima di procedere.
-        """
-        # Recuperiamo l'oggetto prima di ogni altra cosa
-        self.object = self.get_object()
-        if self.object.movimento_collegato:
+        movimento = self.get_object()
+        # Blocchiamo la modifica se la causale è di tipo 'Misto/Giroconto'
+        if movimento.causale and movimento.causale.tipo_movimento_default == Causale.Tipo.MISTO:
             messages.error(request, "I movimenti di giroconto non possono essere modificati. Si prega di eliminarli e ricrearli.")
             return redirect('primanota_list')
-
         return super().dispatch(request, *args, **kwargs)
 
     def get_success_url(self):
@@ -1867,25 +1883,19 @@ class PrimaNotaUpdateView(TenantRequiredMixin, RoleRequiredMixin, UpdateView):
         return reverse_lazy('primanota_list')
 
     def get_context_data(self, **kwargs):
-        """
-        Prepara il contesto per il template, popolando i campi extra se necessario.
-        """
         context = super().get_context_data(**kwargs)
-        context['title'] = f"Modifica Movimento N. {self.object.pk}"
+        # Il titolo viene già gestito correttamente
         
-        # Passa l'ID della causale "Giroconto" per lo script JS.
-        try:
-            context['giroconto_causale_id'] = Causale.objects.get(descrizione__iexact="GIROCONTO").pk
-        except Causale.DoesNotExist:
-            context['giroconto_causale_id'] = None
-            
-        # Se stiamo modificando un giroconto, dobbiamo pre-popolare il campo
-        # 'conto_destinazione' nel form, che non fa parte del modello.
-        if self.object.movimento_collegato:
-            form = context['form']
-            # Il conto di "destinazione" è sempre il conto finanziario dell'altro movimento.
-            form.initial['conto_destinazione'] = self.object.movimento_collegato.conto_finanziario
-
+        # === INIZIO LOGICA POTENZIATA ===
+        # Creiamo un dizionario che contiene le proprietà di ogni causale
+        # che ci servono per la logica dinamica in JavaScript.
+        causali_data = {
+            c.id: {'tipo': c.tipo_movimento_default} 
+            for c in Causale.objects.filter(attivo=True)
+        }
+        context['causali_data_json'] = json.dumps(causali_data)
+        # === FINE LOGICA POTENZIATA ===
+        
         return context
     
     def form_valid(self, form):
@@ -1953,6 +1963,11 @@ class PrimaNotaCreateView(TenantRequiredMixin, RoleRequiredMixin, CreateView):
     model = PrimaNota
     form_class = PrimaNotaForm # Usa il form che gestisce dinamicamente i campi
     template_name = 'gestionale/primanota_form.html'
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['tenant'] = self.request.tenant
+        return kwargs
     
     def get_success_url(self):
         """
@@ -1961,20 +1976,19 @@ class PrimaNotaCreateView(TenantRequiredMixin, RoleRequiredMixin, CreateView):
         return reverse_lazy('primanota_list')
 
     def get_context_data(self, **kwargs):
-        """
-        Aggiunge dati extra al contesto del template.
-        """
         context = super().get_context_data(**kwargs)
-        context['title'] = 'Nuovo Movimento di Prima Nota'
+        # Il titolo viene già gestito correttamente
         
-        # Passiamo l'ID della causale "Giroconto" al template.
-        # Questo ID verrà usato dallo script JavaScript per mostrare/nascondere
-        # i campi del form in modo dinamico.
-        try:
-            context['giroconto_causale_id'] = Causale.objects.get(descrizione__iexact="GIROCONTO").pk
-        except Causale.DoesNotExist:
-            context['giroconto_causale_id'] = None
-            
+        # === INIZIO LOGICA POTENZIATA ===
+        # Creiamo un dizionario che contiene le proprietà di ogni causale
+        # che ci servono per la logica dinamica in JavaScript.
+        causali_data = {
+            c.id: {'tipo': c.tipo_movimento_default} 
+            for c in Causale.objects.filter(attivo=True)
+        }
+        context['causali_data_json'] = json.dumps(causali_data)
+        # === FINE LOGICA POTENZIATA ===
+        
         return context
 
     def form_valid(self, form):
@@ -1982,8 +1996,9 @@ class PrimaNotaCreateView(TenantRequiredMixin, RoleRequiredMixin, CreateView):
         Questo metodo viene eseguito quando i dati inviati nel form sono validi.
         Contiene la logica di business per orchestrare il salvataggio.
         """
+        movimento = form.save(commit=False)
         causale = form.cleaned_data.get('causale')
-        is_giroconto = causale and causale.descrizione.upper() == 'GIROCONTO'
+        is_giroconto = causale and causale.tipo_movimento_default == Causale.Tipo.MISTO
         
         # --- CASO SPECIALE: GIROCONTO ---
         if is_giroconto:
@@ -2309,6 +2324,11 @@ class ModalitaPagamentoUpdateView(TenantRequiredMixin, AdminRequiredMixin, Updat
     form_class = ModalitaPagamentoForm
     template_name = 'gestionale/config_form_base.html' # Template generico
     success_url = reverse_lazy('modalita_pagamento_list')
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['tenant'] = self.request.tenant
+        return kwargs
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -2751,6 +2771,12 @@ class ScadenzaPersonaleCreateView(TenantRequiredMixin, RoleRequiredMixin, View):
     """
     Gestisce la creazione di una nuova scadenza personale.
     """
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['tenant'] = self.request.tenant
+        return kwargs
+    
     def post(self, request, *args, **kwargs):
         dipendente = get_object_or_404(Anagrafica, pk=kwargs['dipendente_pk'])
         form = ScadenzaPersonaleForm(request.POST)
@@ -2773,6 +2799,11 @@ class ScadenzaPersonaleUpdateView(TenantRequiredMixin, RoleRequiredMixin, Update
     form_class = ScadenzaPersonaleForm
     template_name = 'gestionale/scadenza_personale_form.html'
     
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['tenant'] = self.request.tenant
+        return kwargs
+
     def get_success_url(self):
         return reverse_lazy('dipendente_detail', kwargs={'pk': self.object.dipendente.pk})
 
@@ -3241,7 +3272,17 @@ class CantiereCreateView(TenantRequiredMixin, RoleRequiredMixin, CreateView):
     model = Cantiere
     form_class = CantiereForm
     template_name = 'gestionale/cantiere_form.html' # Useremo un template dedicato
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['tenant'] = self.request.tenant
+        return kwargs
     
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['tenant'] = self.request.tenant
+        return kwargs    
+
     def get_success_url(self):
         # Torniamo alla dashboard HR da cui siamo partiti
         return reverse_lazy('dashboard_hr')
@@ -3264,6 +3305,11 @@ class CantiereUpdateView(TenantRequiredMixin, RoleRequiredMixin, UpdateView):
     model = Cantiere
     form_class = CantiereForm
     template_name = 'gestionale/cantiere_form.html'
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['tenant'] = self.request.tenant
+        return kwargs
     
     def get_success_url(self):
         return reverse_lazy('dashboard_hr')
