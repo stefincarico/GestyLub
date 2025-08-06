@@ -151,11 +151,31 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 # Il motore di storage che comprime i file e gestisce il caching
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
+# ==============================================================================
+# === IMPOSTAZIONI DI SICUREZZA PER LA PRODUZIONE                           ===
+# ==============================================================================
+# Se non siamo in DEBUG, applichiamo queste impostazioni aggiuntive
+if not DEBUG:
+    # Forza il redirect da HTTP a HTTPS
+    SECURE_SSL_REDIRECT = True
+    # Assicura che i cookie di sessione vengano inviati solo su HTTPS
+    SESSION_COOKIE_SECURE = True
+    # Assicura che i cookie CSRF vengano inviati solo su HTTPS
+    CSRF_COOKIE_SECURE = True
+    # Previene che il browser "indovini" il content-type di un file (protezione XSS)
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    # Imposta l'header HSTS per dire ai browser di usare solo HTTPS per 1 anno
+    SECURE_HSTS_SECONDS = 31536000 # 1 anno
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
 
 # Dice a Django di usare il nostro modello User personalizzato
 # per tutto ciò che riguarda l'autenticazione.
